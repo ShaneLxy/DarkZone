@@ -1,0 +1,101 @@
+CCEffect %{
+  techniques:
+  - passes:
+    - vert: presentation-vs:vert
+      frag: presentation-fs:frag
+      depthStencilState:
+        depthTest: false
+        depthWrite: false
+      blendState:
+        targets:
+        - blend: false
+      rasterizerState:
+        cullMode: none
+      properties:
+        actorsTexture: { value: white }
+        visibilityTexture: { value: white }
+        grading: { value: [0.27, 0.10, 0, 0] }
+        viewInfo: { value: [1280, 720, 0, 0] }
+        maskMotion: { value: [0, 0, 0, 0] }
+        muzzle: { value: [640, 360, 0, 140] }
+        doorLamp: { value: [0, 0, 0, 48] }
+        feedback: { value: [0, 0, 0, 0] }
+}%
+
+CCProgram presentation-vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+  #include <common/common-define>
+  #if USE_LOCAL
+    #include <builtin/uniforms/cc-local>
+  #endif
+  in vec3 a_position;
+  in vec2 a_texCoord;
+  in vec4 a_color;
+  out vec2 sceneUV;
+  out vec2 screenUV;
+  vec4 vert () {
+    vec4 position = vec4(a_position, 1.0);
+    #if USE_LOCAL
+      position = cc_matWorld * position;
+    #endif
+    screenUV = vec2(a_texCoord.x, 1.0 - a_texCoord.y);
+    sceneUV = a_texCoord;
+    CC_HANDLE_RT_SAMPLE_FLIP(sceneUV);
+    return cc_matViewProj * position;
+  }
+}%
+
+CCProgram presentation-fs %{
+  precision highp float;
+  in vec2 sceneUV;
+  in vec2 screenUV;
+  #pragma builtin(local)
+  layout(set = 2, binding = 12) uniform sampler2D cc_spriteTexture;
+  uniform sampler2D actorsTexture;
+  uniform sampler2D visibilityTexture;
+  uniform Presentation {
+    vec4 grading;
+    vec4 viewInfo;
+    vec4 maskMotion;
+    vec4 muzzle;
+    vec4 doorLamp;
+    vec4 feedback;
+  };
+  vec4 frag () {
+    vec4 scene = texture(cc_spriteTexture, sceneUV);
+    vec4 actor = texture(actorsTexture, sceneUV);
+    vec2 unshakenUV = screenUV - viewInfo.zw / viewInfo.xy;
+    vec2 maskUV = unshakenUV + maskMotion.xy / viewInfo.xy;
+    vec4 field = texture(visibilityTexture, clamp(maskUV, vec2(0.0), vec2(1.0)));
+    float valid = step(0.0, maskUV.x) * step(maskUV.x, 1.0) * step(0.0, maskUV.y) * step(maskUV.y, 1.0);
+    float visibleLight = field.r * valid;
+    float surfaceLight = field.b * valid;
+    float strictLight = step(0.995, field.g) * valid;
+    float distanceToMuzzle = length(unshakenUV * viewInfo.xy - muzzle.xy);
+    float flash = muzzle.z * (1.0 - smoothstep(12.0, muzzle.w, distanceToMuzzle)) * strictLight;
+    float lampDistance = length(unshakenUV * viewInfo.xy - doorLamp.xy);
+    float lamp = doorLamp.z * (1.0 - smoothstep(4.0, doorLamp.w, lampDistance)) * smoothstep(0.52, 1.0, field.a) * valid;
+    // Opaque tops are lit independently. Surface lighting never contributes to
+    // actorVisibility or to the strict flash occlusion test below.
+    float lit = clamp(max(max(visibleLight, surfaceLight), max(flash * 0.75, lamp * 0.46)), 0.0, 1.0);
+    float luminance = dot(scene.rgb, vec3(0.2126, 0.7152, 0.0722));
+    vec3 grayEnvironment = mix(vec3(luminance), scene.rgb, grading.y) * grading.x * vec3(0.85, 0.96, 1.12);
+    vec3 normalEnvironment = scene.rgb * vec3(1.03, 1.01, 0.97);
+    vec3 result = mix(grayEnvironment, normalEnvironment, lit);
+    result += vec3(0.56, 0.34, 0.12) * flash * 0.24;
+    result += vec3(0.24, 0.17, 0.09) * lamp * 0.55;
+    // The actor RT is already clipped by exact line of sight. Its RGB is
+    // premultiplied by RT blending; feather alpha rather than leaking gray actors.
+    float nearPlayer = 1.0 - smoothstep(40.0, 80.0, length((unshakenUV - 0.5) * viewInfo.xy));
+    float actorVisibility = max(smoothstep(0.015, 0.50, visibleLight), nearPlayer * strictLight);
+    result = result * (1.0 - actor.a * actorVisibility) + actor.rgb * actorVisibility * (1.0 + flash * 0.20);
+    float edge = smoothstep(0.20, 0.68, length((screenUV - 0.5) * vec2(1.0, 0.88)));
+    float redness = clamp(feedback.x * (0.045 + edge * 0.31) + feedback.y * edge * mix(0.25, 0.61, feedback.z), 0.0, 0.72);
+    vec3 bloodTint = mix(vec3(0.66, 0.012, 0.022), vec3(0.32, 0.0, 0.012), feedback.z);
+    result = mix(result, bloodTint, redness);
+    float gray = dot(result, vec3(0.2126, 0.7152, 0.0722));
+    result = mix(result, vec3(gray), grading.z);
+    return vec4(result, 1.0);
+  }
+}%

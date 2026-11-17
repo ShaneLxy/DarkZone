@@ -1,0 +1,25 @@
+{
+  "name": "Blackout",
+  "buildPath": "project://build",
+  "startScene": "f49b761e-7bc9-4377-89f3-7f782eed76e1",
+  "scenes": [
+    {
+      "url": "db://assets/scenes/Facility.scene",
+      "uuid": "f49b761e-7bc9-4377-89f3-7f782eed76e1"
+    }
+  ],
+  "debug": false,
+  "md5Cache": false,
+  "sourceMaps": true,
+  "mainBundleCompressionType": "merge_dep",
+  "renderPipeline": "custom",
+  "experimentalEraseModules": false,
+  "platform": "web-mobile",
+  "outputName": "web-mobile",
+  "packages": {
+    "web-mobile": {
+      "orientation": "landscape",
+      "embedWebDebugger": false
+    }
+  }
+}

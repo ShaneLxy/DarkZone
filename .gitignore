@@ -1,0 +1,16 @@
+/library/
+/temp/
+/local/
+/profiles/
+/build/
+/node_modules/
+/logs/
+/artifacts/
+/任务_*/
+/任务_1111_先不写代码你帮我看下目前/
+.history/
+.tmp/
+*.log
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
