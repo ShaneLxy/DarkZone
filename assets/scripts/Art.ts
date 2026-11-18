@@ -407,7 +407,7 @@ export function drawActors(g: Graphics, b: Battle, pose: ActorPose, rasterPlayer
     if (e.hit > 0) disc(g, e.x, e.y, 24, '#ffe8b8', Math.round(e.hit / 0.12 * 65));
     const enemyPose = enemyPoses.get(e.id), sc = (e.type === 'boss' ? 1.7 : 1) * (enemyPose?.scale || 1);
     const model = paralyzedModelPosition(e, b.elapsed);
-    const operationModel = e.type === 'gunner' || b.stage.operation?.part === 'defense';
+    const operationModel = e.type === 'gunner' || !!e.operationBoss || b.stage.operation?.part === 'defense';
     if (!operationModel) {
       if (enemyPose && !(b.apartment && e.type === 'boss')) drawFeet(g, model, e.angle, sc, enemyPose, e.type === 'walker' && rasterWalker ? 'walker' : 'plain');
       drawPerson(g, model, e.angle, e.type === 'boss' ? '#9a654c' : e.type === 'spitter' ? '#a09169' : '#687a61', sc, false, e.hit > 0, rasterWalker && e.type === 'walker' || rasterBrute && e.type === 'boss');

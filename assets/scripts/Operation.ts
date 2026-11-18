@@ -53,7 +53,7 @@ const cityFireteams = [
   [2390, 925], [2340, 710], [2470, 635], [2540, 811], [2535, 541], [2610, 682], [2700, 582],
   [2760, 735], [2845, 600], [2880, 714], [2875, 900], [2450, 1050],
   [2990, 661, OPERATION_MG], [3080, 560], [3100, 780], [3175, 648], [3235, 570], [3310, 725],
-  [3370, 809, OPERATION_MG], [3430, 636], [3485, 712], [3520, 860], [3580, 667], [3630, 802], [3490, 550],
+  [3370, 809], [3430, 636], [3485, 712], [3520, 860, OPERATION_MG], [3580, 667], [3630, 802], [3490, 550],
 ];
 const rearSquad = [point(530, 650), point(525, 780), point(470, 610), point(467, 838), point(410, 684),
   point(408, 770), point(357, 640), point(358, 810)];
@@ -105,13 +105,39 @@ export function operationLevel(part: OperationPart): LevelDefinition {
     walls.push(rect(2640, 1005, 440, 24));
     room(rect(3080, 990, 575, 510, '首领指挥室'), { side: 'west', start: 1140 });
   } else {
-    const blocks = [
+    const blocks = defense ? [
+      rect(700, 32, 250, 300), rect(1015, 48, 190, 250), rect(1268, 32, 420, 286),
+      rect(2050, 45, 330, 300), rect(2500, 40, 270, 268), rect(2890, 35, 520, 330),
+      rect(760, 1500, 300, 380), rect(1180, 1560, 330, 320), rect(1900, 1500, 360, 380),
+      rect(2400, 1510, 420, 370), rect(2940, 1480, 390, 400), rect(3420, 1520, 330, 360),
+      rect(820, 900, 220, 240), rect(1580, 430, 300, 300), rect(2860, 950, 300, 320),
+    ] : [
       rect(770, 32, 300, 340), rect(820, 860, 395, 755), rect(1212, 32, 515, 350),
       rect(1560, 428, 440, 550), rect(1925, 1440, 415, 438), rect(2350, 1420, 505, 440),
       rect(2070, 45, 575, 430), rect(2855, 35, 590, 424), rect(2855, 925, 540, 821),
     ];
-    for (const r of blocks) { walls.push({ ...r, kind: 'op-roof' }); scenery.push({ ...r, kind: 'op-roof' }); }
-    scenery.push(rect(2910, 620, 145, 112, 'op-machinegun'), rect(3290, 766, 145, 112, 'op-machinegun'));
+    for (const r of blocks) walls.push({ ...r, kind: 'op-roof' });
+    const roofFrames = defense ? ['op-roof-b', 'op-roof-c'] : ['op-roof-a', 'op-roof-b', 'op-roof-c'];
+    blocks.forEach((r, i) => scenery.push({ ...r, kind: roofFrames[i % roofFrames.length] }));
+    if (defense) scenery.push(
+      rect(1080, 470, 300, 272, 'op-collapsed-roof'), rect(2290, 520, 270, 245, 'op-collapsed-roof'),
+      rect(3130, 1180, 280, 254, 'op-collapsed-roof'),
+      rect(1360, 980, 250, 196, 'op-crater'), rect(2620, 1180, 230, 180, 'op-crater'),
+      rect(660, 1180, 210, 165, 'op-crater'),
+      rect(1980, 980, 250, 196, 'op-barricade'), rect(2450, 760, 230, 180, 'op-barricade'),
+      rect(900, 800, 210, 165, 'op-barricade'),
+      rect(1720, 1330, 150, 118, 'op-embers'), rect(2830, 1350, 145, 114, 'op-embers'),
+      rect(1050, 1290, 145, 114, 'op-embers'),
+      rect(360, 560, 190, 150, 'op-barricade'), rect(360, 790, 190, 150, 'op-barricade'),
+      rect(600, 430, 170, 135, 'op-crater'), rect(600, 900, 170, 135, 'op-crater'),
+      rect(190, 660, 150, 118, 'op-sandbags'), rect(760, 570, 150, 118, 'op-barricade'),
+    );
+    else scenery.push(
+      rect(2910, 620, 145, 112, 'op-machinegun'), rect(3290, 766, 145, 112, 'op-machinegun'),
+      rect(760, 520, 180, 140, 'op-crates'), rect(900, 900, 190, 150, 'op-sandbags'),
+      rect(1830, 640, 220, 180, 'op-stall'), rect(2260, 640, 200, 165, 'op-shelf'),
+      rect(3020, 1050, 200, 160, 'op-sandbags'), rect(3250, 1000, 190, 150, 'op-barrels'),
+    );
     room(rect(1215, 824, 330, 304, '杂货铺'), { side: 'south', start: 1268, name: '杂货铺门' }, { side: 'east', start: 855 });
     room(rect(2495, 842, 295, 298, '市集仓库'), { side: 'south', start: 2550, name: '仓库侧门' }, { side: 'east', start: 928 });
     room(rect(3430, 980, 335, 290, '民宅'), { side: 'south', start: 3455 }, { side: 'east', start: 1008, name: '民宅后门' });
@@ -129,12 +155,12 @@ export function operationLevel(part: OperationPart): LevelDefinition {
     title: inside ? '断翼行动 · 「阀」指挥部' : defense ? '断翼行动 · 海岸撤离' : '断翼行动 · 北非沿岸',
     rooms: [rect(0, 0, OPERATION_WIDTH, OPERATION_HEIGHT, inside ? '指挥部' : '滨海城区')],
     walls, furniture, doors, spawn, exit, hints: [],
-    spawns: inside ? [
+    spawns: inside ? [...[
       [904, 1000], [985, 870], [1045, 957], [926, 760], [1245, 710], [1443, 565], [1450, 725], [1630, 704], [1720, 750],
       [1250, 1180], [1370, 1230], [1575, 1350], [1705, 1205], [1915, 1360], [2020, 1290], [2390, 1300],
       [1930, 730], [2070, 671], [2230, 735], [2410, 757], [2580, 1370], [2800, 1310], [2925, 1170],
       [3150, 1290], [3260, 1165], [3325, 1310], [3520, 1305], [3540, 1150],
-    ].map(gunner) : defense ? [[3210, 665], [3180, 604], [2870, 675], [2730, 770], [2600, 720], [2290, 1090],
+    ].map(gunner), [0, OPERATION_LEADER.x, OPERATION_LEADER.y, 'boss'] as EnemySpawn] : defense ? [[3210, 665], [3180, 604], [2870, 675], [2730, 770], [2600, 720], [2290, 1090],
       [2195, 1160], [2010, 1350], [1788, 1225], [1450, 1190], [1200, 690], [760, 610]].map(zombie) : cityFireteams.map(gunner),
     operation: { part, allies, route, reinforcements, interiors, scenery },
   };

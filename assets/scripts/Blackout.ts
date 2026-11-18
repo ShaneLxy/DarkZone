@@ -40,6 +40,8 @@ const TRAINING_AXES = [
   { name: '机动', x: 1304, y: 465, lx: 1269, ly: 449 },
 ] as const;
 const ENVIRONMENT_LAYER = 1 << 10, ACTOR_LAYER = 1 << 11;
+const OPERATION_ROOF_TILES = new Set(['op-roof-a', 'op-roof-b', 'op-roof-c']);
+const UNLOCK_ALL_CHAPTERS_FOR_TEST: boolean = true;
 type Mode = 'menu' | 'chapters' | 'chapter-intro' | 'select-hero' | 'achievements' | 'missions' | 'checkin' | 'playing' | 'loading' | 'street-loading' | 'falling' | 'revive' | 'backpack' | 'roster' | 'training' | 'shop' | 'cases' | 'recruit' | 'settings' | 'help' | 'pause' | 'result' | 'operation-cinematic';
 type OperationLine = readonly [speaker: string, text: string];
 type StoryDialogueNodes = { node: Node; label: Label; portrait: Node };
@@ -242,6 +244,7 @@ export class Blackout extends Component {
   private operationCinema?: { root: Node; time: number; draw: (time: number) => boolean; finish: () => void };
   private operationDialogue?: StoryDialogueNodes & { lines: OperationLine[]; index: number; time: number; cinematic: boolean };
   private operationLeader?: Node;
+  private operationStoryLock?: { kind: 'injection' | 'escape'; node: Node; opacity: UIOpacity; x: number; y: number; time: number; duration: number };
   private fallFrames = new Map<keyof typeof FALL_SHEETS, FallFrame[]>();
   private fallTime = 0;
   private fallVariant = 0;
@@ -354,6 +357,7 @@ export class Blackout extends Component {
   private streetStoryBattle?: Battle;
   private floorLoad?: { time: number; done: number; started: boolean; swapped: boolean; failed: boolean };
   private profile: Profile = readProfile(null);
+  private unlockAllChapters: boolean = UNLOCK_ALL_CHAPTERS_FOR_TEST;
   private guide = new TutorialGuide();
   private guideArt?: Graphics;
   private guideSession?: object;
@@ -963,30 +967,38 @@ export class Blackout extends Component {
     this.rebuildFloorDetails();
     const operation = stage.operation;
     if (operation) {
-      const terrain = (id: string, x: number, y: number, w: number, h: number, flipX = 1, flipY = 1) => {
+      const terrain = (id: string, x: number, y: number, w: number, h: number) => {
+        const frame = this.streetFrames.get(id);
+        if (!frame) return;
         const node = this.makeNode(id, this.floorArt);
         node.setPosition(x, y);
-        node.setScale(flipX, flipY, 1);
-        const sprite = this.setupSprite(node, this.streetFrames.get(id)!, w, h);
-        if (operation.part === 'defense') sprite.color = color('#ada69b');
+        this.setupSprite(node, frame, w, h);
         this.mapNodes.push(node);
       };
-      const tileW = 1280, tileH = 960;
-      for (let row = -1; row < OPERATION_HEIGHT / tileH + 1; row++) {
-        for (let col = -1; col < OPERATION_WIDTH / tileW + 1; col++) {
-          terrain('op-ground', (col + .5) * tileW, (row + .5) * tileH, tileW, tileH, col % 2 ? -1 : 1, row % 2 ? -1 : 1);
+      const groundId = operation.part === 'compound' ? 'op-indoor' : operation.part === 'defense' ? 'op-ash' : 'op-sand';
+      const tile = 464;
+      for (let row = 0; row < OPERATION_HEIGHT / tile + 1; row++) {
+        for (let col = 0; col < OPERATION_WIDTH / tile + 1; col++) {
+          const x = (col + .5) * tile;
+          const id = operation.part === 'city'
+            ? x >= 1200 && x < 2600 ? (row % 3 === 1 ? 'op-sand' : 'op-pavement')
+              : x >= 2600 ? ((col + row) % 4 === 0 ? 'op-pavement' : groundId)
+                : ((col + row) % 5 === 0 ? 'op-pavement' : groundId)
+            : groundId;
+          terrain(id, x, (row + .5) * tile, tile, tile);
         }
       }
-      if (operation.part !== 'compound') {
-        terrain('op-field', 339, 711, 920, 680);
-        terrain('op-landing', -367, 705, 493, 1140);
-      }
-      for (const interior of operation.interiors) {
-        terrain('op-floor', interior.x + interior.w / 2, interior.y + interior.h / 2, interior.w, interior.h);
-      }
+      const lz = operation.part === 'defense' ? stage.exit : stage.spawn;
+      const marker = this.graphics('LZ marker', this.floorArt);
+      marker.lineWidth = 4; marker.strokeColor = color('#d8c391', 150);
+      marker.circle(lz.x, lz.y, 96); marker.stroke();
+      marker.lineWidth = 2; marker.strokeColor = color('#d8c391', 95);
+      marker.circle(lz.x, lz.y, 64); marker.stroke();
+      this.mapNodes.push(marker.node);
       if (operation.part === 'compound') {
         const leader = this.operationLeader = this.makeNode('Command leader', this.spriteLayer);
-        this.setupSprite(leader, this.streetFrames.get('op-leader')!, 59, 48);
+        const leaderFrame = this.streetFrames.get('op-leader-ak') ?? this.streetFrames.get('op-leader');
+        if (leaderFrame) this.setupSprite(leader, leaderFrame, 59, 48);
         leader.setPosition(OPERATION_LEADER.x, OPERATION_LEADER.y);
         leader.angle = 90;
         this.mapNodes.push(leader);
@@ -1004,8 +1016,25 @@ export class Blackout extends Component {
       const reversed = f.kind === 'garage-sedan-reverse' || f.kind === 'garage-suv-reverse';
       const art = f.kind === 'getaway-car' ? 'garage-suv' : f.kind === 'desk' ? 'lobby-desk' : f.kind === 'locker' || f.kind === 'cabinet' ? 'dorm-locker'
         : f.kind === 'sofa' && lower ? 'lobby-sofa' : reversed ? f.kind!.slice(0, -8) : f.kind;
-      const frame = art && (this.streetFrames.get(art) ?? this.artFrames.get(art));
+      const roofTile = !!art && OPERATION_ROOF_TILES.has(art);
+      const frame = (art && (this.streetFrames.get(art) ?? this.artFrames.get(art))) ||
+        (roofTile ? this.streetFrames.get('op-roof') : undefined);
       if (!frame) continue;
+      if (roofTile && this.streetFrames.has(art!)) {
+        const clip = this.makeNode('Tiled roof ' + art, this.propsArt);
+        clip.setPosition(f.x + f.w / 2, f.y + f.h / 2);
+        clip.getComponent(UITransform)!.setContentSize(f.w, f.h);
+        clip.addComponent(Mask).type = Mask.Type.GRAPHICS_RECT;
+        this.mapNodes.push(clip);
+        const size = 232;
+        for (let y = -f.h / 2; y < f.h / 2; y += size) for (let x = -f.w / 2; x < f.w / 2; x += size) {
+          const tile = this.makeNode('Roof tile', clip);
+          tile.setPosition(x + size / 2, y + size / 2);
+          this.setupSprite(tile, frame, size, size);
+        }
+        this.rasterProps.add(f.kind + ':' + f.x + ':' + f.y);
+        continue;
+      }
       const node = this.makeNode('Prop ' + f.kind, this.propsArt); this.mapNodes.push(node);
       node.setPosition(f.x + f.w / 2, f.y + f.h / 2);
       const turn = f.h > f.w && !['apartment-pingpong', 'op-pickup', 'op-roof', 'op-cot', 'op-barrels'].includes(f.kind ?? '');
@@ -1017,19 +1046,45 @@ export class Blackout extends Component {
     }
     if (!operation) drawMap(this.fixtures, 'fixtures', this.rasterProps, stage);
     const floor = stage.apartment?.part;
-    const wallFrame = operation ? this.streetFrames.get('op-wall') :
-      floor === 'garage' || floor === 'home' ? this.streetFrames.get(floor + '-wall') : undefined;
-    if (wallFrame) for (const wall of stage.walls) {
-      if (wall.kind === 'op-roof') continue;
-      const vertical = wall.h > wall.w, length = vertical ? wall.h : wall.w, thickness = vertical ? wall.w : wall.h;
-      const segments = Math.ceil(length / 390);
-      for (let i = 0; i < segments; i++) {
-        const step = length / segments, offset = (i + 0.5) * step;
-        const node = this.makeNode('Textured apartment wall cap', this.propsArt);
-        node.setPosition(wall.x + (vertical ? wall.w / 2 : offset), wall.y + (vertical ? offset : wall.h / 2));
-        node.angle = vertical ? 90 : 0;
-        this.setupSprite(node, wallFrame, step, thickness);
-        this.mapNodes.push(node);
+    const capLeft = this.streetFrames.get('op-wall-cap-left'), capMid = this.streetFrames.get('op-wall-mid');
+    const capRight = this.streetFrames.get('op-wall-cap-right');
+    if (operation && capLeft && capMid && capRight) {
+      for (const wall of stage.walls) {
+        if (wall.kind === 'op-roof') continue;
+        const vertical = wall.h > wall.w;
+        const length = vertical ? wall.h : wall.w, thickness = vertical ? wall.w : wall.h;
+        const artHeight = Math.max(thickness, 34);
+        const capWidth = artHeight * 110 / 153, midWidth = artHeight * 445 / 153;
+        const cx = wall.x + wall.w / 2, cy = wall.y + wall.h / 2;
+        const slice = (frame: SpriteFrame, offset: number, width: number) => {
+          const node = this.makeNode('Operation wall slice', this.propsArt);
+          node.setPosition(vertical ? cx : wall.x + offset, vertical ? wall.y + offset : cy);
+          node.angle = vertical ? 90 : 0;
+          this.setupSprite(node, frame, width, artHeight);
+          this.mapNodes.push(node);
+        };
+        if (length <= capWidth * 2 + 12) { slice(capMid, length / 2, length); continue; }
+        slice(capLeft, capWidth / 2, capWidth);
+        const span = length - capWidth * 2;
+        const count = Math.min(28, Math.max(1, Math.round(span / midWidth)));
+        for (let i = 0; i < count; i++) slice(capMid, capWidth + (i + .5) * span / count, span / count);
+        slice(capRight, length - capWidth / 2, capWidth);
+      }
+    } else {
+      const wallFrame = operation ? this.streetFrames.get('op-wall') :
+        floor === 'garage' || floor === 'home' ? this.streetFrames.get(floor + '-wall') : undefined;
+      if (wallFrame) for (const wall of stage.walls) {
+        if (wall.kind === 'op-roof') continue;
+        const vertical = wall.h > wall.w, length = vertical ? wall.h : wall.w, thickness = vertical ? wall.w : wall.h;
+        const segments = Math.ceil(length / 390);
+        for (let i = 0; i < segments; i++) {
+          const step = length / segments, offset = (i + 0.5) * step;
+          const node = this.makeNode('Textured apartment wall cap', this.propsArt);
+          node.setPosition(wall.x + (vertical ? wall.w / 2 : offset), wall.y + (vertical ? offset : wall.h / 2));
+          node.angle = vertical ? 90 : 0;
+          this.setupSprite(node, wallFrame, step, thickness);
+          this.mapNodes.push(node);
+        }
       }
     }
     const doorFrame = operation ? this.streetFrames.get('op-door') :
@@ -1156,7 +1211,7 @@ export class Blackout extends Component {
     const b = this.battle, active = new Set<string>();
     const brute = b.apartment && this.streetFrames.get('brute');
     if (this.operationLeader) this.operationLeader.active = b.sees(OPERATION_LEADER, 36);
-    const nearby = b.enemies.filter(e => e.hp > 0 && (e.type === 'walker' || e.type === 'gunner' || e.type === 'boss' && !!brute) && (!(b.stage.street || b.stage.operation) || b.sees(e, 35)));
+    const nearby = b.enemies.filter(e => e.hp > 0 && (e.type === 'walker' || e.type === 'gunner' || e.type === 'boss' && (!!brute || !!e.operationBoss)) && (!(b.stage.street || b.stage.operation) || b.sees(e, 35)));
     const enemyIds = new Set(nearby.map(e => 'enemy-' + e.id));
     for (const [id, sprite] of this.actorSprites) if (id.startsWith('enemy-') && !enemyIds.has(id)) {
       sprite.node.active = false;
@@ -1221,6 +1276,18 @@ export class Blackout extends Component {
     }
     for (const e of nearby) {
       const model = paralyzedModelPosition(e, b.elapsed);
+      if (e.operationBoss) {
+        const leader = e.operationBoss === 'leader';
+        const frame = (leader ? this.streetFrames.get('op-leader-ak') ?? this.streetFrames.get('op-leader') :
+          this.streetFrames.get('op-king')) ?? this.streetFrames.get('op-leader');
+        if (frame) {
+          const sprite = show('enemy-' + e.id, frame, model.x, model.y, e.angle - Math.PI / 2, e.hit > 0, false, false, leader ? 1.05 : 1.45);
+          const transform = sprite.node.getComponent(UITransform)!;
+          transform.setContentSize(leader ? 62 : 108, leader ? 106 : 96);
+          transform.setAnchorPoint(0.5, 0.42);
+        }
+        continue;
+      }
       const chargeFrame = e.charge && this.streetFrames.get('brute-charge');
       const opFrame = e.type === 'gunner' ? this.streetFrames.get('op-gunner') :
         b.stage.operation?.part === 'defense' ? this.streetFrames.get('op-infected') : undefined;
@@ -3199,6 +3266,8 @@ export class Blackout extends Component {
     this.dialogText('saved', this.storageOkay ? '奖励已保存至本机' : '奖励暂存在内存，浏览器未能保存', W / 2, 304, 17, 650, '#d7c8b2');
     if (nextChapter) this.dialogText('next-chapter', `「${nextChapter}」已解锁，可在探索地图选择。`, W / 2, 269, 17, 650, '#ffd282');
     if (this.unlockedEngineer) this.dialogText('engineer-unlocked', '维川已加入，可在角色培养中提升属性。', W / 2, 243, 17, 650, '#ffd282');
+    if (operation && this.profile.operationArchive) this.dialogText('operation-debrief',
+      '剧情档案 · 核打击未消灭丧尸王；样本已扩散，地面小队无信号。', W / 2, 215, 16, 700, '#d7c8b2');
   }
   private buildRevive() {
     this.dialog('角色倒地', [
@@ -3214,6 +3283,7 @@ export class Blackout extends Component {
     this.dialogText('revive-count', `剩余 ${this.battle.revivalCharges} 支`, W / 2, 350, 19, 500, '#d7c8b2');
   }
   private chapterUnlocked(chapter: Chapter) {
+    if (this.unlockAllChapters) return true;
     return chapter === 1 || (chapter === 2 ? this.profile.streetUnlocked : chapter === 3 ? this.profile.apartmentUnlocked : this.profile.owned[ENGINEER_ID]);
   }
   private loadChapterArt(chapter: 2 | 3 | 4, returnTo: Mode) {
@@ -3288,6 +3358,7 @@ export class Blackout extends Component {
   }
   private enterBattleScene(chapter: Chapter, prompt: NonNullable<Blackout['transition']>['prompt'] = null) {
     this.clearOperationDialogue();
+    this.clearOperationStoryLock();
     this.tutorialPrompt = null;
     this.feedback.reset(); this.motion.reset(this.battle.player); this.weaponEffects.clear();
     this.motionBattle = undefined;
@@ -3507,14 +3578,17 @@ export class Blackout extends Component {
         if (sinceImpact > 5.2 && !aftermath) {
           aftermath = true;
           this.speakOperation([
-            ['侦察机', '打击结束。没有收到任何地面小队的信号。等一下，烟里有东西飞出来了！'],
-            ['指挥部', '继续跟踪。其他地区也开始报告感染，通知所有剩余部队。'],
+            ['侦察机', '打击结束。没有收到任何地面小队的信号。等一下，烟里飞出来的……是刚才逃走的那只丧尸王！'],
+            ['指挥部', '它没有被消灭，尸群还跟着它。继续跟踪，其他地区也开始报告感染。'],
           ], true);
         }
         return aftermath && !this.operationDialogue;
       };
       finish = () => {
         this.battle.status = 'won';
+        if (this.battle.operationRun) this.battle.operationRun.phase = 'debrief';
+        this.profile.operationArchive = true;
+        this.save();
         this.finishBattle();
         this.transitionShade.node.active = true;
         this.transitionShade.node.setSiblingIndex(this.modal.getSiblingIndex());
@@ -4032,6 +4106,39 @@ export class Blackout extends Component {
     const slide = smooth(clamp(time / 0.25, 0, 1)) - smooth(clamp((time - exit) / 0.25, 0, 1));
     node.setPosition(left ? -W / 2 - 510 + 530 * slide : W / 2 - 530 * slide, left ? 80 : 108);
   }
+  private beginOperationStoryLock(kind: 'injection' | 'escape', x: number, y: number, duration: number) {
+    this.clearOperationStoryLock();
+    const injection = kind === 'injection';
+    const frame = this.streetFrames.get(injection ? 'op-inject' : 'op-king') ?? this.streetFrames.get('op-king');
+    if (!frame) return;
+    const node = this.makeNode('Operation story ' + kind, this.spriteLayer);
+    this.setupSprite(node, frame, injection ? 132 : 118, injection ? 120 : 104);
+    const opacity = node.addComponent(UIOpacity);
+    node.setPosition(x, y);
+    this.operationStoryLock = { kind, node, opacity, x, y, time: 0, duration };
+  }
+  private clearOperationStoryLock() {
+    const lock = this.operationStoryLock;
+    if (!lock) return;
+    lock.node.active = false;
+    lock.node.destroy();
+    this.operationStoryLock = undefined;
+  }
+  private stepOperationStoryLock(dt: number) {
+    const lock = this.operationStoryLock;
+    if (!lock) return;
+    lock.time += dt;
+    const t = lock.time;
+    if (lock.kind === 'escape') {
+      lock.node.setPosition(lock.x + 90 * t + 260 * t * t, lock.y + 60 * t + 190 * t * t);
+      lock.node.setScale(1 + t * .25, 1 + t * .25, 1);
+      lock.opacity.opacity = Math.round(255 * (1 - clamp((t - .5) / 1.6, 0, 1)));
+    } else {
+      lock.node.angle = 8 * Math.sin(t * 12);
+      lock.opacity.opacity = Math.round(255 * (1 - clamp((t - 1) / .6, 0, 1)));
+    }
+    if (t >= lock.duration && (lock.kind === 'injection' || !this.operationDialogue)) this.clearOperationStoryLock();
+  }
   private speakOperation(lines: OperationLine[], cinematic = false) {
     const existing = this.operationDialogue;
     if (existing && existing.cinematic === cinematic) { existing.lines.push(...lines); return; }
@@ -4062,7 +4169,8 @@ export class Blackout extends Component {
     const visible = text.slice(0, Math.max(0, Math.floor((dialogue.time - 0.25) / 0.035)));
     dialogue.label.string = visible.match(/.{1,19}/gu)?.join('\n') ?? '';
     const left = speaker.startsWith('幽灵');
-    const frame = speaker === '「阀」首领' ? this.streetFrames.get('op-leader') :
+    const frame = speaker === '「阀」首领' ? this.streetFrames.get('op-leader-ak') ?? this.streetFrames.get('op-leader') :
+      speaker === '丧尸王' ? this.streetFrames.get('op-king') ?? this.streetFrames.get('op-leader') :
       left ? this.trainingFrames.get('ghost-face') ?? this.ghostPortrait ?? this.streetFrames.get('op-soldier') : this.streetFrames.get('op-soldier');
     if (frame) this.setupStoryPortrait(dialogue.portrait, frame);
     this.placeStoryDialogue(dialogue.node, left, dialogue.time, typed + 1.5);
@@ -4543,6 +4651,7 @@ export class Blackout extends Component {
     dt = Math.min(dt, 0.05); this.presentationTime += dt; this.noticeTime = Math.max(0, this.noticeTime - dt); this.hitAudioTime = Math.max(0, this.hitAudioTime - dt);
     const cinema = this.operationCinema;
     this.stepOperationDialogue(dt);
+    this.stepOperationStoryLock(dt);
     if (this.mode === 'operation-cinematic' && cinema) {
       cinema.time += dt;
       if (cinema.draw(cinema.time)) cinema.finish();
@@ -4591,7 +4700,7 @@ export class Blackout extends Component {
       return;
     }
     this.syncActorMotions();
-    const active = this.mode === 'playing' && !transitioning && !this.transition, p = this.battle.player;
+    const active = this.mode === 'playing' && !transitioning && !this.transition && !this.operationStoryLock, p = this.battle.player;
     if (active) {
       this.weaponEffects.step(dt, this.battle.blockers);
       if (this.tutorialPrompt) {
@@ -4644,6 +4753,31 @@ export class Blackout extends Component {
           ['幽灵二组', '登陆区到了！各组守住这里。'],
           ['指挥部', '接应编队仍未应答，继续呼叫。'],
         ]);
+        if (event === 'operation-injection') {
+          const king = this.battle.enemies.find(e => e.operationBoss === 'king');
+          this.beginOperationStoryLock('injection', king?.x ?? OPERATION_LEADER.x, king?.y ?? OPERATION_LEADER.y, 1.6);
+          this.speakOperation([
+            ['「阀」首领', '你们来迟了。样本已经送往各地，你们留不住我。'],
+            ['幽灵一组', '他手里是注射器！离他远点！'],
+            ['指挥部', '目标正在变异……所有单位后撤！'],
+          ]);
+        }
+        if (event === 'operation-king-escape') {
+          const king = this.battle.enemies.find(e => e.operationBoss === 'king');
+          this.beginOperationStoryLock('escape', king?.x ?? OPERATION_LEADER.x, king?.y ?? OPERATION_LEADER.y, 2.2);
+          this.toast('任务更新 · 撤回开场登陆区');
+          this.speakOperation([
+            ['丧尸王', '你们做的只是徒劳而已,末日已经到了!'],
+          ]);
+        }
+        if (event === 'operation-announcement') {
+          this.toast('全军通告 · 核打击窗口 1 小时');
+          this.speakOperation([
+            ['军队指挥部', '接应编队失联。所有单位立即撤出，核打击将在一小时后实施。'],
+            ['幽灵一组', '收到。沿主街撤回登陆区，别停下。'],
+          ]);
+        }
+        if (event === 'operation-slam') this.play('grenade-blast');
         if (event === 'alert' && !this.battle.events.includes('street-alarm')) this.toast('附近敌人已警戒 · 留意攻击预警');
         if (event === 'door-blocked' && this.battle.doors.some(d => d.blocked > 0 && Math.hypot(p.x - d.x, p.y - d.y) < 200)) this.toast('门被挡住了，请让开门扇的转动范围');
         if (event === 'door-geometry-blocked') this.toast('门扇被墙体或其他门挡住了');
@@ -4697,11 +4831,11 @@ export class Blackout extends Component {
       }
       if (this.battle.enemies.some(e => (e.forceOpen || 0) > 0)) this.toast('⚠ 敌人正在强行撞门 · 立即远离门扇');
       this.battle.events = [];
-      if (this.battle.status === 'playing' && this.battle.operationRun?.ready) {
+      if (this.battle.status === 'playing' && this.battle.operationRun?.ready && !this.operationStoryLock) {
         const part = this.battle.stage.operation?.part;
-        if (part === 'city') {
-          if (this.battle.advanceOperation(operationLevel('compound'))) this.enterBattleScene(4);
-        } else if (part === 'compound' || part === 'defense') this.beginOperationCinematic(part === 'compound' ? 'mutate' : 'strike');
+        if (part === 'city' && this.battle.advanceOperation(operationLevel('compound'))) this.enterBattleScene(4);
+        else if (part === 'compound' && this.battle.advanceOperation(operationLevel('defense'))) this.enterBattleScene(4);
+        else if (part === 'defense') this.beginOperationCinematic('strike');
         return;
       }
       if (this.battle.status === 'lost' && p.hp <= 0) {
@@ -4734,23 +4868,25 @@ export class Blackout extends Component {
     this.world.setPosition(-p.x + offsetX, -p.y + offsetY);
     this.environment.setPosition(-p.x + offsetX, -p.y + offsetY);
     // Exact actor clipping is refreshed each frame; only the soft texture is cached.
-    const visionRange = this.battle.stats.visionRange;
+    const visionRange = this.battle.playerVisionRange;
+    const allyRange = this.battle.allyVisionRange;
     const lamp = this.battle.stage.faultyDoorLamp;
-    const allies = this.battle.allies.filter(ally => ally.hp > 0 && Math.abs(ally.x - p.x) <= W / 2 + ALLY_VISION_RANGE && Math.abs(ally.y - p.y) <= H / 2 + ALLY_VISION_RANGE);
+    const allies = this.battle.allies.filter(ally => ally.hp > 0 && Math.abs(ally.x - p.x) <= W / 2 + allyRange && Math.abs(ally.y - p.y) <= H / 2 + allyRange);
     const allySight = allies.map(ally => [ally.id, Math.round(ally.x / 3), Math.round(ally.y / 3), Math.round(ally.angle * 40)].join(',')).join('|');
     const grenadeLights = this.battle.grenadeLights;
     this.sightTick -= dt;
     if (grenadeLights.length || this.hadGrenadeLight || this.sightTick <= 0 || allySight !== this.lastAllySight || this.lastGeometry !== this.battle.geometryRevision || Math.hypot(p.x - this.lastSightX, p.y - this.lastSightY) > 0.01 || Math.abs(angleDiff(p.angle, this.lastSightAngle)) > 0.001) {
       this.sightTick = 1;
-      const blocks = this.battle.visionBlockers;
+      const blocks = this.battle.visionBlockers.filter(r =>
+        Math.abs(r.x + r.w / 2 - p.x) < visionRange + r.w && Math.abs(r.y + r.h / 2 - p.y) < visionRange + r.h);
       const pts = visibilityPolygon(p, p.angle, blocks, visionRange);
       this.stencil.clear();
       polygon(this.stencil, pts, '#ffffff');
       const toScreen = (q: { x: number; y: number }) => ({ x: q.x - p.x + W / 2, y: q.y - p.y + H / 2 });
-      this.visibilityField.build(pts.map(toScreen), FEATHER_PIXELS, visibilityPolygon(p, p.angle, [], visionRange).map(toScreen), { origin: toScreen(p), peripheralRadius: this.battle.stats.peripheralRange });
+      this.visibilityField.build(pts.map(toScreen), FEATHER_PIXELS, visibilityPolygon(p, p.angle, [], visionRange).map(toScreen), { origin: toScreen(p), peripheralRadius: peripheralRange(visionRange) });
       this.visibilityField.addSurfaces(visibleSurfaces(p, p.angle, blocks, visionRange).map(surface => ({ ...surface, polygon: surface.polygon.map(toScreen) })));
       for (const ally of allies) {
-        const range = ALLY_VISION_RANGE;
+        const range = allyRange;
         const sight = visibilityPolygon(ally, ally.angle, blocks, range);
         polygon(this.stencil, sight, '#ffffff');
         const field = this.allyVisibilityField ??= new VisibilityField();

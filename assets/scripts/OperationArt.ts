@@ -29,4 +29,20 @@ export const OPERATION_ART = [
   ['effects', [
     ['op-cloud', 0, 0, 478, 480], ['op-smoke', 479, 0, 481, 480], ['op-impact', 968, 31, 441, 423],
   ]],
+  ['leader-ak47', [
+    ['op-leader-ak', 0, 0, 445, 962],
+  ]],
+  ['ground-tiles', [
+    ['op-sand', 24, 24, 464, 464], ['op-pavement', 536, 24, 464, 464],
+    ['op-indoor', 24, 536, 464, 464], ['op-ash', 536, 536, 464, 464],
+  ]],
+  ['ruins-kit', [
+    ['op-crater', 40, 55, 440, 395], ['op-collapsed-roof', 545, 55, 435, 395],
+    ['op-barricade', 40, 555, 440, 345], ['op-embers', 545, 555, 435, 345],
+  ]],
+  ['wall-kit', [
+    ['op-wall-cap-left', 52, 194, 110, 153], ['op-wall-mid', 290, 194, 445, 153],
+    ['op-wall-cap-right', 862, 194, 110, 153], ['op-roof-a', 55, 585, 245, 243],
+    ['op-roof-b', 389, 585, 245, 243], ['op-roof-c', 724, 585, 244, 243],
+  ]],
 ] as const;

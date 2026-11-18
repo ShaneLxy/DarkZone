@@ -13,7 +13,7 @@ function load(name) {
   const m = { exports: {} }; cache.set(name, m.exports);
   new Function('require', 'module', 'exports', js)(id => load(id.replace('./', '')), m, m.exports); return m.exports;
 }
-const { Battle, DORM_LEVEL, HEROINE_ID, heroStats, profileGrowth, trainingCost, sightRange, visible, visibilityPolygon, doorSurfacePolygon, walkable, lineClear, rayRect, doorShape, circleRect, rectCorners, newProfile, readProfile, recruit, upgrade, roomAt } = load('Core');
+const { Battle, DORM_LEVEL, HEROINE_ID, ALLY_VISION_RANGE, heroStats, profileGrowth, trainingCost, sightRange, visible, visibilityPolygon, doorSurfacePolygon, walkable, lineClear, rayRect, doorShape, circleRect, rectCorners, newProfile, readProfile, recruit, upgrade, roomAt } = load('Core');
 const { configuredHero } = load('WeaponMods');
 const { installMod, salvageMod } = load('Shop');
 const { createApartmentRun, createDormRun, createStreet } = load('Levels');
@@ -47,10 +47,26 @@ test('operation gates its three stages, spends air support once, and preserves t
   assert.equal(battle.player.hp, entryHealth);
   assert.equal(battle.player.ammo, 6);
   assert.equal(battle.operationRun.airSupport, false);
-  for (const enemy of battle.enemies) enemy.hp = 0;
+  const leader = battle.enemies.find(enemy => enemy.operationBoss === 'leader');
+  assert(leader && leader.hp > 0);
+  const killsBeforeBoss = battle.kills, fragmentsBeforeBoss = battle.deathFragments.length;
+  battle.damageEnemy(leader, 9999);
+  assert.equal(leader.hp, 0);
+  assert.equal(battle.kills, killsBeforeBoss);
+  assert.equal(battle.deathFragments.length, fragmentsBeforeBoss);
+  const king = battle.enemies.find(enemy => enemy.operationBoss === 'king');
+  assert(king && king.hp === 1100);
+  for (const enemy of battle.enemies) if (enemy !== king && enemy.hp > 0) enemy.hp = 0;
+  battle.damageEnemy(king, 9999);
+  assert.equal(king.hp, 0);
+  assert.equal(battle.kills, killsBeforeBoss);
+  assert.equal(battle.deathFragments.length, fragmentsBeforeBoss);
+  assert(battle.operationRun.kingEscaped);
   Object.assign(battle.player, compound.exit);
   tick(1);
+  assert(battle.operationRun.ready);
   assert(battle.advanceOperation(defense));
+  assert.equal(battle.allies.length, 2);
   assert(battle.allies.every(ally => ally.hp > 0));
   assert.equal(battle.player.hp, battle.player.maxHp);
   battle.player.invulnerable = 120;
@@ -58,6 +74,7 @@ test('operation gates its three stages, spends air support once, and preserves t
   tick(20);
   assert.equal(battle.operationRun.hold, OPERATION_HOLD);
   for (const point of defense.operation.route) { Object.assign(battle.player, point); tick(1); }
+  assert(battle.operationRun.announced);
   Object.assign(battle.player, defense.spawn);
   tick(40);
   assert.equal(battle.operationRun.hold, OPERATION_HOLD);
@@ -67,6 +84,86 @@ test('operation gates its three stages, spends air support once, and preserves t
   assert.equal(battle.status, 'playing');
   assert(battle.enemies.filter(enemy => enemy.hp > 0).length <= OPERATION_ENEMY_CAP);
   assert(battle.enemies.some(enemy => enemy.id >= city.spawns.length + compound.spawns.length + defense.spawns.length));
+});
+test('chapter four bosses survive zero health, sweep the squad and carry survivors into defense', () => {
+  const compound = operationLevel('compound'), defense = operationLevel('defense');
+  const battle = new Battle(0, 1, compound);
+  const tick = count => { for (let i = 0; i < count; i++) battle.update(.05, dormIdle); };
+  assert.equal(battle.operationRun.phase, 'leader-fight');
+  const leader = battle.enemies.find(enemy => enemy.operationBoss === 'leader');
+  assert(leader && leader.hp === 650);
+  battle.damageEnemy(leader, 9999);
+  assert.equal(leader.hp, 0);
+  assert.equal(battle.operationRun.phase, 'king-fight');
+  const king = battle.enemies.find(enemy => enemy.operationBoss === 'king');
+  assert.equal(king.hp, 1100);
+  assert.equal(battle.operationRun.survivors, 2);
+  assert.equal(battle.allies.filter(ally => ally.hp > 0).length, 2);
+  battle.player.invulnerable = 999;
+  Object.assign(battle.player, { x: king.x, y: king.y });
+  tick(90);
+  assert(battle.events.includes('operation-slam'));
+  battle.damageEnemy(king, 9999);
+  assert.equal(king.hp, 0);
+  assert(battle.operationRun.kingEscaped);
+  tick(1);
+  assert.equal(battle.operationRun.phase, 'new-order');
+  for (const enemy of battle.enemies) if (enemy.hp > 0) enemy.hp = 0;
+  Object.assign(battle.player, compound.exit);
+  tick(1);
+  assert(battle.operationRun.ready);
+  assert(battle.advanceOperation(defense));
+  assert.equal(battle.allies.length, 2);
+  assert.equal(battle.operationRun.phase, 'retreat');
+
+  const lone = new Battle(0, 1, operationLevel('compound'));
+  for (const ally of lone.allies) ally.hp = 0;
+  const loneLeader = lone.enemies.find(enemy => enemy.operationBoss === 'leader');
+  lone.damageEnemy(loneLeader, 9999);
+  assert.equal(lone.operationRun.survivors, 0);
+  const loneKing = lone.enemies.find(enemy => enemy.operationBoss === 'king');
+  lone.damageEnemy(loneKing, 9999);
+  for (const enemy of lone.enemies) if (enemy.hp > 0) enemy.hp = 0;
+  Object.assign(lone.player, compound.exit);
+  for (let i = 0; i < 2; i++) lone.update(.05, dormIdle);
+  assert(lone.operationRun.ready);
+  assert(lone.advanceOperation(defense));
+  assert.equal(lone.allies.length, 0);
+});
+test('operation daylight doubles outdoor sight, restores indoor sight, spreads the squad and extends support fire', () => {
+  const city = operationLevel('city'), compound = operationLevel('compound');
+  const battle = new Battle(0, 1, city);
+  assert.equal(battle.visionScale, 2);
+  assert.equal(battle.playerVisionRange, battle.stats.visionRange * 2);
+  assert.equal(battle.allyVisionRange, ALLY_VISION_RANGE * 2);
+  assert.equal(new Battle(0, 1, compound).visionScale, 1);
+  assert.equal(new Battle(0, 1, compound).playerVisionRange, battle.stats.visionRange);
+  const slots = battle.squadSlots(false);
+  assert(slots.some(slot => slot.back < 0), 'wedge should place a point man ahead of the player');
+  assert(slots.some(slot => Math.abs(slot.side) >= 115), 'wedge should spread the flanks');
+
+  const squad = new Battle(0, 1, city);
+  squad.enemies = [];
+  Object.assign(squad.player, { x: 2200, y: 700, angle: 0 });
+  squad.allies.forEach((ally, index) => Object.assign(ally, {
+    x: 2200 + Math.cos(index * Math.PI / 4) * 40, y: 700 + Math.sin(index * Math.PI / 4) * 40,
+    angle: 0, cooldown: 20,
+  }));
+  for (let i = 0; i < 40; i++) squad.update(0.05, dormIdle);
+  const live = squad.allies.filter(ally => ally.hp > 0);
+  for (let i = 0; i < live.length; i++) for (let j = i + 1; j < live.length; j++)
+    assert(Math.hypot(live[i].x - live[j].x, live[i].y - live[j].y) >= 18, 'squad members should not overlap');
+  assert(Math.max(...live.map(ally => ally.x)) - Math.min(...live.map(ally => ally.x)) > 150,
+    'wedge should spread the squad across the street');
+
+  const probe = new Battle(0, 1, city);
+  probe.enemies = [];
+  Object.assign(probe.player, { x: 2200, y: 700, angle: 0 });
+  for (const ally of probe.allies) Object.assign(ally, { x: 2200, y: 700, angle: 0, cooldown: 0, ammo: 18 });
+  probe.spawnEnemy([0, 2650, 700, 'gunner']);
+  for (let i = 0; i < 12; i++) probe.update(0.05, dormIdle);
+  assert(probe.events.includes('support-shot') || probe.events.includes('support-shot-suppressed'),
+    'allies should engage a target beyond the old 305px sight radius');
 });
 test('operation actor spawns, cover and both doorways admit a continuous path to the objective', () => {
   for (const part of ['city', 'compound', 'defense']) {

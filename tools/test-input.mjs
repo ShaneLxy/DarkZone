@@ -225,6 +225,21 @@ run('scene finishes startup with a visible menu and input bindings', c => {
   click(c, 'start'); assert.equal(c.mode, 'playing');
   assert.equal(c.homeBackdrop.active, false); assert.equal(c.environmentCamera.enabled, true);
   c.update(1 / 60); assert.match(c.labels.get('ammo').string, /12/); assert.match(c.labels.get('health').string, /100/);
+}, c => { c.unlockAllChapters = false; });
+run('all four chapters are unlocked during test verification', c => {
+  clickButton(c, 'start');
+  const titles = ['静默宿舍', '归途', '归巢', '断翼行动'];
+  for (const chapter of [1, 2, 3, 4]) {
+    clickButton(c, 'chapter-' + chapter);
+    assert.equal(c.mode, 'chapter-intro');
+    assert.equal(c.labels.get('dialog-title').string, titles[chapter - 1]);
+    assert(!c.labels.has('chapter-locked'), 'chapter ' + chapter + ' still shows the locked notice');
+    clickButton(c, 'chapter-enter');
+    assert.equal(c.mode, 'select-hero', 'chapter ' + chapter + ' cannot open the sortie picker');
+    clickButton(c, 'sortie-close');
+    clickButton(c, 'chapter-cancel');
+    assert.equal(c.mode, 'chapters');
+  }
 });
 run('chapter art uses the floor loading presentation and starts only after resources arrive', c => {
   c.profile.apartmentUnlocked = true;

@@ -181,7 +181,7 @@ export function doorSurfacePolygon(origin: Point, facing: number, strict: Point[
 }
 export type TrainingKind = 'level' | 'mobility' | 'attack';
 export type Growth = { mobility: number; attack: number };
-export type Profile = { version: number; owned: Record<HeroId, boolean>; levels: Record<HeroId, number>; mobilityLevels: Record<HeroId, number>; attackLevels: Record<HeroId, number>; materials: number; coins: number; tickets: number; draws: number; victories: number; streetUnlocked: boolean; apartmentUnlocked: boolean; sound: boolean; aimAssist: boolean; autoFire: boolean; daily: DailyState; checkIn: CheckInState; tacticalUnlocked: TacticalKind[]; achievements: string[]; achievementProgress: AchievementProgress; clues: string[]; tutorial: TutorialStep; tutorialSeen: boolean; tutorialCompleted: boolean; tutorialSkipped: boolean; tutorialDismissed: boolean; armory: Armory; cases: CaseState };
+export type Profile = { version: number; owned: Record<HeroId, boolean>; levels: Record<HeroId, number>; mobilityLevels: Record<HeroId, number>; attackLevels: Record<HeroId, number>; materials: number; coins: number; tickets: number; draws: number; victories: number; streetUnlocked: boolean; apartmentUnlocked: boolean; operationArchive?: boolean; sound: boolean; aimAssist: boolean; autoFire: boolean; daily: DailyState; checkIn: CheckInState; tacticalUnlocked: TacticalKind[]; achievements: string[]; achievementProgress: AchievementProgress; clues: string[]; tutorial: TutorialStep; tutorialSeen: boolean; tutorialCompleted: boolean; tutorialSkipped: boolean; tutorialDismissed: boolean; armory: Armory; cases: CaseState };
 export const PROFILE_VERSION = 5;
 export const TRAINING_CAP = 10;
 const trainingKeys = { level: 'levels', mobility: 'mobilityLevels', attack: 'attackLevels' } as const;
@@ -212,7 +212,7 @@ export function newProfile(): Profile {
   return {
     version: PROFILE_VERSION, owned: { [HEROINE_ID]: true, [GHOST_ID]: false, [ENGINEER_ID]: false },
     levels: { ...ranks }, mobilityLevels: { ...ranks }, attackLevels: { ...ranks },
-    materials: 80, coins: 0, tickets: 3, draws: 0, victories: 0, streetUnlocked: false, apartmentUnlocked: false,
+    materials: 80, coins: 0, tickets: 3, draws: 0, victories: 0, streetUnlocked: false, apartmentUnlocked: false, operationArchive: false,
     sound: true, aimAssist: true, autoFire: false, daily: readDailyMissions(), checkIn: readCheckIn(), cases: readCaseState(), tacticalUnlocked: [],
     tutorial: 'move', tutorialSeen: false, tutorialCompleted: false, tutorialSkipped: false, tutorialDismissed: false, achievements: [], achievementProgress: readAchievementProgress(undefined), clues: [], armory: readArmory(),
   };
@@ -225,6 +225,7 @@ export function readProfile(raw: string | null, onMigration?: () => void): Profi
     for (const key of ['materials', 'coins', 'tickets', 'draws', 'victories'] as const) if (Number.isSafeInteger(v[key]) && v[key] >= 0) p[key] = Math.min(v[key], 1000000);
     p.streetUnlocked = typeof v.streetUnlocked === 'boolean' ? v.streetUnlocked : p.victories > 0;
     p.apartmentUnlocked = v.apartmentUnlocked === true;
+    p.operationArchive = v.operationArchive === true;
     p.owned[GHOST_ID] = v.version >= 2 && v.owned?.[GHOST_ID] === true;
     p.owned[ENGINEER_ID] = v.version >= 4 && v.owned?.[ENGINEER_ID] === true;
     for (const key of Object.values(trainingKeys)) {
@@ -291,7 +292,8 @@ export function recruit(p: Profile): { id: HeroId; duplicate: boolean } | null {
   if (duplicate) p.materials += 30;
   return { id, duplicate };
 }
-export type Enemy = Point & { id: number; room: number; type: 'walker' | 'spitter' | 'boss' | 'gunner'; appearance?: number; hp: number; maxHp: number; angle: number; cooldown: number; hit: number; windup: number; attackAngle: number; stun: number; paralysis?: number; charge?: BruteCharge; chargeCooldown?: number; lastSeen?: Point; combatMemory?: number; soundOnly?: boolean; hearingAlert?: boolean; investigate?: Point; investigateTime?: number; alarmInvestigation?: boolean; searchTime?: number; doorBlockId?: number; doorBlockCount?: number; forceOpen?: number; doorClearId?: number; doorClearTime?: number; doorClearPoint?: Point; knockback?: ForcedKnockback; lastHitShot?: number; attackAlly?: Ally };
+export type OperationPhase = 'brief' | 'landing' | 'line1' | 'line2' | 'line3' | 'breach' | 'leader-fight' | 'injection' | 'king-fight' | 'king-escape' | 'new-order' | 'complete' | 'retreat' | 'announcement' | 'hold' | 'strike' | 'debrief';
+export type Enemy = Point & { id: number; room: number; type: 'walker' | 'spitter' | 'boss' | 'gunner'; appearance?: number; operationBoss?: 'leader' | 'king'; hp: number; maxHp: number; angle: number; cooldown: number; hit: number; windup: number; attackAngle: number; stun: number; paralysis?: number; charge?: BruteCharge; chargeCooldown?: number; lastSeen?: Point; combatMemory?: number; soundOnly?: boolean; hearingAlert?: boolean; investigate?: Point; investigateTime?: number; alarmInvestigation?: boolean; searchTime?: number; doorBlockId?: number; doorBlockCount?: number; forceOpen?: number; doorClearId?: number; doorClearTime?: number; doorClearPoint?: Point; knockback?: ForcedKnockback; lastHitShot?: number; attackAlly?: Ally };
 type BruteGait = { phase: number; traveled: number; updated: number; planted: number; steps: number };
 export type Ally = Point & { id: number; slot: number; hp: number; maxHp: number; angle: number; cooldown: number; ammo: number; burst: number; hit: number; muzzle: number; retreat?: Point; rethink?: number; footstepTime?: number; knockback?: ForcedKnockback };
 export type Bullet = Point & { vx: number; vy: number; life: number; damage: number; hostile: boolean; push?: number; nearPush?: number; shot?: number; trainingAuto?: boolean; support?: boolean };
@@ -313,6 +315,8 @@ const STREET_ENEMY_LIMIT = 40;
 const STREET_NEARBY_LIMIT = 28;
 const STREET_SUPPORT_SIZE = 3;
 export const ALLY_VISION_RANGE = 305;
+const OPERATION_OUTDOOR_VISION_SCALE = 2;
+const OPERATION_SPAWN_SIGHT_CAP = 620;
 export const MINIMAP_CELL_SIZE = 40;
 export type SupplyKind = 'bandage' | 'medkit' | 'drink';
 export type Loot = Point & { id: number; kind: SupplyKind | 'ammo' | 'coins' | 'mod-cache'; taken: boolean };
@@ -575,7 +579,8 @@ export class Battle {
   }
   get streetSupply() { return this.streetSupplyTaken ? undefined : this.stage.street?.supply; }
   operationRun?: { ready: boolean; waypoint: number; hold: number; wave: number; cursor: number; airSupport: boolean;
-    sector: number; reinforcements: number; strike?: Point & { time: number } };
+    sector: number; reinforcements: number; strike?: Point & { time: number };
+    phase: OperationPhase; bossId: number; kingEscaped: boolean; survivors: number; announced: boolean; slam: number };
   get operationGoal() {
     const run = this.operationRun, stage = this.stage.operation;
     return run && stage && (stage.part === 'defense' || this.exitReady) ? stage.route[Math.min(run.waypoint, stage.route.length - 1)] : undefined;
@@ -583,12 +588,19 @@ export class Battle {
   get objective() {
     const operation = this.stage.operation, run = this.operationRun;
     if (operation && run) {
-      if (operation.part === 'defense') return run.waypoint < operation.route.length ? '沿主街向西，撤往海岸登陆点' : `守住登陆点 · ${Math.ceil(run.hold)} 秒`;
+      if (operation.part === 'defense') {
+        const goal = run.waypoint < operation.route.length ? '沿主街向西，撤往海岸登陆点' : `守住登陆点 · ${Math.ceil(run.hold)} 秒`;
+        return run.announced ? goal + ' · 核打击窗口 1 小时' : goal;
+      }
       const left = this.enemies.filter(e => e.hp > 0).length;
-      if (left) return (operation.part === 'city' ?
-        ['离开登陆区，夺下街口阵地', '穿过市集，留意侧翼增援', '拔除重火力点，推进至指挥部'][run.sector] :
-        '搜查连体建筑并肃清指挥室守卫') + ` · 剩余 ${left}`;
-      return operation.part === 'city' ? '前往街区东侧的指挥部' : '接近「阀」首领';
+      if (operation.part === 'compound') {
+        if (run.phase === 'leader-fight') return '压制「阀」首领 · 注意他会攻击队友' + (left ? ` · 剩余 ${left}` : '');
+        if (run.phase === 'king-fight') return '击败丧尸王 · 提防砸地与突进' + (left ? ` · 剩余 ${left}` : '');
+        if (run.kingEscaped) return '任务更新：撤回登陆区 · 前往指挥室出口';
+        return '搜查连体建筑并肃清指挥室守卫' + (left ? ` · 剩余 ${left}` : '');
+      }
+      if (left) return ['离开登陆区，夺下街口阵地', '穿过市集，留意侧翼增援', '拔除重火力点，推进至指挥部'][run.sector] + ` · 剩余 ${left}`;
+      return '前往街区东侧的指挥部';
     }
     if (this.apartment) return {
       outside: this.apartment.tankArrived ? '进入公寓门厅，甩开尸群' : '沿步道前往公寓', 'entry-talk': '与川叔会合',
@@ -611,6 +623,11 @@ export class Battle {
     if (this.stage.dorm?.number === 1) return this.pickup ? '去东侧宿管室找大门钥匙' : '穿过中央门厅的铁门，撤离宿舍楼';
     return '';
   }
+  get visionScale() {
+    return this.stage.operation ? this.stage.operation.part === 'compound' ? 1 : OPERATION_OUTDOOR_VISION_SCALE : 1;
+  }
+  get playerVisionRange() { return this.stats.visionRange * this.visionScale; }
+  get allyVisionRange() { return ALLY_VISION_RANGE * this.visionScale; }
   get exitReady() {
     if (this.stage.operation) return this.stage.operation.part !== 'defense' && !this.enemies.some(e => e.hp > 0);
     if (this.apartment) return this.apartment.phase === 'car-ready';
@@ -671,14 +688,19 @@ export class Battle {
     Object.assign(this.player, stage.spawn, { angle: facing, dashTime: 0, knockback: undefined });
     const operation = stage.operation;
     if (operation) {
-      const previous = this.allies;
+      const previous = this.allies, previousRun = this.operationRun;
       const angle = operation.part === 'defense' ? Math.PI : 0;
       this.player.angle = this.squadHeading = angle;
+      const phase: OperationPhase = operation.part === 'city' ? 'landing' : operation.part === 'compound' ? 'leader-fight' : 'retreat';
       this.operationRun = { ready: false, waypoint: 0, hold: OPERATION_HOLD, wave: 3, cursor: 0,
-        airSupport: operation.part === 'city', sector: 0, reinforcements: 0 };
-      this.allies = operation.allies.map((point, slot) => {
+        airSupport: operation.part === 'city', sector: 0, reinforcements: 0, phase,
+        bossId: -1, kingEscaped: false, survivors: previousRun?.survivors ?? operation.allies.length,
+        announced: false, slam: -2.5 };
+      const defenseRoster = operation.part === 'defense' ? previous.filter(ally => ally.hp > 0).slice(0, 2) : undefined;
+      const roster: Array<Point & { hp?: number }> = defenseRoster ?? operation.allies;
+      this.allies = roster.map((point, slot) => {
         const surviving = operation.part === 'compound' ? previous[slot] : undefined;
-        const hp = surviving?.hp ?? 110;
+        const hp = defenseRoster ? point.hp ?? 110 : surviving?.hp ?? 110;
         return { ...point, id: -1 - slot, slot, hp, maxHp: 110, angle, cooldown: 0.4, ammo: 18, burst: 0, hit: 0, muzzle: 0 };
       });
     }
@@ -1102,7 +1124,8 @@ export class Battle {
     const id = this.enemySequence++, hp = type === 'boss' ? 650 : type === 'spitter' ? 52 :
       type === 'gunner' ? appearance === OPERATION_MG ? 84 : 48 : 66;
     const angle = type === 'gunner' ? Math.PI : 0;
-    const enemy: Enemy = { id, room, x, y, type, appearance, hp, maxHp: hp, angle, cooldown: 1 + id % 3 * 0.3, hit: 0, windup: 0, attackAngle: 0, stun: 0, doorBlockCount: 0 };
+    const operationBoss = this.stage.operation?.part === 'compound' && type === 'boss' ? 'leader' as const : undefined;
+    const enemy: Enemy = { id, room, x, y, type, appearance, operationBoss, hp, maxHp: hp, angle, cooldown: 1 + id % 3 * 0.3, hit: 0, windup: 0, attackAngle: 0, stun: 0, doorBlockCount: 0 };
     const vacant = this.stage.street || this.stage.operation?.part === 'defense' || this.stage.apartment?.outdoor ? this.enemies.findIndex(e => e.hp <= 0) : -1;
     if (vacant >= 0) this.enemies[vacant] = enemy;
     else this.enemies.push(enemy);
@@ -1179,6 +1202,15 @@ export class Battle {
       this.tacticalEffects.push({ ...impact, kind: 'grenade', life: GRENADE_BLAST_LIFE, max: GRENADE_BLAST_LIFE });
       this.events.push('grenade-blast');
     }
+    if (plan.part === 'compound') {
+      if (!run.kingEscaped) {
+        const leader = this.enemies.find(e => e.operationBoss === 'leader');
+        if (leader && leader.hp <= 0 && run.phase === 'leader-fight') this.resolveOperationBoss(leader);
+      }
+      const king = this.enemies.find(e => e.operationBoss === 'king' && e.hp > 0);
+      if (king) this.stepKingSlam(king, dt);
+      if (run.kingEscaped && run.phase === 'king-escape') run.phase = 'new-order';
+    }
     if (plan.part !== 'defense') {
       if (plan.part === 'city') {
         const sector = this.player.x >= 2680 ? 2 : this.player.x >= 1500 ? 1 : 0;
@@ -1186,14 +1218,17 @@ export class Battle {
           run.sector = sector; run.reinforcements = 4; run.wave = 0.7;
           this.events.push(sector === 1 ? 'operation-market' : 'operation-emplacement');
         }
+        run.phase = this.exitReady ? 'breach' : (['line1', 'line2', 'line3'] as OperationPhase[])[sector];
         if (run.reinforcements > 0 && (run.wave -= dt) <= 0 &&
           this.enemies.filter(e => e.hp > 0 && dist(e, this.player) < 610).length < OPERATION_ENEMY_CAP) {
-          const spawn = plan.reinforcements.find(p => dist(p, this.player) < 630 && this.canSpawn(p, 360));
+          const spawn = plan.reinforcements.find(p => dist(p, this.player) < 630 && this.canSpawn(p, 360, 16, OPERATION_SPAWN_SIGHT_CAP));
           if (spawn) { this.spawnEnemy([0, spawn.x, spawn.y, 'gunner']); run.reinforcements--; }
           run.wave = spawn ? 1.4 : 0.45;
         }
       }
-      run.ready = this.exitReady && dist(this.player, this.stage.exit) < 85;
+      run.ready = this.exitReady && dist(this.player, this.stage.exit) < 85 &&
+        (plan.part !== 'compound' || run.kingEscaped);
+      if (run.ready && plan.part === 'compound') run.phase = 'complete';
       return;
     }
     const waypoint = plan.route[run.waypoint];
@@ -1201,17 +1236,28 @@ export class Battle {
       run.waypoint++;
       if (run.waypoint === plan.route.length) this.events.push('operation-hold');
     }
+    if (!run.announced && run.waypoint >= 3) {
+      run.announced = true; run.phase = 'announcement';
+      this.events.push('operation-announcement');
+    }
     if (!waypoint && dist(this.player, this.stage.exit) < 215) run.hold = Math.max(0, run.hold - dt);
     run.ready = run.hold === 0;
+    run.phase = run.ready ? 'strike' : !waypoint ? 'hold' : run.phase;
     run.wave -= dt;
     if (run.wave > 0 || this.enemies.filter(e => e.hp > 0).length >= OPERATION_ENEMY_CAP || run.ready) return;
+    const holding = run.waypoint === plan.route.length, lz = this.stage.exit;
+    const sector = holding && run.hold >= 10 ? run.cursor % 3 : -1;
+    const inSector = (point: Point) => sector < 0 ||
+      (sector === 0 ? point.x - lz.x > 420 : sector === 1 ? point.y - lz.y < -180 : point.y - lz.y > 180);
     for (let i = 0; i < plan.reinforcements.length; i++) {
-      const spawn = plan.reinforcements[run.cursor++ % plan.reinforcements.length];
-      if (dist(spawn, this.player) > 920 || !this.canSpawn(spawn, 285)) continue;
+      const spawn = plan.reinforcements[(run.cursor + i) % plan.reinforcements.length];
+      if (!inSector(spawn) || dist(spawn, this.player) > 920 || !this.canSpawn(spawn, 285, 16, OPERATION_SPAWN_SIGHT_CAP)) continue;
+      run.cursor += i + 1;
       this.spawnEnemy([0, spawn.x, spawn.y, 'walker', run.cursor % 4]);
-      run.wave = run.waypoint === plan.route.length ? 0.45 : 0.8;
+      run.wave = holding ? run.hold < 10 ? 0.3 : 0.45 : 0.8;
       return;
     }
+    run.cursor++;
     run.wave = 0.25;
   }
   private returnToGarage(snapshot?: GarageSnapshot) {
@@ -1241,8 +1287,8 @@ export class Battle {
   }
   sees(point: Point, extraRange = 0) {
     const p = this.player;
-    return (p.hp > 0 && visible(p, p.angle, point, this.visionBlockers, this.stats.visionRange + extraRange)) ||
-      this.allies.some(ally => ally.hp > 0 && visible(ally, ally.angle, point, this.visionBlockers, ALLY_VISION_RANGE + extraRange)) ||
+    return (p.hp > 0 && visible(p, p.angle, point, this.visionBlockers, this.playerVisionRange + extraRange)) ||
+      this.allies.some(ally => ally.hp > 0 && visible(ally, ally.angle, point, this.visionBlockers, this.allyVisionRange + extraRange)) ||
       this.grenadeLights.some(light => dist(light, point) <= GRENADE_LIGHT_RADIUS && lineClear(light, point, this.visionBlockers));
   }
   private updateMinimap() {
@@ -1259,7 +1305,7 @@ export class Battle {
     for (const index of this.minimapVisible) map.visible[index] = 0;
     this.minimapVisible.length = 0;
     for (const unit of [...(p.hp > 0 ? [p] : []), ...allies, ...lights]) {
-      const range = 'angle' in unit ? unit === p ? this.stats.visionRange : ALLY_VISION_RANGE : GRENADE_LIGHT_RADIUS;
+      const range = 'angle' in unit ? unit === p ? this.playerVisionRange : this.allyVisionRange : GRENADE_LIGHT_RADIUS;
       for (let y = Math.max(0, Math.floor((unit.y - range) / size)); y < Math.min(map.rows, Math.ceil((unit.y + range) / size)); y++) {
         for (let x = Math.max(0, Math.floor((unit.x - range) / size)); x < Math.min(map.columns, Math.ceil((unit.x + range) / size)); x++) {
           const index = y * map.columns + x;
@@ -1274,9 +1320,12 @@ export class Battle {
     }
     map.revision++;
   }
-  private canSpawn(point: Point, minDistance: number, radius = 16) {
+  private canSpawn(point: Point, minDistance: number, radius = 16, sightCap = Infinity) {
     const p = this.player;
-    return dist(p, point) >= minDistance && !this.sees(point, radius) &&
+    const seen = (p.hp > 0 && visible(p, p.angle, point, this.visionBlockers, Math.min(this.playerVisionRange, sightCap) + radius)) ||
+      this.allies.some(ally => ally.hp > 0 && visible(ally, ally.angle, point, this.visionBlockers, Math.min(this.allyVisionRange, sightCap) + radius)) ||
+      this.grenadeLights.some(light => dist(light, point) <= GRENADE_LIGHT_RADIUS && lineClear(light, point, this.visionBlockers));
+    return dist(p, point) >= minDistance && !seen &&
       walkable(point, radius, this.blockers, this.rooms) && this.unitSpaceFree(point, radius);
   }
   private spawnBullet(spec: Bullet) {
@@ -1370,13 +1419,13 @@ export class Battle {
   }
   private perceive() {
     if (this.stage.street && this.alarmTime !== null) return;
-    const p = this.player, detectionRange = 360;
+    const p = this.player, detectionRange = 360 * this.visionScale;
     for (const e of this.enemies) {
       if (e.hp <= 0) continue;
       const distance = dist(e, p);
-      if (this.stage.operation && distance > 850) continue;
-      if (distance <= Math.max(detectionRange, this.stats.visionRange) && lineClear(e, p, this.blockers)) {
-        if (distance <= sightRange(Math.atan2(e.y - p.y, e.x - p.x), p.angle, this.stats.visionRange)) this.discovered[e.room] = true;
+      if (this.stage.operation && distance > Math.max(850, this.playerVisionRange * 1.1)) continue;
+      if (distance <= Math.max(detectionRange, this.playerVisionRange) && lineClear(e, p, this.blockers)) {
+        if (distance <= sightRange(Math.atan2(e.y - p.y, e.x - p.x), p.angle, this.playerVisionRange)) this.discovered[e.room] = true;
         if (distance <= detectionRange && Math.abs(angleDiff(Math.atan2(p.y - e.y, p.x - e.x), e.angle)) <= Math.PI * 0.32) { e.investigate = undefined; e.hearingAlert = false; e.alarmInvestigation = false; e.lastSeen = { x: p.x, y: p.y }; e.combatMemory = 3; e.soundOnly = false; this.alertRoom(e.room); continue; }
       }
       // Room alert is shared history, not a grant to ignore a sound snapshot.
@@ -1827,6 +1876,56 @@ export class Battle {
         life, max: life, kind: 'hit-blood', owner, size });
     }
   }
+  private resolveOperationBoss(e: Enemy) {
+    const run = this.operationRun;
+    if (!run || run.kingEscaped || run.phase === 'complete' || run.phase === 'king-escape' || run.phase === 'new-order') return;
+    e.hp = 0; e.hit = e.windup = 0; e.knockback = undefined; e.charge = undefined;
+    if (e.operationBoss === 'leader') {
+      const keep = Math.min(this.allies.filter(ally => ally.hp > 0).length, 2);
+      run.survivors = keep;
+      let kept = 0;
+      for (const ally of this.allies) {
+        if (ally.hp <= 0) continue;
+        if (kept < keep) { kept++; continue; }
+        this.hurtAlly(ally, ally.hp, { angle: 0, distance: 0 });
+      }
+      run.phase = 'injection';
+      this.events.push('operation-injection');
+      const king = this.spawnEnemy([0, e.x, e.y, 'boss']);
+      king.operationBoss = 'king';
+      king.hp = king.maxHp = 1100;
+      king.x = e.x; king.y = e.y;
+      run.bossId = king.id;
+      run.phase = 'king-fight';
+      run.slam = -2.5;
+    } else {
+      run.kingEscaped = true;
+      run.phase = 'king-escape';
+      this.events.push('operation-king-escape');
+    }
+  }
+  private stepKingSlam(king: Enemy, dt: number) {
+    const run = this.operationRun;
+    if (!run) return;
+    if (run.slam > 0) {
+      const before = run.slam;
+      run.slam += dt;
+      if (before < 0.55 && run.slam >= 0.55) {
+        const impact = { angle: Math.atan2(this.player.y - king.y, this.player.x - king.x), distance: 96 };
+        for (const unit of [this.player, ...this.allies]) {
+          if (unit.hp <= 0 || dist(king, unit) > 190 || !lineClear(king, unit, this.blockers)) continue;
+          if (unit === this.player) this.hurt(38, impact);
+          else this.hurtAlly(unit as Ally, 38, impact);
+        }
+        this.bruteFootfalls.push({ x: king.x, y: king.y });
+        this.events.push('operation-slam');
+      }
+      if (run.slam >= 0.78) run.slam = -4.2;
+    } else {
+      run.slam = Math.min(0, run.slam + dt);
+      if (run.slam === 0 && dist(king, this.player) < 430) run.slam = 0.0001;
+    }
+  }
   private damageEnemy(e: Enemy, damage: number, impact?: DamageImpact, playerKill = true) {
     if (e.hp <= 0 || damage <= 0) return;
     this.alertRoom(e.room);
@@ -1836,6 +1935,7 @@ export class Battle {
     }
     e.hp = Math.max(0, e.hp - damage); e.hit = 0.12; this.events.push('hit');
     if (e.hp <= 0) {
+      if (e.operationBoss) { this.resolveOperationBoss(e); return; }
       if (playerKill) this.kills++;
       e.hit = e.windup = 0; e.knockback = undefined;
       this.particles = this.particles.filter(f => f.owner !== e.id);
@@ -2072,6 +2172,26 @@ export class Battle {
     }
     return best;
   }
+  private squadReform = 0;
+  private squadSlots(holding: boolean) {
+    if (!this.stage.operation) return [
+      { back: 85, side: -76, guard: -1 }, { back: 85, side: 76, guard: 1 },
+      { back: 142, side: 0, guard: Math.PI },
+    ];
+    if (holding) return Array.from({ length: 8 }, (_, i) => {
+      const angle = (-100 + i * 200 / 7) * Math.PI / 180, radius = i % 2 ? 150 : 100;
+      return { back: -Math.cos(angle) * radius, side: Math.sin(angle) * radius, guard: angle };
+    });
+    if (this.stage.operation?.part === 'compound') return Array.from({ length: 8 }, (_, i) =>
+      ({ back: 30 + i * 75, side: i % 2 ? -45 : 45, guard: i % 2 ? -0.5 : 0.5 }));
+    return [
+      { back: -40, side: 0, guard: 0 },
+      { back: 60, side: -115, guard: -0.6 }, { back: 60, side: 115, guard: 0.6 },
+      { back: 165, side: -165, guard: -0.8 }, { back: 165, side: 165, guard: 0.8 },
+      { back: 265, side: -95, guard: -1 }, { back: 265, side: 95, guard: 1 },
+      { back: 345, side: 0, guard: Math.PI },
+    ];
+  }
   private updateSupport(dt: number, dx: number, dy: number) {
     const support = this.stage.street?.support;
     if (!support && !this.stage.operation) return;
@@ -2091,48 +2211,103 @@ export class Battle {
     }
     if (Math.hypot(dx, dy) > 0.1) this.squadHeading = Math.atan2(dy, dx);
     const cos = Math.cos(this.squadHeading), sin = Math.sin(this.squadHeading);
+    const operation = this.stage.operation;
+    const holding = operation?.part === 'defense' && !!this.operationRun && this.operationRun.waypoint >= operation.route.length;
+    const slots = this.squadSlots(holding);
+    const slotPoint = (index: number): Point => {
+      const slot = slots[index % slots.length];
+      return { x: p.x - cos * slot.back - sin * slot.side, y: p.y - sin * slot.back + cos * slot.side };
+    };
+    this.squadReform = Math.max(0, this.squadReform - dt);
+    const live = this.allies.filter(ally => ally.hp > 0);
+    if (this.squadReform === 0 && live.length > 1) {
+      this.squadReform = 0.4;
+      const free = live.map((_, i) => i);
+      for (const ally of live) {
+        let best = free[0], cost = Infinity;
+        for (const index of free) {
+          const value = dist(ally, slotPoint(index)) + (index === ally.slot ? 0 : 45);
+          if (value < cost) { cost = value; best = index; }
+        }
+        ally.slot = best;
+        free.splice(free.indexOf(best), 1);
+      }
+    }
+    const sight = this.allyVisionRange;
     for (const ally of this.allies) {
       if (ally.hp <= 0) continue;
       ally.hit = Math.max(0, ally.hit - dt);
       ally.muzzle = Math.max(0, ally.muzzle - dt);
       ally.cooldown -= dt;
       if (ally.knockback) { this.updateKnockback(ally, dt, 15); continue; }
-      let enemy: Enemy | undefined, nearest = 305;
-      const threats: Enemy[] = [];
+      const threats: Enemy[] = [], visibleEnemies: Array<{ target: Enemy; distance: number }> = [];
+      let nearest = Infinity;
       for (const e of this.enemies) {
         const distance = dist(ally, e);
-        if (e.hp <= 0 || distance >= 305 || !lineClear(ally, e, this.blockers)) continue;
+        if (e.hp <= 0 || distance >= sight || !lineClear(ally, e, this.blockers)) continue;
         if (distance < 154) threats.push(e);
-        if (distance < nearest) { enemy = e; nearest = distance; }
+        if (distance < nearest) nearest = distance;
+        visibleEnemies.push({ target: e, distance });
       }
-      const retreating = !!enemy && nearest < (ally.retreat ? 145 : 112);
+      visibleEnemies.sort((a, b) => a.distance - b.distance);
+      const lanes = Math.min(3, visibleEnemies.length);
+      const enemy = lanes ? visibleEnemies[ally.slot % lanes].target : undefined;
+      let reported: Enemy | undefined, reportedDistance = sight * 1.4;
+      if (!enemy) for (const e of this.enemies) {
+        if (e.hp <= 0 || !e.lastSeen) continue;
+        const distance = dist(ally, e);
+        if (distance < reportedDistance && dist(e, p) < 720) { reported = e; reportedDistance = distance; }
+      }
+      const melee = threats.filter(e => e.type !== 'gunner').sort((a, b) => dist(ally, a) - dist(ally, b))[0];
+      const retreating = !!melee && dist(ally, melee) < (ally.retreat ? 145 : 112);
       ally.rethink = Math.max(0, (ally.rethink ?? 0) - dt);
       if (retreating && (ally.rethink === 0 || ally.retreat && dist(ally, ally.retreat) < 12)) {
         threats.sort((a, b) => dist(ally, a) - dist(ally, b));
         ally.retreat = this.chooseRetreat(ally, threats);
         ally.rethink = 0.20;
       } else if (!retreating) { ally.retreat = undefined; ally.rethink = 0; }
-      const back = this.stage.operation ? 68 + Math.floor(ally.slot / 2) * 42 : ally.slot < 2 ? 85 : 142;
-      const side = this.stage.operation ? (ally.slot % 2 ? 1 : -1) * (56 + ally.slot % 4 * 15) : [-76, 76, 0][ally.slot];
-      const anchor = { x: p.x - cos * back - sin * side, y: p.y - sin * back + cos * side };
-      const following = dist(ally, p) > 175;
-      const standingAhead = !following && (ally.x - p.x) * cos + (ally.y - p.y) * sin > 0 && dist(ally, p) < 86;
+      const slot = slots[ally.slot % slots.length];
+      const anchor = slotPoint(ally.slot);
+      const following = dist(ally, p) > (enemy || reported ? 300 : 175);
+      const standingAhead = !following && !holding && slot.back >= 0 && (ally.x - p.x) * cos + (ally.y - p.y) * sin > 0 && dist(ally, p) < 86;
       let target: Point = anchor;
       if (!walkable(anchor, 15, this.blockers, this.rooms) || !lineClear(ally, anchor, this.blockers)) {
         target = lineClear(ally, p, this.blockers) ? p : this.flowStep(ally, this.flow) ?? p;
       }
-      if (standingAhead) target = { x: ally.x - sin * (side < 0 ? -70 : 70), y: ally.y + cos * (side < 0 ? -70 : 70) };
+      if (reported && !enemy) {
+        const angle = Math.atan2(reported.y - ally.y, reported.x - ally.x), side = ally.slot % 2 ? 1 : -1;
+        const peek = { x: ally.x + Math.cos(angle) * 60 - Math.sin(angle) * side * 70,
+          y: ally.y + Math.sin(angle) * 60 + Math.cos(angle) * side * 70 };
+        if (walkable(peek, 15, this.blockers, this.rooms)) target = peek;
+      }
+      if (standingAhead) target = { x: ally.x - sin * (slot.side < 0 ? -70 : 70), y: ally.y + cos * (slot.side < 0 ? -70 : 70) };
+      let pushX = 0, pushY = 0;
+      for (const other of live) {
+        if (other === ally) continue;
+        const distance = dist(ally, other);
+        if (distance >= 46) continue;
+        const ux = distance > 0.5 ? (ally.x - other.x) / distance : Math.cos((ally.slot - other.slot) * 2.399);
+        const uy = distance > 0.5 ? (ally.y - other.y) / distance : Math.sin((ally.slot - other.slot) * 2.399);
+        pushX += ux * (46 - distance);
+        pushY += uy * (46 - distance);
+      }
+      if ((pushX || pushY) && !retreating) {
+        const separated = { x: target.x + pushX * 0.9, y: target.y + pushY * 0.9 };
+        if (walkable(separated, 15, this.blockers, this.rooms)) target = separated;
+      }
       const aim = Math.atan2(target.y - ally.y, target.x - ally.x);
       const beforeMove = { x: ally.x, y: ally.y };
       ally.footstepTime = Math.max(0, (ally.footstepTime ?? 0) - dt);
+      const steady = !!enemy && nearest < 280 && !following;
       if (retreating) {
         if (ally.retreat) this.advanceUnit(ally, ally.retreat, 176, dt);
-      } else if (following || standingAhead || target !== p && dist(ally, target) > 32) {
+      } else if (!steady && (following || standingAhead || target !== p && dist(ally, target) > 32)) {
         ally.angle = aim;
         if (!this.investigateDoor(ally, target, aim)) this.advanceUnit(ally, target, following ? 212 : 128, dt);
-      }
+      } else if (!enemy && !reported && dist(ally, anchor) < 40) ally.angle = this.squadHeading + slot.guard;
       if (ally.footstepTime <= 0 && dist(beforeMove, ally) > 0.5) { this.emitSound(ally, 'footstep', footstepSoundProfile(0)); ally.footstepTime = 0.55; }
       if (enemy) ally.angle = Math.atan2(enemy.y - ally.y, enemy.x - ally.x);
+      else if (reported) ally.angle = Math.atan2(reported.y - ally.y, reported.x - ally.x);
       if (!enemy || ally.cooldown > 0) continue;
       const gun = this.supportGuns[GHOST_ID], base = heroes[GHOST_ID];
       if (ally.ammo <= 0) ally.ammo = 18 + gun.magazine - base.magazine;
@@ -2311,6 +2486,7 @@ export class Battle {
     if (e.combatMemory !== undefined) e.combatMemory = Math.max(0, e.combatMemory - dt);
     if (this.stepDoorClear(e, dt)) return;
     if (e.type === 'gunner' && this.stage.operation) { this.stepOperationGunner(e, dt); return; }
+    if (e.operationBoss === 'king' && this.stepBruteCharge(e, dt)) return;
     const apartment = this.apartment;
     const outdoor = this.stage.apartment?.outdoor;
     const outside = outdoor && outdoor.room === e.room;
@@ -2324,7 +2500,7 @@ export class Battle {
     }
     if (outside && e.type === 'boss' && this.stepBruteCharge(e, dt)) return;
     const activeOutside = outside && (e.type === 'boss' || dist(e, this.player) < 300);
-    const pursuing = activeOutside || this.stage.operation?.part === 'defense' || !!this.stage.street && this.alarmTime !== null || !!apartment && ['return', 'hold', 'lift', 'car-hold', 'car-ready'].includes(apartment.phase);
+    const pursuing = activeOutside || !!e.operationBoss || this.stage.operation?.part === 'defense' || !!this.stage.street && this.alarmTime !== null || !!apartment && ['return', 'hold', 'lift', 'car-hold', 'car-ready'].includes(apartment.phase);
     const melee = e.type === 'walker' || e.type === 'boss' && !!apartment;
     let ally: Ally | undefined;
     const playerDistance = dist(e, this.player);
@@ -2375,8 +2551,8 @@ export class Battle {
             else this.hurt(damage, impact);
           }
         }
-        else for (let i = 0; i < (e.type === 'boss' ? 9 : 1); i++) {
-          const a = e.attackAngle + (e.type === 'boss' ? (i - 4) * 0.16 : 0);
+        else for (let i = 0; i < (e.type === 'boss' && e.operationBoss !== 'leader' ? 9 : 1); i++) {
+          const a = e.attackAngle + (e.type === 'boss' && e.operationBoss !== 'leader' ? (i - 4) * 0.16 : 0);
           const speed = e.type === 'gunner' ? 610 : 240;
           this.spawnBullet({ x: e.x, y: e.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, hostile: true, life: e.type === 'gunner' ? 0.64 : 3.5, damage: e.type === 'boss' ? 23 : e.type === 'gunner' ? 12 : 16, push: e.type === 'boss' ? 37 : 26 });
         }
