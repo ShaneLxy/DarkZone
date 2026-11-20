@@ -15,6 +15,8 @@ CCEffect %{
         actorsTexture: { value: white }
         visibilityTexture: { value: white }
         grading: { value: [0.27, 0.10, 0, 0] }
+        interiorBounds: { value: [0, 0, 0, 0] }
+        currentRoomBounds: { value: [0, 0, 0, 0] }
         viewInfo: { value: [1280, 720, 0, 0] }
         maskMotion: { value: [0, 0, 0, 0] }
         muzzle: { value: [640, 360, 0, 140] }
@@ -56,6 +58,8 @@ CCProgram presentation-fs %{
   uniform sampler2D visibilityTexture;
   uniform Presentation {
     vec4 grading;
+    vec4 interiorBounds;
+    vec4 currentRoomBounds;
     vec4 viewInfo;
     vec4 maskMotion;
     vec4 muzzle;
@@ -72,6 +76,23 @@ CCProgram presentation-fs %{
     float visibleLight = field.r * valid;
     float surfaceLight = field.b * valid;
     float strictLight = step(0.995, field.g) * valid;
+    float exterior = 0.0;
+    float hiddenRoom = 0.0;
+    if (grading.w > 0.001) {
+      vec2 pixel = unshakenUV * viewInfo.xy;
+      vec2 outside = abs(pixel - interiorBounds.xy) - interiorBounds.zw;
+      vec2 outsideRoom = abs(pixel - currentRoomBounds.xy) - currentRoomBounds.zw;
+      float farFromDoor = smoothstep(155.0, 310.0, length(pixel - viewInfo.xy * 0.5));
+      exterior = grading.w * smoothstep(2.0, 38.0, max(outside.x, outside.y)) * farFromDoor * (1.0 - 0.8 * visibleLight);
+      hiddenRoom = grading.w * (1.0 - smoothstep(-3.0, 2.0, max(outside.x, outside.y)))
+        * smoothstep(3.0, 17.0, max(outsideRoom.x, outsideRoom.y)) * (1.0 - smoothstep(0.02, 0.68, max(visibleLight, surfaceLight)));
+      if (exterior > 0.001) {
+        vec2 spread = vec2(1.8, 1.1) / viewInfo.xy;
+        vec3 soft = 0.5 * (texture(cc_spriteTexture, clamp(sceneUV + spread, 0.0, 1.0)).rgb
+          + texture(cc_spriteTexture, clamp(sceneUV - spread, 0.0, 1.0)).rgb);
+        scene.rgb = mix(scene.rgb, soft, exterior * 0.60);
+      }
+    }
     float distanceToMuzzle = length(unshakenUV * viewInfo.xy - muzzle.xy);
     float flash = muzzle.z * (1.0 - smoothstep(12.0, muzzle.w, distanceToMuzzle)) * strictLight;
     float lampDistance = length(unshakenUV * viewInfo.xy - doorLamp.xy);
@@ -83,6 +104,7 @@ CCProgram presentation-fs %{
     vec3 grayEnvironment = mix(vec3(luminance), scene.rgb, grading.y) * grading.x * vec3(0.85, 0.96, 1.12);
     vec3 normalEnvironment = scene.rgb * vec3(1.03, 1.01, 0.97);
     vec3 result = mix(grayEnvironment, normalEnvironment, lit);
+    result *= 1.0 - 0.22 * exterior - 0.79 * hiddenRoom;
     result += vec3(0.56, 0.34, 0.12) * flash * 0.24;
     result += vec3(0.24, 0.17, 0.09) * lamp * 0.55;
     // The actor RT is already clipped by exact line of sight. Its RGB is

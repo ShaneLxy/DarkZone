@@ -1,10 +1,13 @@
 // Reusable first-pass tactical item and sound-domain primitives.
 // No Cocos/browser dependency: Core and Blackout can consume these without coupling UI to rules.
 import { heroes, type HeroId } from './Heroes';
+import { OPERATION_GRENADE_FUSE } from './Operation';
 
 export type Point = { x: number; y: number };
 export type Blocker = { x: number; y: number; w: number; h: number; angle?: number; kind?: string };
 export type TacticalKind = 'grenade' | 'flashbang' | 'proximity-mine' | 'shock-mine' | 'claymore';
+export type TacticalThrow = Point & { kind: TacticalKind; delay: number; origin: Point; angle?: number;
+  flight?: { vx: number; vy: number; bounces: number; sinceBounce: number } };
 
 export type TacticalDefinition = {
   kind: TacticalKind;
@@ -23,8 +26,7 @@ export type TacticalDefinition = {
 export const TACTICAL_DEFINITIONS: Readonly<Record<TacticalKind, TacticalDefinition>> = {
   grenade: { kind: 'grenade', title: '手雷', maxUses: 2, delay: 0.32, radius: 92, cooldown: 1.15, damage: 48, doorDamage: 85, stun: 0, bossStunScale: 0, loudness: 1 },
   flashbang: { kind: 'flashbang', title: '震撼弹', maxUses: 2, delay: 0.26, radius: 118, cooldown: 1.15, damage: 0, doorDamage: 0, stun: 0.85, bossStunScale: 0.35, loudness: 1 },
-  // Data-only for the next version. It is intentionally not in the selectable list.
-  'proximity-mine': { kind: 'proximity-mine', title: '感应地雷', maxUses: 2, delay: 0, radius: 100, cooldown: 1.4, damage: 70, doorDamage: 100, stun: 0, bossStunScale: 0, loudness: 0.8 },
+  'proximity-mine': { kind: 'proximity-mine', title: '感应地雷', maxUses: 2, delay: 1, radius: 138, cooldown: 1.4, damage: 70, doorDamage: 100, stun: 0, bossStunScale: 0, loudness: 1 },
   'shock-mine': { kind: 'shock-mine', title: '麻痹地雷', maxUses: 2, delay: 0, radius: 95, cooldown: 1.4, damage: 0, doorDamage: 0, stun: 2.4, bossStunScale: 0.5, loudness: 0.35 },
   claymore: { kind: 'claymore', title: '阔剑地雷', maxUses: 2, delay: 0, radius: 140, cooldown: 1.4, damage: 80, doorDamage: 70, stun: 0, bossStunScale: 0, loudness: 1 },
 };
@@ -45,6 +47,20 @@ export function grenadePose(remaining: number) {
   }
   const t = Math.min(1, (elapsed - GRENADE_AIR_TIME) / GRENADE_BOUNCE_TIME);
   return { travel: 0.83 + 0.17 * (1 - (1 - t) ** 2), height: 29 * t * (1 - t), spin: 430 + t * 142 };
+}
+
+export function grenadeThrowPose(item: TacticalThrow) {
+  if (item.flight) {
+    const { vx, vy, bounces, sinceBounce } = item.flight;
+    const t = Math.max(0, Math.min(1, 1 - item.delay / OPERATION_GRENADE_FUSE));
+    const hop = Math.max(0, Math.min(1, sinceBounce / 0.14));
+    const height = Math.hypot(vx, vy) < 1 ? 0 : bounces ? 52 * hop * (1 - hop) * 0.6 ** (bounces - 1) : 112 * t * (1 - t);
+    return { x: item.x, y: item.y, height, angle: (item.angle ?? 0) * 180 / Math.PI + t * 800 };
+  }
+  const pose = grenadePose(item.delay);
+  return { x: item.origin.x + (item.x - item.origin.x) * pose.travel,
+    y: item.origin.y + (item.y - item.origin.y) * pose.travel, height: pose.height,
+    angle: pose.spin + Math.atan2(item.y - item.origin.y, item.x - item.origin.x) * 180 / Math.PI };
 }
 
 export type TacticalLoadout = { selected: TacticalKind | null; remaining: number; cooldown: number; capacity?: number };

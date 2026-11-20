@@ -1,13 +1,18 @@
 type Crop = readonly [number, number, number, number];
-export type CampaignImage = 'map' | 'map-frame' | 'hero-frame' | 'achievement-shell' | 'plate' | 'plate-active' | 'track' | 'fill' |
+export type CampaignImage = 'satellite-map' | 'harbor-selection' | 'map-frame' | 'radio-panel' | 'departure-brief' | 'liaison' | 'profile-panel' | 'profile-shell' | 'profile-banner' | 'hero-frame' | 'achievement-shell' | 'plate' | 'plate-active' | 'track' | 'fill' |
   'badge-combat' | 'badge-chapter' | 'badge-equipment' | 'badge-growth' | 'badge-collection' |
-  'pin' | 'pin-locked' | 'chapter-card' | 'chapter-1' | 'chapter-2' | 'chapter-3' | 'chapter-4' |
+  'chapter-card' | 'chapter-1' | 'chapter-2' | 'chapter-3' | 'chapter-4' |
   'hero-card' | 'hero-active' | 'lock' | 'team' | 'rating-filled' | 'rating-empty';
 type Asset = { file: string; image: CampaignImage } | { file: string; crops: Partial<Record<CampaignImage, Crop>> };
 export const CAMPAIGN_ART: readonly Asset[] = [
+  { file: 'satellite-map', image: 'satellite-map' },
+  { file: 'harbor-selection-v2', image: 'harbor-selection' },
   { file: 'tanSuo', image: 'map-frame' },
+  { file: 'field-panels', crops: { 'radio-panel': [0, 0, 1024, 135], 'profile-panel': [0, 152, 900, 360] } },
+  { file: 'departure-brief-v1', image: 'departure-brief' },
+  { file: 'account-shell', image: 'profile-shell' },
+  { file: 'account-dusk', image: 'profile-banner' },
   { file: 'selectHero', image: 'hero-frame' },
-  { file: 'map', image: 'map' },
   { file: 'chapter-4', image: 'chapter-4' },
   { file: 'achievement-shell', image: 'achievement-shell' },
   { file: 'atlas', crops: {
@@ -18,7 +23,7 @@ export const CAMPAIGN_ART: readonly Asset[] = [
     'badge-collection': [1657, 455, 266, 245],
   } },
   { file: 'missions', crops: {
-    pin: [83, 41, 381, 424], 'pin-locked': [622, 41, 339, 424], 'chapter-card': [1058, 154, 661, 202],
+    'chapter-card': [1058, 154, 661, 202],
     'chapter-1': [46, 516, 536, 306], 'chapter-2': [623, 516, 529, 306], 'chapter-3': [1191, 516, 544, 306],
   } },
   { file: 'hero-ui', crops: {
@@ -26,3 +31,15 @@ export const CAMPAIGN_ART: readonly Asset[] = [
     team: [90, 645, 373, 252], 'rating-filled': [587, 705, 364, 154], 'rating-empty': [1085, 705, 365, 154],
   } },
 ];
+
+// Bottom-left origin, normalized to the satellite artwork.
+export const CAMPAIGN_LOCATIONS = {
+  1: { x: .103, y: .795 }, 2: { x: .206, y: .752 }, 3: { x: .315, y: .706 },
+  4: { x: .812, y: .323 },
+} as const;
+
+export function satelliteFraming(width: number, height: number, focusX: number, focusY: number, zoom: number, aspect = width / height) {
+  const w = Math.max(width, height * aspect) * zoom, h = Math.max(height, width / aspect) * zoom;
+  return { w, h, left: Math.min(0, Math.max(width - w, width / 2 - focusX * w)),
+    bottom: Math.min(0, Math.max(height - h, height / 2 - focusY * h)) };
+}

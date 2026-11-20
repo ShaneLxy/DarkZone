@@ -103,12 +103,14 @@ export function prepareCaseOpening<T extends CaseWallet>(wallet: T, id: CaseId, 
 
 const ACCEL = 0.72, CRUISE = 1.16, DECEL = 2.25;
 export const CASE_ROLL_TIME = ACCEL + CRUISE + DECEL;
-export function caseRollProgress(seconds: number) {
-  const distance = ACCEL / 2 + CRUISE + DECEL / 3;
+export function caseRollProgress(seconds: number, entryRate = 0) {
   if (seconds <= 0) return 0;
-  if (seconds < ACCEL) return seconds ** 2 / (2 * ACCEL * distance);
+  if (seconds >= CASE_ROLL_TIME) return 1;
+  // Integrate eased velocity, keeping the idle velocity at the moment opening starts.
+  const peak = (1 - entryRate * ACCEL / 2) / (ACCEL / 2 + CRUISE + DECEL / 2);
+  const integral = (t: number) => t ** 3 * (1 - t / 2);
+  if (seconds < ACCEL) return entryRate * seconds + (peak - entryRate) * ACCEL * integral(seconds / ACCEL);
   const brake = seconds - ACCEL - CRUISE;
-  if (brake <= 0) return (seconds - ACCEL / 2) / distance;
-  if (brake >= DECEL) return 1;
-  return 1 - (DECEL - brake) ** 3 / (3 * DECEL ** 2 * distance);
+  if (brake <= 0) return (peak + entryRate) * ACCEL / 2 + peak * (seconds - ACCEL);
+  return 1 - peak * DECEL * integral((DECEL - brake) / DECEL);
 }

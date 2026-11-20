@@ -9,6 +9,38 @@ export const DARK_SATURATION = 0.10;
 export const FEATHER_PIXELS = 96;
 export const OCCLUSION_FEATHER_PIXELS = 12;
 export const DOOR_LAMP_RADIUS = 48;
+export class PlayerHealthDisplay {
+  fill = 1;
+  trail = 1;
+  private target = 1;
+  private hold = 0;
+
+  reset(ratio: number) {
+    this.fill = this.trail = this.target = clamp(ratio, 0, 1);
+    this.hold = 0;
+  }
+
+  step(ratio: number, dt: number) {
+    ratio = clamp(ratio, 0, 1);
+    if (ratio < this.target) {
+      this.trail = Math.max(this.trail, this.fill);
+      this.hold = 0.16;
+    } else if (ratio > this.target) {
+      this.trail = this.fill;
+      this.hold = 0;
+    }
+    this.target = ratio;
+    this.fill = this.approach(this.fill, ratio, dt, ratio > this.fill ? 7 : 26);
+    this.hold = Math.max(0, this.hold - dt);
+    if (this.hold === 0) this.trail = Math.max(this.fill, this.approach(this.trail, ratio, dt, 6));
+  }
+
+  private approach(value: number, target: number, dt: number, rate: number) {
+    if (Math.abs(value - target) < 0.002) return target;
+    return target + (value - target) * Math.exp(-dt * rate);
+  }
+}
+
 const smoothstep = (a: number, b: number, v: number) => { const x = clamp((v - a) / (b - a), 0, 1); return x * x * (3 - 2 * x); };
 export function doorLampFlicker(lamp: FaultyDoorLamp, time: number) {
   const t = (time + lamp.phase) % lamp.period;
@@ -138,6 +170,23 @@ export class VisibilityField {
       target[i] = Math.max(target[i], Math.round(source[i] * intensity));
       target[i + 1] = Math.max(target[i + 1], source[i + 1]);
       target[i + 2] = Math.max(target[i + 2], Math.round(source[i + 2] * intensity));
+    }
+  }
+  addAerialSight(origin: Point, radius: number, intensity: number) {
+    const sx = VIEW_WIDTH / this.width, sy = VIEW_HEIGHT / this.height;
+    const minX = Math.max(0, Math.floor((origin.x - radius) / sx));
+    const maxX = Math.min(this.width - 1, Math.ceil((origin.x + radius) / sx));
+    const minY = Math.max(0, Math.floor((origin.y - radius) / sy));
+    const maxY = Math.min(this.height - 1, Math.ceil((origin.y + radius) / sy));
+    const radius2 = radius * radius;
+    for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
+      const dx = (x + 0.5) * sx - origin.x, dy = (y + 0.5) * sy - origin.y;
+      const distance2 = dx * dx + dy * dy;
+      if (distance2 >= radius2) continue;
+      const light = smoothstep(0, FEATHER_PIXELS, radius - Math.sqrt(distance2)) * intensity;
+      const index = (y * this.width + x) * 4;
+      this.pixels[index] = Math.max(this.pixels[index], Math.round(light * 255));
+      this.pixels[index + 1] = 255;
     }
   }
   addDoorLamp(lamp: Point, viewer: Point, blocks: Rect[]) {
@@ -305,15 +354,16 @@ export class CombatFeedback {
     const angle = Math.atan2(listener.y - source.y, listener.x - source.x);
     this.impulse(Math.cos(angle) * strength * 0.65, Math.sin(angle) * strength * 0.65 - strength * 0.55);
   }
-  explosion(source: Point, listener: Point, obstructed: boolean) {
-    const strength = 7 * (1 - clamp(dist(source, listener) / 520, 0, 1)) * (obstructed ? 0.42 : 1);
+  explosion(source: Point, listener: Point, obstructed: boolean, scale = 1) {
+    const strength = 7 * scale * (1 - clamp(dist(source, listener) / (520 * scale), 0, 1)) * (obstructed ? 0.42 : 1);
     const angle = Math.atan2(listener.y - source.y, listener.x - source.x);
     this.impulse(Math.cos(angle) * strength, Math.sin(angle) * strength - strength * 0.3);
   }
-  hurt(hpRatio = 1) {
+  hurt(hpRatio = 1, angle?: number) {
     this.hitDuration = 0.18 + 0.24 * clamp(1 - hpRatio, 0, 1) ** 2;
     this.hitTime = this.hitDuration;
-    this.impulse(this.shotCount % 2 ? -3.5 : 3.5, 2.6);
+    if (angle === undefined) this.impulse(this.shotCount % 2 ? -3.5 : 3.5, 2.6);
+    else this.impulse(Math.cos(angle) * 3.9, Math.sin(angle) * 3.9);
   }
   step(dt: number, hpRatio: number, active: boolean) {
     this.active = active;

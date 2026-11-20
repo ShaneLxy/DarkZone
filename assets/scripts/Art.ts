@@ -1,6 +1,6 @@
 import { Color, Graphics } from 'cc';
-import { Battle, BloodStain, BRUTE_WINDUP, Door, doorShape, Enemy, engineerMuzzle, FACILITY_LEVEL, HEROINE_ID, lineClear, Particle, Point, Rect, rectCorners, rayDistance, visible, walkable } from './Core';
-import { TACTICAL_DEFINITIONS } from './Tactical';
+import { Battle, BloodStain, BRUTE_WINDUP, clamp, Door, doorShape, Enemy, engineerMuzzle, FACILITY_LEVEL, HEROINE_ID, lineClear, Particle, Point, Rect, rectCorners, rayDistance, visible, walkable } from './Core';
+import { grenadeThrowPose, TACTICAL_DEFINITIONS } from './Tactical';
 import { ENGINEER_ID } from './Heroes';
 import type { LevelDefinition } from './Levels';
 import type { AmbientAnimal } from './AmbientWildlife';
@@ -109,14 +109,23 @@ export function drawMap(g: Graphics, phase: 'all' | 'floor' | 'fixtures' = 'all'
   box(g, 190, 266, 140, 42, '#404a45');
   }
   if (phase === 'floor') return;
-  for (const f of furniture) if (!rasterProps.has(f.kind + ':' + f.x + ':' + f.y)) drawFurniture(g, f);
+  for (const f of furniture) if (f.kind !== 'harbor-obstacle' && !rasterProps.has(f.kind + ':' + f.x + ':' + f.y)) drawFurniture(g, f);
   for (const w of walls) {
+    if (w.kind === 'harbor-obstacle' || w.kind === 'harbor-water') continue;
+    if (stage.survival && rasterProps.has(w.kind + ':' + w.x + ':' + w.y)) continue;
+    if (w.kind === 'survival-window') {
+      box(g, w.x, w.y, w.w, w.h, '#4f625f');
+      box(g, w.x + 3, w.y + 3, w.w - 6, w.h - 6, '#99b5b3', 140);
+      line(g, w.x + w.w / 2, w.y + 2, w.x + w.w / 2, w.y + w.h - 2, '#576b66', 3);
+      continue;
+    }
     box(g, w.x, w.y, w.w, w.h, '#716f5b');
     box(g, w.x + 3, w.y + 3, Math.max(2, w.w - 6), Math.max(2, w.h - 6), '#9d9780');
     line(g, w.x, w.y + w.h - 1, w.x + w.w, w.y + w.h - 1, '#d4c9a8', 2);
     line(g, w.x + 1, w.y, w.x + 1, w.y + w.h, '#b7ae94', 1);
     line(g, w.x + w.w, w.y, w.x + w.w, w.y + w.h, '#3c433d', 3);
   }
+  if (stage.survival) return;
   // Open door frames make the route readable, without locking the player in.
   for (const p of [{ x: 830, y: 330 }, { x: 1175, y: 670 }, { x: 1530, y: 920 }]) {
     disc(g, p.x, p.y, 5, '#b7c2b0'); disc(g, p.x, p.y, 10, '#c6d2b4', 22);
@@ -393,9 +402,43 @@ export function drawParalysis(g: Graphics, b: Battle) {
     }
   }
 }
+function drawDaylightFlash(g: Graphics, origin: Point, angle: number, strength: number, length: number) {
+  const c = Math.cos(angle), s = Math.sin(angle);
+  const at = (forward: number, side: number) => ({ x: origin.x + forward * c - side * s, y: origin.y + forward * s + side * c });
+  const light = Math.sqrt(clamp(strength, 0, 1));
+  const reach = length * (0.7 + 0.3 * light);
+  polygon(g, [at(-3, -4), at(7, -8), at(reach + 4, 0), at(7, 8), at(-3, 4)], '#5c321e', Math.round(230 * light));
+  polygon(g, [at(0, -3), at(8, -6), at(reach, 0), at(8, 6), at(0, 3)], '#f68b30', Math.round(245 * light));
+  polygon(g, [at(0, -2), at(7, -3), at(reach * 0.68, 0), at(7, 3), at(0, 2)], '#fff7ce', Math.round(255 * light));
+}
+
+export function drawRecovery(g: Graphics, b: Battle) {
+  for (const [unit, time] of b.recoveryFx) {
+    if (unit.hp <= 0) continue;
+    const intensity = Math.min(1, time / 0.45);
+    const age = 0.84 - time;
+    const y = unit.y + 3;
+    disc(g, unit.x, y, 29, '#5bf58a', Math.round(49 * intensity));
+    disc(g, unit.x, y, 17, '#97ffaa', Math.round(37 * intensity));
+    g.strokeColor = color('#87ffa2', Math.round(130 * intensity));
+    g.lineWidth = 1.8;
+    g.circle(unit.x, y, 20 + 8 * (1 - intensity)); g.stroke();
+    for (let i = 0; i < 6; i++) {
+      const wave = (age * 2.6 + b.elapsed * 1.25 + i / 6) % 1;
+      const angle = i * 2.399 + b.elapsed * 2.6;
+      const x = unit.x + Math.cos(angle) * (11 + 19 * wave);
+      const height = y + 52 * wave + Math.sin(angle) * 7;
+      const alpha = Math.round(192 * intensity * Math.sin(Math.PI * wave));
+      disc(g, x, height, 1.7 + (1 - wave) * 0.8, '#adffb9', alpha);
+    }
+  }
+}
+
 export function drawActors(g: Graphics, b: Battle, pose: ActorPose, rasterPlayer = false, rasterWalker = false, rasterRoll = false, enemyPoses: ReadonlyMap<number, ActorPose> = new Map(), rasterOperator = false, rasterBrute = false, grenadeArt = false, blastArt = false) {
   g.clear();
+  const daylight = b.visionScale > 1, boarding = b.operationRun?.phase === 'boarding';
   for (const unit of [b.player, ...b.allies]) {
+    if (boarding) break;
     if (unit.hp <= 0 || b.evacuationDrive) continue;
     disc(g, unit.x, unit.y, 25, '#43cb82', 40);
     g.strokeColor = color('#79e5a4', 176); g.lineWidth = 2;
@@ -403,7 +446,7 @@ export function drawActors(g: Graphics, b: Battle, pose: ActorPose, rasterPlayer
   }
   for (const e of b.enemies) {
     if (e.hp <= 0) continue;
-    if ((b.stage.street || b.stage.operation) && !b.sees(e, 35)) continue;
+    if ((b.stage.street || b.stage.operation || b.stage.survival) && !b.sees(e, 35)) continue;
     if (e.hit > 0) disc(g, e.x, e.y, 24, '#ffe8b8', Math.round(e.hit / 0.12 * 65));
     const enemyPose = enemyPoses.get(e.id), sc = (e.type === 'boss' ? 1.7 : 1) * (enemyPose?.scale || 1);
     const model = paralyzedModelPosition(e, b.elapsed);
@@ -426,15 +469,33 @@ export function drawActors(g: Graphics, b: Battle, pose: ActorPose, rasterPlayer
         line(g, from.x, from.y, to.x, to.y, '#f9a170', 1.6, alpha + 55);
       }
     }
-    if (e.hp < e.maxHp) { box(g, e.x - 22 * sc, e.y + 28 * sc, 44 * sc, 4, '#182629'); box(g, e.x - 22 * sc, e.y + 28 * sc, 44 * sc * Math.max(0, e.hp / e.maxHp), 4, '#bf7863'); }
+    if (!e.operationBoss && e.hp < e.maxHp) { box(g, e.x - 22 * sc, e.y + 28 * sc, 44 * sc, 4, '#182629'); box(g, e.x - 22 * sc, e.y + 28 * sc, 44 * sc * Math.max(0, e.hp / e.maxHp), 4, '#bf7863'); }
+    const slam = e.operationBoss === 'king' ? b.operationRun?.slam ?? 0 : 0;
+    if (slam > 0) {
+      const anticipation = Math.min(1, slam / 0.55);
+      disc(g, e.x, e.y, 190, '#b74827', Math.round(24 + anticipation * 42));
+      g.strokeColor = color('#f2a15b', Math.round(108 + anticipation * 103)); g.lineWidth = 2.6;
+      g.circle(e.x, e.y, 190); g.stroke();
+      const radius = slam < 0.55 ? 34 + anticipation * 151 : Math.min(190, 70 + (slam - 0.55) * 530);
+      g.strokeColor = color('#ffd197', 185); g.lineWidth = 3;
+      g.circle(e.x, e.y, radius); g.stroke();
+    }
     if (e.windup > 0) {
       const radius = e.type === 'walker' ? 46 : 32;
       g.strokeColor = color('#e6a26a', 200); g.lineWidth = 2; g.circle(e.x, e.y, radius * sc); g.stroke();
       if (e.type !== 'walker' && !(e.type === 'boss' && b.apartment)) line(g, e.x, e.y, e.x + Math.cos(e.attackAngle) * 340, e.y + Math.sin(e.attackAngle) * 340, '#ce805d', 2, 95);
     }
+    if (e.muzzle) {
+      const angle = e.attackAngle, reach = e.operationBoss === 'leader' ? 47 : 36;
+      const muzzle = { x: e.x + Math.cos(angle) * reach, y: e.y + Math.sin(angle) * reach };
+      if (lineClear(e, muzzle, b.blockers)) {
+        if (daylight) drawDaylightFlash(g, muzzle, angle, e.muzzle / 0.08, 27);
+        else line(g, muzzle.x, muzzle.y, muzzle.x + Math.cos(angle) * 15, muzzle.y + Math.sin(angle) * 15, '#ffd18d', 3, Math.round(250 * e.muzzle / 0.08));
+      }
+    }
   }
   for (const ally of b.allies) {
-    if (ally.hp <= 0 || b.evacuationDrive) continue;
+    if (boarding || ally.hp <= 0 || b.evacuationDrive) continue;
     const allyPose = enemyPoses.get(ally.id), scale = allyPose?.scale ?? 1;
     if (allyPose && ally !== b.apartment?.engineer && !b.stage.operation) drawFeet(g, ally, ally.angle, scale, allyPose, 'military');
     if (!rasterOperator) drawPerson(g, ally, ally.angle, '#88b2ad', scale, true, ally.hit > 0);
@@ -448,21 +509,26 @@ export function drawActors(g: Graphics, b: Battle, pose: ActorPose, rasterPlayer
         : weaponMount(ally, scale, rasterOperator, 0, allyPose).muzzle;
       const { x, y } = mount;
       if (lineClear(ally, mount, b.blockers)) {
-        disc(g, x, y, 9, '#eca25b', Math.round(120 * ally.muzzle / 0.09));
-        line(g, x, y, x + Math.cos(angle) * 16, y + Math.sin(angle) * 16, '#fff0bd', 3);
+        if (daylight) drawDaylightFlash(g, mount, angle, ally.muzzle / 0.09, 25);
+        else {
+          disc(g, x, y, 9, '#eca25b', Math.round(120 * ally.muzzle / 0.09));
+          line(g, x, y, x + Math.cos(angle) * 16, y + Math.sin(angle) * 16, '#fff0bd', 3);
+        }
       }
     }
   }
   for (const item of b.tacticalThrows) {
     if (item.kind === 'grenade' && grenadeArt) continue;
     const duration = TACTICAL_DEFINITIONS[item.kind].delay, t = Math.max(0, Math.min(1, 1 - item.delay / duration));
-    const x = item.origin.x + (item.x - item.origin.x) * t, y = item.origin.y + (item.y - item.origin.y) * t + Math.sin(t * Math.PI) * 28;
+    const pose = item.kind === 'grenade' ? grenadeThrowPose(item) : undefined;
+    const x = pose ? pose.x : item.origin.x + (item.x - item.origin.x) * t;
+    const y = pose ? pose.y + pose.height : item.origin.y + (item.y - item.origin.y) * t + Math.sin(t * Math.PI) * 28;
     g.strokeColor = color(item.kind === 'grenade' ? '#ffa94f' : '#97eaff', 210); g.lineWidth = 2;
     g.circle(item.x, item.y, 9 + Math.sin(t * Math.PI) * 3); g.stroke();
     line(g, x - 5, y - 5, x, y, '#fff0be', 2); disc(g, x, y, 5, item.kind === 'grenade' ? '#e39b45' : '#c7f6ff');
   }
   for (const effect of b.tacticalEffects) {
-    if (effect.kind === 'grenade' && blastArt) continue;
+    if ((effect.kind === 'grenade' || effect.kind === 'proximity-mine') && blastArt) continue;
     const definition = TACTICAL_DEFINITIONS[effect.kind], explosive = definition.damage > 0;
     const t = 1 - effect.life / effect.max, radius = definition.radius * Math.min(1, 0.15 + t * 1.4);
     const tint = explosive ? '#ff9b3d' : '#a9efff', alpha = Math.round((1 - t) * 220);
@@ -476,25 +542,74 @@ export function drawActors(g: Graphics, b: Battle, pose: ActorPose, rasterPlayer
     for (let i = 1; i < points.length; i++) line(g, points[i - 1].x, points[i - 1].y, points[i].x, points[i].y, tint, explosive ? 4 : 2, alpha);
     disc(g, effect.x, effect.y, Math.max(2, (1 - t) * 12), explosive ? '#ffe5a4' : '#efffff', alpha);
   }
+  const mutation = b.operationMutationFlash;
+  if (mutation) {
+    const energy = Math.min(1, mutation.life / 0.24);
+    disc(g, mutation.x, mutation.y, 34 + (1 - energy) * 45, '#aacc8c', Math.round(160 * energy));
+    disc(g, mutation.x, mutation.y, 29 * energy, '#edfac3', Math.round(210 * energy));
+  }
   for (const f of b.particles) {
-    if (f.kind === 'hit-blood') continue;
+    if (f.kind === 'hit-blood' || f.kind === 'hit-fabric') continue;
+    if (f.kind === 'air-case') {
+      const alpha = Math.round(255 * Math.min(1, f.life / 0.14)), angle = f.rotation ?? 0;
+      const dx = 3.1 * Math.cos(angle), dy = 3.1 * Math.sin(angle), y = f.y + (f.z ?? 0);
+      line(g, f.x - dx, y - dy, f.x + dx, y + dy, '#7a4d2d', 3, alpha);
+      line(g, f.x - dx, y - dy + 0.7, f.x + dx, y + dy + 0.7, '#edc475', 1.5, alpha);
+      continue;
+    }
+    if (f.kind === 'air-dust') {
+      const age = 1 - f.life / f.max;
+      disc(g, f.x, f.y, 7 + age * 12, '#c9a887', Math.round(105 * (1 - age)));
+      continue;
+    }
+    if (f.kind === 'air-chip') {
+      box(g, f.x, f.y, 3, 2, '#e3c79a', Math.round(240 * f.life / f.max));
+      continue;
+    }
     const tint = f.kind === 'spark' ? '#e6bd71' : '#b79b6c';
     disc(g, f.x, f.y, f.size ?? (f.kind === 'spark' ? 2 : 3), tint, Math.round(f.life / f.max * 240));
   }
   for (const f of b.deathFragments) {
-    const alpha = Math.round(Math.min(1, f.life / 0.16) * 240), size = (f.size || 3) * (0.82 + Math.min(1, (f.z || 0) / 10) * 0.18), body = f.kind === 'body';
-    if (body) {
-      const a = f.rotation || 0, c = Math.cos(a), s = Math.sin(a), x = f.x, y = f.y;
-      polygon(g, [{ x: x - c * size, y: y - s * size }, { x: x + s * size * 0.7, y: y - c * size * 0.7 }, { x: x + c * size, y: y + s * size }, { x: x - s * size * 0.7, y: y + c * size * 0.7 }], '#7f4b42', alpha);
-      line(g, x - c * size * 0.7, y - s * size * 0.7, x + c * size * 0.7, y + s * size * 0.7, '#bd6a55', 1, alpha);
-    } else disc(g, f.x, f.y, size * 0.55, '#b83b3c', alpha);
+    const alpha = Math.round(Math.min(1, f.life / (f.kind === 'fall' ? .12 : .31)) * 242);
+    const height = f.z ?? 0, size = f.size ?? 3, x = f.x, y = f.y + height * .58;
+    const a = f.rotation ?? 0, c = Math.cos(a), s = Math.sin(a);
+    const point = (along: number, across: number) => ({ x: x + (along * c - across * s) * size, y: y + (along * s + across * c) * size });
+    if (f.kind === 'fall') {
+      polygon(g, [point(-1.8, -.42), point(-.6, -.71), point(.66, -.8), point(1.18, -.39),
+        point(1.16, .37), point(.39, .75), point(-.6, .65), point(-1.65, .45)], f.tint ?? '#58554b', alpha);
+      const head = point(1.24, -.16);
+      disc(g, head.x, head.y, size * .46, '#383831', alpha);
+    } else if (f.kind === 'blood') {
+      box(g, x - size * .35, y - size * .27, size * .7, size * .54, '#8c2730', alpha);
+    } else {
+      if (height > .5) disc(g, f.x, f.y, size * .76, '#241613', Math.round(alpha * .30));
+      const gear = f.kind === 'gear';
+      polygon(g, [point(-.98, -.25), point(-.56, -.62), point(.31, -.69), point(.84, -.27),
+        point(.63, .33), point(.21, .66), point(-.71, .5)], gear ? f.tint ?? '#5d5748' : '#642d2b', alpha);
+      polygon(g, [point(-.52, -.33), point(.38, -.42), point(.47, .04), point(-.29, .30)],
+        gear ? '#a59872' : '#a25649', Math.round(alpha * .90));
+    }
   }
   for (const shot of b.bullets) {
-    if (shot.hostile) { disc(g, shot.x, shot.y, 8, '#de8c61', 30); disc(g, shot.x, shot.y, 4, '#e8a36a'); }
-    else line(g, shot.x, shot.y, shot.x - shot.vx * 0.023, shot.y - shot.vy * 0.023, '#f3d59b', 2);
+    if (shot.airSupport) {
+      const factor = Math.min(24, shot.traveled ?? 0) / Math.hypot(shot.vx, shot.vy);
+      const dx = shot.vx * factor, dy = shot.vy * factor;
+      line(g, shot.x, shot.y, shot.x - dx, shot.y - dy, '#9b531c', 4, 223);
+      line(g, shot.x, shot.y, shot.x - dx * 0.83, shot.y - dy * 0.83, '#fff0b8', 1.8, 255);
+    } else if (shot.hostile && !shot.firearm) { disc(g, shot.x, shot.y, 8, '#de8c61', 30); disc(g, shot.x, shot.y, 4, '#e8a36a'); }
+    else {
+      const trail = Math.min(daylight ? 0.039 : 0.023, (shot.traveled ?? Infinity) / Math.hypot(shot.vx, shot.vy));
+      const dx = shot.vx * trail, dy = shot.vy * trail;
+      if (daylight) {
+        const dark = shot.hostile ? '#853821' : '#424942', core = shot.hostile ? '#ffb37d' : '#fff6d2';
+        line(g, shot.x, shot.y, shot.x - dx, shot.y - dy, dark, 3, 95);
+        line(g, shot.x, shot.y, shot.x - dx * 0.76, shot.y - dy * 0.76, dark, 4, 222);
+        line(g, shot.x, shot.y, shot.x - dx * 0.62, shot.y - dy * 0.62, core, 1.9, 250);
+      } else line(g, shot.x, shot.y, shot.x - dx, shot.y - dy, shot.hostile ? '#f1a477' : '#f3d59b', 2);
+    }
   }
   const p = b.player;
-  if (p.hp > 0 && !b.evacuationDrive) {
+  if (p.hp > 0 && !b.evacuationDrive && !boarding) {
     if (pose.rollFrame >= 0) { if (!rasterRoll) drawRoll(g, p, pose, b.hero.color); }
     else {
       if (b.heroId !== HEROINE_ID) drawFeet(g, p, p.angle, pose.scale, pose, rasterPlayer ? 'military' : 'plain');
@@ -541,18 +656,21 @@ export function drawActors(g: Graphics, b: Battle, pose: ActorPose, rasterPlayer
 /** Drawn above the character sprites, inside the same line-of-sight mask. */
 export function drawHitBlood(g: Graphics, particles: readonly Particle[]) {
   for (const drop of particles) {
-    if (drop.kind !== 'hit-blood') continue;
+    if (drop.kind !== 'hit-blood' && drop.kind !== 'hit-fabric') continue;
     const { x, y, vx, vy } = drop;
-    const radius = drop.size ?? 3;
-    const alpha = Math.round(Math.min(1, drop.life / 0.25) * 245);
-    line(g, x - vx * 0.05, y - vy * 0.05, x, y, '#a02330', radius, alpha);
-    disc(g, x, y, radius, '#781826', alpha);
-    disc(g, x, y, radius * 0.72, '#ed4f55', alpha);
+    const size = drop.size ?? 3, cloth = drop.kind === 'hit-fabric';
+    const alpha = Math.round(Math.min(1, drop.life / 0.14) * 249);
+    const a = drop.rotation ?? 0, c = Math.cos(a) * size, s = Math.sin(a) * size;
+    if (!cloth) line(g, x - vx * .023, y - vy * .023, x, y, '#a02330', size * .51, Math.round(alpha * .65));
+    polygon(g, [{ x: x - c + s * .6, y: y - s - c * .6 }, { x: x + c + s * .5, y: y + s - c * .5 },
+      { x: x + c - s * .7, y: y + s + c * .7 }, { x: x - c - s * .6, y: y - s + c * .6 }],
+      cloth ? '#b9ad85' : '#812030', alpha);
+    box(g, x - size * .23, y, size * .73, size * .48, cloth ? '#daceab' : '#d84b48', alpha);
   }
 }
 
 /** Drawn after body sprites so fire attaches to the actual barrel tip. */
-export function drawWeaponEffects(g: Graphics, effects: WeaponEffects, mount: WeaponMount, flashAllowed: boolean) {
+export function drawWeaponEffects(g: Graphics, effects: WeaponEffects, mount: WeaponMount, flashAllowed: boolean, daylight = false) {
   g.clear();
   for (const shell of effects.casings) {
     const c = Math.cos(shell.angle), s = Math.sin(shell.angle), half = shell.shell ? 3.3 : 2.2;
@@ -566,6 +684,10 @@ export function drawWeaponEffects(g: Graphics, effects: WeaponEffects, mount: We
     disc(g, puff.x + 1.5, puff.y + 1.5, radius * 0.65, '#c4c8bc', Math.round((1 - progress) ** 2 * 22));
   }
   if (!flashAllowed || effects.flash <= 0) return;
+  if (daylight) {
+    drawDaylightFlash(g, mount.muzzle, mount.angle, effects.flash, effects.heroId === HEROINE_ID ? 13 : effects.heroId === ENGINEER_ID ? 42 : 34);
+    return;
+  }
   const c = Math.cos(mount.angle), s = Math.sin(mount.angle), t = effects.flash;
   const at = (x: number, y: number) => ({ x: mount.muzzle.x + x * c - y * s, y: mount.muzzle.y + x * s + y * c });
   const length = (effects.heroId === HEROINE_ID ? 9 : effects.heroId === ENGINEER_ID ? 33 : 26) * (0.65 + 0.35 * t) * (0.88 + effects.shotCount % 3 * 0.09);
@@ -576,7 +698,7 @@ export function drawWeaponEffects(g: Graphics, effects: WeaponEffects, mount: We
   polygon(g, [at(0, -0.8), at(length * 0.37, 0), at(0, 0.8)], '#fffdf0', Math.round(255 * Math.sqrt(t)));
 }
 
-export function drawDoors(g: Graphics, doors: Door[], alarmTime: number | null = null, rasterLeaf = false) {
+export function drawDoors(g: Graphics, doors: Door[], alarmTime: number | null = null, rasterLeaf: boolean | ((door: Door) => boolean) = false) {
   g.clear();
   for (const d of doors) {
     const c = Math.cos(d.angle), s = Math.sin(d.angle);
@@ -595,7 +717,8 @@ export function drawDoors(g: Graphics, doors: Door[], alarmTime: number | null =
       for (let i = 0; i < 7; i++) { const a = p(14 + i * 13, (i % 3 - 1) * 10); line(g, a.x, a.y, a.x + 10 - i, a.y + (i % 2 ? 8 : -7), '#79674c', 3); }
       continue;
     }
-    if (!rasterLeaf || d.material !== 'wood') {
+    const textured = typeof rasterLeaf === 'function' ? rasterLeaf(d) : rasterLeaf && d.material === 'wood';
+    if (!textured) {
       const pts = rectCorners(doorShape(d));
       polygon(g, pts, d.hit > 0 ? '#dec9a1' : d.material === 'wood' ? '#94774e' : '#71888b');
       segment(5, -4, d.length - 4, -4, '#3b4139', 2);
@@ -603,7 +726,7 @@ export function drawDoors(g: Graphics, doors: Door[], alarmTime: number | null =
       for (let x = 14; x < d.length - 10; x += d.material === 'wood' ? 24 : 13) segment(x, -3, x, 3, d.material === 'wood' ? '#5e563c' : '#485e65', 2);
       segment(d.length - 22, -7, d.length - 12, -7, '#d9d5b4', 3);
     }
-    if (d.material === 'steel') { segment(22, -3, 36, 3, '#d5bb73', 3); segment(38, -3, 52, 3, '#24383d', 3); }
+    if (d.material === 'steel' && !d.fortification) { segment(22, -3, 36, 3, '#d5bb73', 3); segment(38, -3, 52, 3, '#24383d', 3); }
     else if (d.hp < d.maxHp * 0.76) {
       segment(38, -5, 50, 3, '#2a322b', 2); segment(50, 3, 59, -3, '#2a322b', 2);
       if (d.hp < d.maxHp * 0.4) { segment(72, 5, 63, -3, '#302e25', 2); segment(63, -3, 80, 1, '#302e25', 2); }

@@ -1,6 +1,7 @@
 import type { Enemy, Point, Rect } from './Core';
 import type { FloorDetailPlan } from './FloorDetails';
 import type { OperationStage } from './Operation';
+import type { SurvivalStage } from './Survival';
 
 export type DormKey = 'stairs' | 'exit';
 export type DoorSpec = Point & { length: number; baseAngle: number; material: 'wood' | 'steel'; name: string; rooms: readonly [number, number]; key?: DormKey; alarm?: boolean };
@@ -55,6 +56,7 @@ export type LevelDefinition = {
   street?: StreetPlan;
   apartment?: ApartmentFloor;
   operation?: OperationStage;
+  survival?: SurvivalStage;
 };
 
 type Join = { horizontal: boolean; axis: number; from: number; to: number };
@@ -65,8 +67,9 @@ const door = (name: string, y: number, x: number, rooms: DoorSpec['rooms'], opti
   ({ name, x, y, length: 112, baseAngle: 0, rooms, material: options.key ? 'steel' : 'wood', ...options });
 
 /** Cut the same shared wall for both adjoining room rectangles. */
-function connectedWalls(rooms: Rect[], doors: DoorSpec[], joins: Join[] = []): Rect[] {
-  const openings = [...joins, ...doors.map(d => horizontal(d.y, d.x - 2, d.x + d.length + 2))];
+export function connectedWalls(rooms: Rect[], doors: Pick<DoorSpec, 'x' | 'y' | 'length' | 'baseAngle'>[], joins: Join[] = []): Rect[] {
+  const openings = [...joins, ...doors.map(d => d.baseAngle === Math.PI / 2
+    ? vertical(d.x, d.y - 2, d.y + d.length + 2) : horizontal(d.y, d.x - 2, d.x + d.length + 2))];
   const edges = rooms.flatMap(r => [
     horizontal(r.y, r.x, r.x + r.w), horizontal(r.y + r.h, r.x, r.x + r.w),
     vertical(r.x, r.y, r.y + r.h), vertical(r.x + r.w, r.y, r.y + r.h),

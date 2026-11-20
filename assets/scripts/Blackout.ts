@@ -1,7 +1,7 @@
-import { _decorator, AudioClip, AudioSource, Button, Camera, Canvas, Color, Component, EffectAsset, EventKeyboard, EventMouse, EventTouch, game, Game, Graphics, input, Input, KeyCode, Label, Layers, Mask, Material, Node, Rect as TextureRect, RenderTexture, ResolutionPolicy, resources, Size, Sprite, SpriteFrame, sys, Texture2D, UITransform, UIOpacity, Vec2, Vec3, Vec4, view } from 'cc';
-import { ALLY_VISION_RANGE, angleDiff, APARTMENT_LINE_SECONDS, Battle, clamp, closestOnRect, DORM_LEVEL, grenadeLightPolygon, GRENADE_LIGHT_TIME, heroRating, heroStats, lineClear, MINIMAP_CELL_SIZE, peripheralRange, Profile, profileGrowth, rayDistance, readProfile, recruit, rectCorners, roomAt, SUPPLY_INFO, SupplyKind, TRAINING_CAP, TrainingKind, trainingCost, upgrade, visibilityPolygon } from './Core';
+import { _decorator, AudioClip, AudioSource, Button, Camera, Canvas, Color, Component, EditBox, EffectAsset, EventKeyboard, EventMouse, EventTouch, game, Game, Graphics, input, Input, KeyCode, Label, Layers, Mask, Material, Node, Rect as TextureRect, RenderTexture, ResolutionPolicy, resources, Size, Sprite, SpriteFrame, sys, Texture2D, UITransform, UIOpacity, Vec2, Vec3, Vec4, view } from 'cc';
+import { ALLY_VISION_RANGE, angleDiff, APARTMENT_LINE_SECONDS, Battle, clamp, closestOnRect, DORM_LEVEL, grenadeLightPolygon, GRENADE_LIGHT_TIME, heroRating, heroStats, lineClear, MINIMAP_CELL_SIZE, peripheralRange, Profile, type ProfileIdentity, PROFILE_NAME_LIMIT, profileGrowth, profileName, rayDistance, readProfile, recruit, rectCorners, roomAt, SUPPLY_INFO, SupplyKind, TRAINING_CAP, TrainingKind, trainingCost, upgrade, visibilityPolygon, type Door, type Rect } from './Core';
 import { ENGINEER_ID, GHOST_ID, HERO_IDS, HEROINE_ID, heroes, type HeroId } from './Heroes';
-import { box, color, disc, drawActors, drawAmbientAnimal, drawBloodStains, drawDoors, drawHitBlood, drawMap, drawParalysis, drawTutorialTarget, drawWeaponEffects, line, outline, palette as C, paralyzedModelPosition, polygon } from './Art';
+import { box, color, disc, drawActors, drawAmbientAnimal, drawBloodStains, drawDoors, drawHitBlood, drawMap, drawParalysis, drawRecovery, drawTutorialTarget, drawWeaponEffects, line, outline, palette as C, paralyzedModelPosition, polygon } from './Art';
 import { TRAINING_ART, TRAINING_PROFILES, type TrainingImage } from './TrainingArt';
 import { buyProduct, canStock, GEAR, GEAR_IDS, installMod, MAX_STOCK, ownedProduct, productPrice, PRODUCTS, PRODUCT_BY_ID, salvageMod, SHOP_TACTICALS, toggleGear, upgradeMod, upgradeWeapon, workshopMods, type ConsumableId, type GearId, type Product, type ProductId, type ShopCategory } from './Shop';
 import { configuredHero, fitsWeapon, installedMods, MODS, MOD_STORAGE_CAP, modDescription, modRange, modText, modUpgradeCost, QUALITY_COLORS, QUALITY_NAMES, salvageValue, SLOT_NAMES, WEAPON_SLOTS, WEAPON_TYPES, weaponUpgradeCost, type Attachment, type ModId, type Quality } from './WeaponMods';
@@ -9,11 +9,11 @@ import { SHOP_ART, type ShopImage } from './ShopArt';
 import { CASE_ART, type CaseImage } from './CaseArt';
 import { BACKPACK_ART, type BackpackImage } from './BackpackArt';
 import { BACKPACK_FILTERS, backpackDetails, backpackItems, type BackpackFilter, type BackpackItem } from './Backpack';
-import { CASE_IDS, CASE_POOLS, CASE_ROLL_TIME, CASES, CLEAR_CASE_KEYS, DAILY_CASE_KEYS, casePrize, caseRollProgress, prepareCaseOpening, sampleCasePrize, type CaseId, type CaseOpening, type CasePrize, type DrawCount } from './LootCases';
-import { ActorMotion, ActorPose, CombatFeedback, DARK_BRIGHTNESS, DARK_SATURATION, DOOR_LAMP_RADIUS, doorLampFlicker, FEATHER_PIXELS, VisibilityField, visibleSurfaces, WeaponEffects, weaponMount } from './Presentation';
+import { CASE_IDS, CASE_POOLS, CASE_ROLL_TIME, CASES, CLEAR_CASE_KEYS, DAILY_CASE_KEYS, casePrize, caseRollProgress, prepareCaseOpening, type CaseId, type CaseOpening, type CasePrize } from './LootCases';
+import { ActorMotion, ActorPose, CombatFeedback, DARK_BRIGHTNESS, DARK_SATURATION, DOOR_LAMP_RADIUS, doorLampFlicker, FEATHER_PIXELS, PlayerHealthDisplay, VisibilityField, visibleSurfaces, WeaponEffects, weaponMount } from './Presentation';
 import { claimDailyMilestone, claimDailyMission, dailyActivity, DAILY_MILESTONES, DAILY_MISSIONS, refreshDailyMissions } from './DailyMissions';
 import { CHECK_IN_CHESTS, CHECK_IN_DAYS, CHECK_IN_REWARD_NAMES, checkInRewardText, checkInStatus, claimCheckInChest, claimCheckInDay, refreshCheckIn } from './CheckIn';
-import { grenadePose, isShopMine, newTacticalLoadout, TACTICAL_DEFINITIONS, type TacticalKind } from './Tactical';
+import { grenadeThrowPose, isShopMine, newTacticalLoadout, TACTICAL_DEFINITIONS, type TacticalKind } from './Tactical';
 import { createApartmentRun, createDormRun, createStreet, type LevelDefinition } from './Levels';
 import { AimAssist } from './AimAssist';
 import { TUTORIAL_SEED } from './Tutorial';
@@ -23,15 +23,31 @@ import { CLUE_SPECS, closeReader, openReader, turnReader, type ReaderState } fro
 import { TutorialGuide, guideLayout } from './TutorialGuide';
 import { exitGuideAngle } from './ExitGuide';
 import { drawTutorialGuide } from './TutorialGuideArt';
-import { CAMPAIGN_ART, type CampaignImage } from './CampaignArt';
-import { operationLevel, OPERATION_HEIGHT, OPERATION_LEADER, OPERATION_WIDTH } from './Operation';
-import { OPERATION_ART } from './OperationArt';
-import { ACHIEVEMENTS, ACHIEVEMENT_CATEGORIES, ACHIEVEMENT_REWARDS, achievementScore, achievementState, claimAchievement, claimAchievementLevel, type AchievementCategory } from './Achievements';
+import { CAMPAIGN_ART, CAMPAIGN_LOCATIONS, satelliteFraming, type CampaignImage } from './CampaignArt';
+import { operationLevel, OPERATION_AIRCRAFT, OPERATION_AIR_COOLDOWN, OPERATION_AIR_DURATION, OPERATION_AIR_PODS, OPERATION_BOSS_NAME, OPERATION_EXTRACT, OPERATION_EXTRACT_RADIUS, OPERATION_GRENADE_RANGE, OPERATION_LEADER, OPERATION_LZ, OPERATION_PICKUP_READY, operationBoardingEnd } from './Operation';
+import { OPERATION_APPROACH_SECONDS, OPERATION_ART, OPERATION_COAST_LZ, OPERATION_FLYOVERS, OPERATION_FORMATION_SECONDS, OPERATION_GHOST_SIZE, OPERATION_HANDOFF_SECONDS, OPERATION_IMPACT_SECONDS, OPERATION_JETS, OPERATION_LITTLEBIRD_ART, OPERATION_RETURN_JETS, OPERATION_SHORE_STRIPS, OPERATION_SOLDIER_SIZE, OPERATION_STRIKE_END_SECONDS, OPERATION_STRIKE_FADE_SECONDS, OPERATION_STRIKE_FRAMES, OPERATION_STRIKE_GROUPS, OPERATION_UNIT_ART, operationBoarderAt, operationDescentAt, operationExtractionAt, operationFormationAt, operationJetFrame, operationStrikeFrame, operationTakeoffAt } from './OperationArt';
+import { ACHIEVEMENTS, ACHIEVEMENT_CATEGORIES, ACHIEVEMENT_REWARDS, achievementScore, achievementState, claimAchievement, claimAchievementLevel, recordAchievementKills, type AchievementCategory } from './Achievements';
+import { createSurvivalLevel, survivalPayout, SURVIVAL_MAP_IDS, type SurvivalCheckpoint, type SurvivalMapId } from './Survival';
+import { CONVOY_ARRIVAL, CONVOY_BOARD, CONVOY_LEAVE, CONVOY_NOTICE, convoyVehicles, EVAC_ROUTE_NAME, EVAC_VEHICLES, SURVIVAL_DEADLINE, type EvacVehicle } from './SurvivalTimed';
+import { TIMED_SURVIVAL_ATLAS } from './SurvivalTimedArt';
+import { SENTRY_HP, SURVIVAL_DESCRIPTIONS, SURVIVAL_DOORS, SURVIVAL_DOOR_KINDS, SURVIVAL_GEAR, SURVIVAL_GUNS, SURVIVAL_RECIPES, SURVIVAL_RECIPE_IDS, canUseSurvivalGear, isSurvivalGun, type GearKind, type SurvivalCrate, type SurvivalDoorKind, type SurvivalRecipe } from './SurvivalGear';
+import { HARBOR_ART_HEIGHT, HARBOR_ART_WIDTH, HARBOR_CHUNKS, HARBOR_MAP_REGIONS, HARBOR_OVERVIEW_MARGIN, HARBOR_REGIONAL_ROOFS, HARBOR_ROOFS, HARBOR_SCALE, harborBuildingRoof, harborDistanceToChunk, harborPoint, SURVIVAL_LAYOUT, type HarborChunk } from './SurvivalHarbor';
+import type { SurvivalBuilding, SurvivalStair } from './SurvivalInteriors';
 
 const { ccclass, property } = _decorator;
 const W = 1280, H = 720, SAVE_KEY = 'blackout.prototype.v1';
 const trainingX = (x: number) => x * W / 1672;
 const trainingY = (top: number) => H - top * H / 941;
+const CONTROL_GUIDE = [
+      ['移动', '手机：左侧摇杆', '电脑：W A S D / 方向键'],
+      ['瞄准与射击', '手动：推右杆射击；自动：右杆只转向', '电脑：鼠标瞄准，手动按住左键'],
+      ['辅助 / 自动', '设置切换；自动只在当前射线命中时开火', '桌面无磁吸，可开启自动试玩'],
+      ['翻滚', '手机：点击「翻滚」', '电脑：空格，沿移动方向翻滚'],
+      ['交互与拾取', '手机：靠近后点击对应的交互或拾取按钮', '电脑：E 交互 / F 拾取 / T 布置陷阱'],
+      ['换弹', '手机：点击弹匣区域', '电脑：R 换弹，空弹匣自动换弹'],
+      ['视野', '朝瞄准方向看得更远', '墙体和高家具遮挡视线与子弹'],
+      ['目标', '在两层宿舍各找到一把钥匙并撤离', '每清理一个有敌人的区域，恢复 20 生命'],
+  ] as const;
 const TRAINING_AXES = [
   { name: '生存', x: 1402, y: 396, lx: 1402, ly: 382 },
   { name: '输出', x: 1501, y: 465, lx: 1531, ly: 449 },
@@ -42,31 +58,63 @@ const TRAINING_AXES = [
 const ENVIRONMENT_LAYER = 1 << 10, ACTOR_LAYER = 1 << 11;
 const OPERATION_ROOF_TILES = new Set(['op-roof-a', 'op-roof-b', 'op-roof-c']);
 const UNLOCK_ALL_CHAPTERS_FOR_TEST: boolean = true;
-type Mode = 'menu' | 'chapters' | 'chapter-intro' | 'select-hero' | 'achievements' | 'missions' | 'checkin' | 'playing' | 'loading' | 'street-loading' | 'falling' | 'revive' | 'backpack' | 'roster' | 'training' | 'shop' | 'cases' | 'recruit' | 'settings' | 'help' | 'pause' | 'result' | 'operation-cinematic';
-type OperationLine = readonly [speaker: string, text: string];
-type StoryDialogueNodes = { node: Node; label: Label; portrait: Node };
-const isChapterMenu = (mode: Mode) => mode === 'chapters' || mode === 'chapter-intro' || mode === 'select-hero';
+type Mode = 'menu' | 'profile-info' | 'chapters' | 'select-hero' | 'achievements' | 'missions' | 'checkin' | 'playing' | 'loading' | 'street-loading' | 'falling' | 'revive' | 'backpack' | 'roster' | 'training' | 'shop' | 'cases' | 'recruit' | 'settings' | 'help' | 'pause' | 'result' | 'operation-cinematic' | 'survival-entry' | 'survival-resume' | 'survival-hero' | 'survival-radio' | 'survival-map';
+const OPERATION_SPEAKERS = {
+  ghost: { name: '幽灵', left: true, frame: '' },
+  two: { name: '幽灵二号', left: true, frame: 'op-portrait-two', slot: 0 },
+  three: { name: '幽灵三号', left: true, frame: 'op-portrait-three', slot: 1 },
+  four: { name: '幽灵四号', left: true, frame: 'op-portrait-four', slot: 2 },
+  rimelet: { name: OPERATION_BOSS_NAME, left: false, frame: 'op-portrait-rimelet' },
+  lead: { name: '黑鹰领队', left: false, frame: 'op-blackhawk' },
+  littlebird: { name: '小鸟二号', left: false, frame: 'op-portrait-pilot' },
+  command: { name: '指挥室联络员', left: false, frame: 'op-portrait-liaison' },
+  headquarters: { name: '军方总部', left: false, frame: 'survival-headquarters' },
+  pickup: { name: '接应黑鹰', left: false, frame: 'op-blackhawk' },
+} as const;
+type OperationLine = readonly [speaker: keyof typeof OPERATION_SPEAKERS, text: string];
+const OPERATION_DIALOGUE_LAYOUT = { y: 80, readDelay: 0.24, charTime: 0.029, hold: 1.18, slideOut: 0.25 };
+const STORY_PANEL_WIDTH = 518, STORY_PANEL_Y = 80;
+type StoryDialogueNodes = { node: Node; label: Label; portrait: Node; speaker: Label; trim: Graphics;
+  side?: boolean; tint?: string };
+const isChapterMenu = (mode: Mode) => mode === 'chapters' || mode === 'select-hero';
+const isSurvivalMenu = (mode: Mode) => mode === 'survival-entry' || mode === 'survival-resume' || mode === 'survival-hero';
+const FOCUS_SECONDS = .58, REVEAL_SECONDS = .56, DEPARTURE_FADE_SECONDS = .42, BRIEF_CHAR_SECONDS = .035, BRIEF_OPEN_SECONDS = .16;
 const BAG_COLUMNS = 5, BAG_ROWS = 5, BAG_ROW_HEIGHT = 88, BAG_SWIPE_THRESHOLD = 36;
 const BAG_GRID = { left: 303, right: 834, bottom: 110, top: 571 };
 const WORKSHOP_PAGE_SIZE = 4;
-const CASE_PITCH = 151, CASE_START = 4, CASE_STOP = 37, CASE_HOLD = 0.55;
-type CaseRoll = { opening: CaseOpening; elapsed: number; track?: Node; closed?: UIOpacity; opened?: UIOpacity; cell: number; cards: Node[] };
+const CASE_PITCH = 151, CASE_RADIUS = 5, CASE_IDLE_SPEED = .5, CASE_HOLD = .55;
+type CaseRoll = { opening: CaseOpening; elapsed: number; start: number; stop: number; entryRate: number };
+type CaseReelCard = { node: Node; title: Label; caption: Label; plate?: Sprite; icon?: Node; index?: number };
+type CaseReel = { id: CaseId; track: Node; cards: CaseReelCard[]; position: number; speed: number;
+  winner?: { index: number; prize: CasePrize }; closed?: Node; opened?: Node; openButtonArt?: Node; result?: Node };
 const SHOP_CATEGORIES = [{ id: 'mod', label: '改装' }, { id: 'gear', label: '装备' }, { id: 'item', label: '道具' }] as const;
 const FIXED_WEAPON_ART = { [HEROINE_ID]: 'fixed-usp', [GHOST_ID]: 'fixed-ar', [ENGINEER_ID]: 'fixed-shotgun' } as const;
 type HitBox = { x: number; y: number; w: number; h: number; node: Node };
 type DialogAction = { id: string; label: string; run: () => void; enabled?: boolean };
 const DIALOG_SCALE = 0.5;
-const CHARACTER_DIALOG_BACKGROUND_ALPHA = 170;
 const DIALOG_WIDTH = 1671 * DIALOG_SCALE, DIALOG_HEIGHT = 941 * DIALOG_SCALE;
 const DIALOG_BUTTONS = [[330, 734, 480, 116], [878, 734, 480, 116]] as const;
-const usesDialog = (mode: Mode) => mode === 'pause' || mode === 'settings' || mode === 'result' || mode === 'revive' || mode === 'chapter-intro';
+const usesDialog = (mode: Mode) => mode === 'pause' || mode === 'settings' || mode === 'result' || mode === 'revive' || mode === 'survival-resume' || mode === 'survival-radio';
 const CHAPTERS = {
-  1: { name: '静默宿舍', location: '学校宿舍楼', x: 342, y: 449, side: 1, cast: [HEROINE_ID], locked: '', lines: ['从二楼寝室出发，寻找两把钥匙。', '下楼后穿过宿管室警报引来的尸群，从大门撤离。'] },
-  2: { name: '归途', location: '学校东侧街区', x: 805, y: 373, side: 1, cast: [HEROINE_ID], locked: '通关「静默宿舍」后解锁。', lines: ['凛离开学校，沿街寻找回家的路。', '经过公交站后往北走，再向东转入住宅街。'] },
-  3: { name: '归巢', location: '凛居住的公寓', x: 1017, y: 496, side: -1, cast: [HEROINE_ID], locked: '通关「归途」后解锁。', lines: ['凛回到停电的公寓，在一层遇见邻居维川。', '恢复应急供电，乘直达电梯回九层找家人。'] },
-  4: { name: '断翼行动', location: '前传 · 北非沿岸', x: 639, y: 195, side: 1, cast: [GHOST_ID], locked: '通关「归巢」后解锁。', lines: ['感染爆发前，一支军方编队抵达北非沿岸。', '以「幽灵」为行动代号，攻入「阀」的指挥部，活捉首领。'] },
+  1: { name: '静默宿舍', location: '学校宿舍楼', cast: [HEROINE_ID], locked: '', lines: ['在二楼找到钥匙，再从楼梯下去。', '避开尸群，从宿舍大门撤离。'] },
+  2: { name: '归途', location: '学校东侧街区', cast: [HEROINE_ID], locked: '通关「静默宿舍」后解锁。', lines: ['穿过学校东侧街区，找到回家的路。', '经过公交站往北走，再折向住宅街。'] },
+  3: { name: '归巢', location: '凛居住的公寓', cast: [HEROINE_ID], locked: '通关「归途」后解锁。', lines: ['公寓停电了，到一层找维川。', '恢复供电后，乘电梯上九层找家人。'] },
+  4: { name: '断翼行动', location: '前传 · 沿岸作战区', cast: [GHOST_ID], locked: '通关「归巢」后解锁。', lines: ['幽灵一组，准备从海岸登陆。', '前往「阀」的指挥部，活捉首领。'] },
 } as const;
 type Chapter = keyof typeof CHAPTERS;
+const SURVIVAL_MAPS: Record<SurvivalMapId, { name: string; createLevel: typeof createSurvivalLevel }> = {
+  harbor: { name: '港区工事', createLevel: createSurvivalLevel },
+};
+type DepartureBrief = {
+  title: string; area: string; heading?: string; point: { x: number; y: number }; lines: readonly [string, string];
+  map: () => SpriteFrame | undefined; avatar: () => SpriteFrame | undefined; inset?: () => SpriteFrame | undefined;
+  repeated: boolean; returnTo: Mode; focusZoom?: number;
+};
+type Departure = {
+  brief: DepartureBrief; time: number; typed: number; waiting: number; progress: () => number; retry: () => void;
+  launch: () => boolean; briefRoot: Node; overlay: Graphics; fade: Graphics; terrain?: Sprite; info?: Sprite;
+  failed?: string; fadeTime?: number;
+};
 const FALL_DURATION = 0.54, GRAY_DURATION = 0.28, GRAY_HOLD = 0.09;
 // The generated rows have different gaps. Each frame is anchored at the hips.
 const FALL_SHEETS = {
@@ -103,8 +151,7 @@ const HOME_BADGES: Partial<Record<HomeImage, { width: number; height: number; cu
 // Each mode keeps its original proportions. These are the angles of its painted top edge.
 const MODE_CARDS = [
   { id: 'start', art: 'mode_explore', title: '探索模式', width: 600, height: 207, top: 153, edgeAngle: 0.1 },
-  { id: 'challenge', art: 'mode_challenge', title: '挑战模式', width: 601, height: 196, top: 310, edgeAngle: 1.4 },
-  { id: 'survival', art: 'mode_survival', title: '生存模式', width: 602, height: 229, top: 460, edgeAngle: 1.9 },
+  { id: 'survival', art: 'mode_survival', title: '生存模式', width: 602, height: 229, top: 310, edgeAngle: 1.9 },
 ] as const;
 const MODE_EDGE_ANGLE = 5;
 // mession.png supplies the small symbols. The panel, chest and buttons are separate art from main/.
@@ -113,7 +160,54 @@ const MISSION_ICONS = {
 } as const;
 const MISSION_TEXTURES = { panel: 'mission-panel', chest: 'mission-chest', claim: 'mission-claim', go: 'mission-go' } as const;
 type MissionImage = keyof typeof MISSION_ICONS | keyof typeof MISSION_TEXTURES;
-const showsBattle = (mode: Mode, battleSettings = false) => mode === 'playing' || mode === 'loading' || mode === 'falling' || mode === 'revive' || mode === 'pause' || mode === 'result' || battleSettings && (mode === 'settings' || mode === 'help');
+const showsBattle = (mode: Mode, battleSettings = false) => mode === 'playing' || mode === 'loading' || mode === 'falling' || mode === 'revive' || mode === 'pause' || mode === 'result' || mode === 'survival-radio' || mode === 'survival-map' || battleSettings && (mode === 'settings' || mode === 'help');
+const SURVIVAL_PROPS = [
+  ['survival-sandbags', 19, 219, 484, 167], ['survival-radio', 608, 18, 333, 474],
+  ['survival-case', 1115, 162, 332, 260], ['survival-counter', 20, 653, 474, 276],
+  ['survival-crates', 603, 597, 333, 360], ['survival-pack', 1076, 647, 406, 277],
+] as const;
+const SURVIVAL_BUILDING_ART = {
+  'interior-furniture': [
+    ['survival-couch', 22, 116, 359, 216], ['survival-bed', 450, 50, 259, 338],
+    ['survival-kitchen', 768, 107, 365, 213], ['survival-exam', 23, 461, 354, 242],
+    ['survival-pharmacy', 412, 459, 326, 209], ['survival-rack', 779, 456, 349, 221],
+  ],
+  'harbor-floors': [
+    ['harbor-floor-house', 1, 1, 510, 510], ['harbor-floor-shop', 513, 1, 510, 510],
+    ['harbor-floor-clinic', 1, 513, 510, 510], ['harbor-floor-warehouse', 513, 513, 510, 510],
+  ],
+  'harbor-furniture': [
+    ['survival-shelf', 33, 127, 322, 177], ['survival-checkout', 411, 132, 329, 175],
+    ['survival-dining', 819, 92, 282, 248], ['survival-workbench', 33, 472, 320, 222],
+    ['survival-forklift', 392, 453, 361, 239], ['survival-radio-harbor', 781, 438, 353, 265],
+  ],
+} as const;
+type SurvivalRoofArt = { bounds: Rect; rooms: Rect[]; opacity: UIOpacity };
+type SurvivalFloorArt = { bounds: Rect; opacity: UIOpacity; doors: Graphics; doorIds: number[]; blood: Graphics };
+const SURVIVAL_BAG = { x: 205, y: 65, w: 961, h: 588, cell: 50, gridX: 248, gridTop: 563, displaySize: 9 };
+const SURVIVAL_BAG_CLOSE = { x: 1093, y: 598, w: 37, h: 37 };
+const SURVIVAL_BAG_ACTIONS = [
+  { id: 'use', label: '使用', x: 734, y: 213, w: 185, h: 46 },
+  { id: 'rotate', label: '旋转', x: 934, y: 213, w: 185, h: 46 },
+  { id: 'split', label: '拆分', x: 734, y: 157, w: 185, h: 46 },
+  { id: 'drop', label: '丢弃', x: 934, y: 157, w: 185, h: 46 },
+] as const;
+const SURVIVAL_RESUME_PANEL = { x: 218, y: 127, w: 844, h: 466 };
+const SURVIVAL_RESULT_PANEL = { x: 47, y: 37, w: 1186, h: 646 };
+const SURVIVAL_VEHICLE_PANEL = { x: 320, y: 122, w: 700, h: 488 };
+const SURVIVAL_UI_CONTROLS = [
+  ['primary', 224, 66], ['secondary', 224, 66], ['close', 112, 112],
+  ['tile', 128, 128], ['tile-locked', 128, 128], ['tile-selected', 128, 128],
+  ['extracted', 224, 128], ['fallen', 128, 128], ['complete', 224, 128],
+  ['harbor-mark', 140, 112], ['coin', 112, 112], ['material', 112, 112],
+] as const;
+const SURVIVAL_QUICK = { x: 959, y: 365, w: 62, h: 48 };
+const SURVIVAL_BAG_BUTTON = { x: 1170, y: 365, w: 75, h: 48 };
+const SURVIVAL_CRATE_PANEL = { x: 942, y: 220, w: 226, h: 295 };
+const SURVIVAL_WORKSHOP = { x: 613, y: 172, w: 552, h: 423 };
+const SURVIVAL_DOOR_PANEL = { x: 615, y: 185, w: 533, h: 409 };
+const SURVIVAL_DOOR_HOLD = .48;
+const SURVIVAL_CRATE_LABELS = { medical: '药品箱', armory: '军械箱', engineering: '工程箱', airdrop: '空投补给', dropped: '地面物资' } as const;
 const LOWER_ART = [['lobby-floor', 'reception-floor-v1'], ['lobby-desk', 'desk-reception-v2'], ['lobby-sofa', 'sofa-reception-v2']] as const;
 const STREET_ART = [
   ['street-props-v1', [
@@ -155,14 +249,32 @@ const APARTMENT_ART = [
 const STAIR_ATLAS = 'common/environment/dorm-stairs-v1/spriteFrame';
 const BATTLE_ART = ['player_status', 'area_banner', 'mission_status', 'minimap_panel', 'weapon_ammo', 'button_settings', 'button_pause', 'joystick_move', 'joystick_fire', 'button_reload', 'button_roll', 'button_grenade', 'button_interact', 'button_pickup', 'button_trap'] as const;
 type BattleImage = typeof BATTLE_ART[number] | 'joystick_move_base' | 'joystick_move_cap' | 'auto-background';
+const BATTLE_HUD_ATLASES = [
+  ['hud-plates-v2', [
+    ['status', 39, 167, 698, 125], ['portrait-rim', 979, 48, 347, 347], ['notice', 22, 528, 721, 107, 78],
+    ['context', 806, 532, 691, 112, 50], ['keycap', 103, 799, 562, 177],
+  ]],
+  ['hud-vitals-v2', [['socket', 25, 141, 2122, 102], ['glass', 32, 374, 2109, 80], ['gloss', 32, 578, 2108, 23]]],
+  ['hud-signals-v2', [
+    ['work', 85, 77, 302, 313], ['warning', 456, 79, 337, 301], ['success', 881, 103, 308, 267],
+    ['door', 90, 483, 272, 329], ['supplies', 464, 538, 329, 236], ['radio', 955, 455, 177, 361],
+    ['stairs', 65, 942, 302, 248], ['inspect', 480, 903, 290, 294], ['interact', 899, 912, 224, 282],
+  ]],
+] as const;
+type HudFrame = typeof BATTLE_HUD_ATLASES[number][1][number][0];
+type NoticeKind = 'work' | 'warning' | 'success' | 'inspect';
+type BattlePrompt = { title: string; detail?: string; badge: string; icon: HudFrame };
+const HEALTH_X = 104, HEALTH_Y = 674, HEALTH_W = 216;
+const PROMPT_CENTER = 594, PROMPT_Y = 98, PANEL_SCALE = 0.8;
 type HudAction = { id: string; root: Node; sprite?: Sprite; ring: Graphics; label: Label; remaining: () => number; duration: () => number; locked: boolean; previous: number; glow: number; scale: number; owners: Set<number>; progress: number };
+type LittlebirdPod = { wheel: Node; flash: Graphics; spin: number };
 // Reference coordinates use a top-left origin; UI/input use bottom-left design pixels.
 const hudRect = (x: number, top: number, w: number, h: number) => ({ x: x * W / 1047, y: H - (top + h) * H / 589, w: w * W / 1047, h: h * H / 589 });
 const HUD = {
   status: hudRect(10, 3, 272, 69), area: hudRect(310, 4, 425, 27), mission: hudRect(312, 35, 449, 23),
   settings: hudRect(935, 5, 44, 44), pause: hudRect(989, 5, 45, 44), map: hudRect(853, 56, 180, 102),
   move: hudRect(42, 391, 158, 160), ammo: hudRect(10, 103, 220, 70), fire: hudRect(877.5, 385, 133, 140), reload: hudRect(796, 417, 66, 66),
-  auto: hudRect(877, 535, 115, 44),
+  auto: hudRect(877, 535, 115, 44), air: hudRect(805, 330, 64, 64),
   roll: hudRect(713.5, 478, 69, 70), grenade: hudRect(805.5, 498.5, 67, 67),
   door: hudRect(709, 392, 70, 70), pickup: hudRect(623, 392, 70, 70), trap: hudRect(627, 478, 69, 70),
 };
@@ -188,6 +300,7 @@ export class Blackout extends Component {
   private visibilityField = new VisibilityField();
   private allyVisibilityField?: VisibilityField;
   private lastAllySight = '';
+  private lastAirSight = '';
   private ghostPortrait?: SpriteFrame;
   private linPortrait?: SpriteFrame;
   private itemFrames = new Map<string, SpriteFrame>();
@@ -212,6 +325,7 @@ export class Blackout extends Component {
   private lastGeometry = -1;
   private hadGrenadeLight = false;
   private lastSightX = -10000; private lastSightY = -10000; private lastSightAngle = -10000;
+  private lastEvacuationView = 0;
   private hitAudioTime = 0;
   private litWorld!: Node;
   private wildlifeArt!: Graphics;
@@ -225,6 +339,54 @@ export class Blackout extends Component {
   private doorsLit!: Graphics;
   private floors!: Graphics;
   private floorArt!: Node;
+  private survivalRoofLayer!: Node;
+  private survivalRoofStencil!: Graphics;
+  private survivalRoofs: SurvivalRoofArt[] = [];
+  private survivalFocus?: SurvivalRoofArt;
+  private survivalArtRequested = new Set<keyof typeof SURVIVAL_BUILDING_ART>();
+  private harborArtPending = false;
+  private harborArtReady = false;
+  private harborGroundLayer?: Node;
+  private survivalCrateFrames = new Map<SurvivalCrate['kind'], SpriteFrame>();
+  private survivalCrateNodes: Sprite[] = [];
+  private survivalObjectNodes: Sprite[] = [];
+  private survivalGearFrames = new Map<GearKind, SpriteFrame>();
+  private survivalDoorFrames = new Map<SurvivalDoorKind, SpriteFrame>();
+  private survivalDoorSprites = new Map<Graphics, Sprite[]>();
+  private survivalSkin = new Map<string, SpriteFrame>();
+  private survivalUiFrames = new Map<string, SpriteFrame>();
+  private timedSurvivalFrames = new Map<string, SpriteFrame>();
+  private timedSurvivalArtLoading = false;
+  private survivalVehiclePanel?: EvacVehicle;
+  private survivalAmmo?: { cards: { root: Node; icon: Node; name: Label; ammo: Label }[]; legacy: Node[]; hit: Node[] };
+  private survivalSwap?: { time: number; startedWithSpecial: boolean; committed: boolean };
+  private readonly convoyTurretAngles = new Map<number, number>();
+  private survivalGearArtPending = false;
+  private survivalGearArtReady = false;
+  private survivalDevices!: Graphics;
+  private survivalBagLayer?: Node;
+  private survivalBagArt?: Graphics;
+  private survivalBagSkin?: Node;
+  private survivalBagItemLayer?: Node;
+  private survivalBagSkinNodes: Sprite[] = [];
+  private survivalBagIcons: Sprite[] = [];
+  private survivalQuickOpen = false;
+  private survivalWorkshopOpen = false;
+  private survivalDoorPanel?: { id: number; replacement?: SurvivalDoorKind };
+  private survivalDoorHold?: { owner: number; id: number; left: number; opened: boolean };
+  private survivalRecipe: SurvivalRecipe = 'grenade';
+  private survivalHeldItem?: number;
+  private survivalCrateId?: string;
+  private survivalDrag?: { id?: number; owner: number | null; x: number; y: number; col?: number; row?: number };
+  private survivalRotatePreview?: { id: number; until: number };
+  private harborMapFrame?: SpriteFrame;
+  private harborMapLayer?: Node;
+  private harborGround = new Map<string, { bounds: HarborChunk; frame?: SpriteFrame; node?: Node; retry?: number }>();
+  private harborLoads = 0;
+  private harborStreamCenter?: { x: number; y: number };
+  private harborScenery: { node: Node; bounds: Rect }[] = [];
+  private survivalFloorArt: { stair: SurvivalStair; floors: SurvivalFloorArt[]; stairs: Node; upMarker: Node; downMarker: Node }[] = [];
+  private survivalFloorDoors = new Set<number>();
   private floorDetailsArt!: Node;
   private floorDetailFrames = new Map<FloorDetailKind, SpriteFrame>();
   private stairFrames = new Map<'up' | 'down', SpriteFrame>();
@@ -240,11 +402,18 @@ export class Blackout extends Component {
   private pooledEnemySprites: Sprite[] = [];
   private artFrames = new Map<string, SpriteFrame>();
   private streetFrames = new Map<string, SpriteFrame>();
-  private chapterLoad?: { chapter: 2 | 3 | 4; returnTo: Mode; time: number; done: number; total: number; failed: boolean };
+  private departure?: Departure;
+  private lastLaunchedChapter?: Chapter;
+  private satelliteMaterial?: Material;
   private operationCinema?: { root: Node; time: number; draw: (time: number) => boolean; finish: () => void };
   private operationDialogue?: StoryDialogueNodes & { lines: OperationLine[]; index: number; time: number; cinematic: boolean };
-  private operationLeader?: Node;
-  private operationStoryLock?: { kind: 'injection' | 'escape'; node: Node; opacity: UIOpacity; x: number; y: number; time: number; duration: number };
+  private airborne?: { root: Node; craft: Sprite; rotor: Sprite; rope: Graphics; boarders: Sprite[]; littlebird: Sprite; littleRotor: Sprite; pods: LittlebirdPod[] };
+  private operationArrival?: { battle: Battle; time: number };
+  private operationBossHud?: { root: Node; fill: Graphics; label: Label; opacity: UIOpacity };
+  private operationBossFill?: { battle: Battle; value: number; trail: number; phase: 'leader' | 'king'; reveal: number };
+  private operationGrenadeKey = false;
+  private operationGrenadeTouch?: { id: number; x: number; y: number; angle: number; range: number };
+  private operationEscape?: { node: Node; opacity: UIOpacity; x: number; y: number; time: number; duration: number };
   private fallFrames = new Map<keyof typeof FALL_SHEETS, FallFrame[]>();
   private fallTime = 0;
   private fallVariant = 0;
@@ -263,6 +432,7 @@ export class Blackout extends Component {
   private selectedCase: CaseId = 'tactical';
   private casePreview?: { page: number; quality?: Quality };
   private caseRoll?: CaseRoll;
+  private caseReel?: CaseReel;
   private shopFrames = new Map<ShopImage, SpriteFrame>();
   private mineSprites: Sprite[] = [];
   private shopCategory: ShopCategory = 'mod';
@@ -289,6 +459,11 @@ export class Blackout extends Component {
   private homeBackdrop!: Node;
   private homeArtwork?: Node;
   private chapterMap?: Node;
+  private profileLayer?: Node;
+  private profilePage?: Node;
+  private profileTabs?: [Sprite | undefined, Sprite | undefined];
+  private homeProfileAvatar?: Sprite;
+  private profileEditor?: ProfileIdentity & { tab: 'dossier' | 'settings' | 'guide'; editing?: boolean };
   private achievementsLayer?: Node;
   private campaignFrames = new Map<CampaignImage, SpriteFrame>();
   private achievementCategory: AchievementCategory = 'all';
@@ -301,6 +476,11 @@ export class Blackout extends Component {
   private dialogClosePatch?: SpriteFrame;
   private battleArtwork?: Node;
   private battleFrames = new Map<BattleImage, SpriteFrame>();
+  private battleHudFrames = new Map<HudFrame, SpriteFrame>();
+  private playerHealth = new PlayerHealthDisplay();
+  private playerStatus?: { portrait: Node; fill: Sprite; trail: Sprite };
+  private noticeHud?: { root: Node; plate: Sprite; icon: Sprite; opacity: UIOpacity };
+  private promptHud?: { root: Node; plate: Sprite; icon: Sprite; badge: Sprite };
   private objectiveFrame?: SpriteFrame;
   private objectiveNotice?: { battle: Battle; key: string; time: number; pinned: boolean; open: number };
   private objectiveHud?: { icon: Node; button: Node; bubble: Node; click: Node; label: Label; opacity: UIOpacity };
@@ -349,11 +529,13 @@ export class Blackout extends Component {
   private grenadeBlasts: { node: Node; stencil: Graphics; light: Graphics; sprite: Sprite; revision: number; effect?: Battle['tacticalEffects'][number]; points: { x: number; y: number }[]; debris: number[] }[] = [];
   private apartmentShutterSprite?: Sprite;
   private trapSprites: Sprite[] = [];
-  private apartmentDialogue?: { node: Node; battle: Battle; text: Label; portrait: Sprite; lines: string[]; time: number };
+  private apartmentDialogue?: StoryDialogueNodes & { battle: Battle; lines: string[]; time: number };
   private transition?: { kind: 'enter' | 'win'; time: number; chapter?: Chapter; prompt?: 'first' | 'resume' | 'replay' | null };
+  private survivalHero: HeroId = HEROINE_ID;
+  private selectedSurvivalMap: SurvivalMapId = 'harbor';
   private transitionShade!: Graphics;
   private exitArrow!: Graphics;
-  private streetStory?: { battle: Battle; node: Node; label: Label; portrait: Node; index: number; time: number };
+  private streetStory?: StoryDialogueNodes & { battle: Battle; index: number; time: number };
   private streetStoryBattle?: Battle;
   private floorLoad?: { time: number; done: number; started: boolean; swapped: boolean; failed: boolean };
   private profile: Profile = readProfile(null);
@@ -414,6 +596,8 @@ export class Blackout extends Component {
   private buttons: HitBox[] = [];
   private keys = new Set<KeyCode>();
   private mx = 900; private my = 430; private mouseFire = false;
+  private mouseQueuedFire = false;
+  private operationGuideHeading?: number;
   private mouseAimInput = false;
   private moveTouch = -1; private aimTouch = -1;
   private moveOrigin = { x: 155, y: 150 }; private aimOrigin = { x: 1105, y: 150 };
@@ -426,6 +610,8 @@ export class Blackout extends Component {
   private uiTick = 0;
   private presentationTime = 0; private sightTick = 0;
   private notice = ''; private noticeTime = 0;
+  private noticeSince = 0;
+  private noticeKind: NoticeKind = 'inspect';
   private audio!: AudioSource;
   private clips = new Map<string, AudioClip>();
   private storageOkay = true;
@@ -469,6 +655,12 @@ export class Blackout extends Component {
     this.propsArt = this.makeNode('Raster furniture', this.environment);
     this.signsArt = this.makeNode('Room signs', this.environment);
     this.doorsLit = this.graphics('Shared physical door surfaces', this.environment);
+    this.survivalRoofLayer = this.makeNode('Survival roofs outside strict sight', this.environment);
+    const roofMask = this.survivalRoofLayer.addComponent(Mask);
+    roofMask.type = Mask.Type.GRAPHICS_STENCIL;
+    roofMask.inverted = true;
+    this.survivalRoofStencil = roofMask.subComp as Graphics;
+    roofMask.node.active = false;
     this.rebuildLevel();
     this.world = this.makeNode('Strictly visible combat layer', this.canvas, ACTOR_LAYER);
     const maskNode = this.makeNode('Line of sight', this.world);
@@ -484,6 +676,7 @@ export class Blackout extends Component {
     this.weaponArt = this.graphics('Barrel flash smoke and ejected casings', this.litWorld);
     this.grenadeLayer = this.makeNode('Grenade particles', this.litWorld);
     this.grenadeShadows = this.graphics('Thrown grenade ground shadow', this.grenadeLayer);
+    this.survivalDevices = this.graphics('Survival deployables', this.litWorld);
     this.homeBackdrop = this.makeNode('Home background', this.canvas);
     const homeFill = this.graphics('Home backdrop fill', this.homeBackdrop);
     this.sbox(homeFill, 0, 0, W, H, C.ink);
@@ -493,12 +686,11 @@ export class Blackout extends Component {
     this.modalArt = this.graphics('Panel background', this.modal);
     this.transitionShade = this.graphics('Chapter transition shade', this.canvas);
     this.sbox(this.transitionShade, 0, 0, W, H, '#000000');
-    this.transitionShade.node.addComponent(UIOpacity).opacity = 255;
     this.transitionShade.node.active = false;
     const audioNode = new Node('Combat audio');
     audioNode.parent = this.canvas;
     this.audio = audioNode.addComponent(AudioSource);
-    for (const name of ['shoot', 'shoot-suppressed', 'hurt', 'dash', 'reload', 'hit', 'kill', 'win', 'alarm']) resources.load('audio/' + name, AudioClip, (err, clip) => { if (!err) this.clips.set(name, clip); });
+    for (const name of ['shoot', 'shoot-suppressed', 'hurt', 'dash', 'reload', 'hit', 'kill', 'win', 'alarm', 'jet-flyover', 'survival-stair-threat']) resources.load('audio/' + name, AudioClip, (err, clip) => { if (!err && this.isValid) this.clips.set(name, clip); });
     input.on(Input.EventType.KEY_DOWN, this.keyDown, this);
     input.on(Input.EventType.KEY_UP, this.keyUp, this);
     input.on(Input.EventType.MOUSE_MOVE, this.mouseMove, this);
@@ -546,7 +738,10 @@ export class Blackout extends Component {
     });
     for (const asset of ['clues/paper', 'clues/pc']) resources.load(asset + '/spriteFrame', SpriteFrame, (err, frame) => { if (!err && this.isValid) this.readerFrames.set(asset, frame); });
     this.loadSampleArt();
+    this.loadSurvivalArt();
     this.loadCampaignArt();
+    this.loadSurvivalUi();
+    this.loadTimedSurvivalArt();
     this.loadFloorDetailArt();
     this.loadStairArt();
     this.loadFallArt();
@@ -588,6 +783,27 @@ export class Blackout extends Component {
     this.presentationMaterial = material; this.outputSprite.customMaterial = material;
     this.outputSprite.color = color('#ffffff'); this.presentationReady = true; this.sightTick = 0;
   }
+  private setBattleRenderBudget(survival: boolean) {
+    const mobileHarbor = survival && sys.isMobile;
+    const renderWidth = mobileHarbor ? 960 : W, renderHeight = mobileHarbor ? 540 : H;
+    if (this.environmentTarget.width !== renderWidth) {
+      this.environmentTarget.resize(renderWidth, renderHeight);
+      this.actorTarget.resize(renderWidth, renderHeight);
+      this.outputFrame.rect = new TextureRect(0, 0, renderWidth, renderHeight);
+      this.outputFrame.originalSize = new Size(renderWidth, renderHeight);
+      this.presentationMaterial?.setProperty('actorsTexture', this.actorTarget);
+    }
+    const width = mobileHarbor ? 240 : 320;
+    if (this.visibilityField.width === width) return;
+    this.visibilityField = new VisibilityField(width, width * 9 / 16);
+    this.allyVisibilityField = undefined;
+    this.visibilityTexture.reset({ width, height: this.visibilityField.height, format: Texture2D.PixelFormat.RGBA8888 });
+    this.visibilityTexture.setFilters(Texture2D.Filter.LINEAR, Texture2D.Filter.LINEAR);
+    this.visibilityTexture.setWrapMode(Texture2D.WrapMode.CLAMP_TO_EDGE, Texture2D.WrapMode.CLAMP_TO_EDGE);
+    this.visibilityTexture.uploadData(this.visibilityField.build([]));
+    this.presentationMaterial?.setProperty('visibilityTexture', this.visibilityTexture);
+    this.sightTick = 0;
+  }
   private cropUiFrame(source: SpriteFrame, x: number, y: number, width: number, height: number) {
     const frame = source.clone();
     frame.packable = false;
@@ -598,6 +814,15 @@ export class Blackout extends Component {
     return frame;
   }
   private loadCampaignArt() {
+    resources.load('effects/satellite-focus', EffectAsset, (err, effect) => {
+      if (err || !this.isValid) return;
+      const material = new Material();
+      material.initialize({ effectAsset: effect });
+      this.satelliteMaterial = material;
+    });
+    resources.load('chapter4/radio-portraits/spriteFrame', SpriteFrame, (err, source) => {
+      if (!err && this.isValid) this.campaignFrames.set('liaison', this.cropUiFrame(source, 256, 0, 256, 256));
+    });
     let remaining = CAMPAIGN_ART.length;
     for (const asset of CAMPAIGN_ART) resources.load(`campaign/${asset.file}/spriteFrame`, SpriteFrame, (err, source) => {
       if (!this.isValid) return;
@@ -610,7 +835,7 @@ export class Blackout extends Component {
           }
         } else this.campaignFrames.set(asset.image, source);
       }
-      if (--remaining === 0 && (isChapterMenu(this.mode) || this.mode === 'achievements')) this.open(this.mode);
+      if (--remaining === 0 && (isChapterMenu(this.mode) || isSurvivalMenu(this.mode) || this.mode === 'achievements' || this.canRefreshProfileArt())) this.open(this.mode);
     });
   }
   private loadHomeArt() {
@@ -639,7 +864,7 @@ export class Blackout extends Component {
           this.setupSprite(background, frame, H * 1672 / 941, H);
         }
       }
-      if (--remaining === 0 && ['menu', 'missions', 'checkin', 'backpack', 'achievements'].includes(this.mode)) this.open(this.mode);
+      if (--remaining === 0 && (['menu', 'missions', 'checkin', 'backpack', 'achievements'].includes(this.mode) || this.canRefreshProfileArt())) this.open(this.mode);
     });
   }
   private loadTrainingArt() {
@@ -657,7 +882,8 @@ export class Blackout extends Component {
           }
         } else this.trainingFrames.set(asset.key, source);
       }
-      if (--pending === 0 && (['menu', 'checkin', 'missions', 'roster', 'training', 'recruit', 'backpack', 'select-hero', 'achievements'].includes(this.mode) || this.mode === 'cases' && !this.caseRoll)) this.open(this.mode);
+      if (--pending === 0 && (['menu', 'checkin', 'missions', 'roster', 'training', 'recruit', 'backpack', 'select-hero', 'survival-hero', 'achievements'].includes(this.mode) ||
+        this.canRefreshProfileArt() || this.mode === 'cases' && !this.caseRoll)) this.open(this.mode);
     });
   }
   private loadShopArt() {
@@ -749,12 +975,28 @@ export class Blackout extends Component {
       if (this.objectiveHud) this.setupSprite(this.objectiveHud.icon, this.objectiveFrame, 52, 52);
     });
     const images: BattleImage[] = [...BATTLE_ART, 'joystick_move_base', 'joystick_move_cap'];
-    let remaining = images.length;
+    let remaining = images.length + BATTLE_HUD_ATLASES.length;
+    const loaded = () => { if (--remaining === 0 && this.mode === 'playing') this.open('playing'); };
     for (const id of images) resources.load('battle/' + id + '/spriteFrame', SpriteFrame, (err, frame) => {
       if (!this.isValid) return;
       if (err) console.warn('Battle artwork could not load:', id, err);
       else { frame.packable = false; this.battleFrames.set(id, frame); }
-      if (--remaining === 0 && this.mode === 'playing') this.open('playing');
+      loaded();
+    });
+    for (const [asset, crops] of BATTLE_HUD_ATLASES) resources.load('battle/' + asset + '/spriteFrame', SpriteFrame, (err, source) => {
+      if (!this.isValid) return;
+      if (err) console.warn('Battle HUD artwork could not load:', asset, err);
+      else for (const [id, x, y, w, h, inset] of crops) {
+        // The build textures use half-resolution exports of the source sheets.
+        const left = Math.floor(x / 2), top = Math.floor(y / 2);
+        const frame = this.cropUiFrame(source, left, top, Math.ceil((x + w) / 2) - left, Math.ceil((y + h) / 2) - top);
+        if (inset) {
+          frame.insetLeft = frame.insetRight = inset / 2;
+          frame.insetTop = frame.insetBottom = 8;
+        }
+        this.battleHudFrames.set(id, frame);
+      }
+      loaded();
     });
   }
   private loadGrenadeArt() {
@@ -787,9 +1029,8 @@ export class Blackout extends Component {
     let thrown = 0;
     if (frame) for (const item of b.tacticalThrows) {
       if (item.kind !== 'grenade') continue;
-      const pose = grenadePose(item.delay);
-      const x = item.origin.x + (item.x - item.origin.x) * pose.travel;
-      const y = item.origin.y + (item.y - item.origin.y) * pose.travel;
+      const pose = grenadeThrowPose(item);
+      const { x, y } = pose;
       const scale = 1 + pose.height * 0.008;
       disc(g, x + 2, y - 2, 8 + pose.height * 0.06, '#080909', Math.round(135 - pose.height * 2.2));
       const sprite = this.grenadeSprites[thrown] ??= this.setupSprite(this.makeNode('Airborne grenade', this.grenadeLayer), frame, 23, 13);
@@ -797,13 +1038,14 @@ export class Blackout extends Component {
       sprite.node.active = true;
       sprite.node.setPosition(x, y + pose.height);
       sprite.node.setScale(scale, scale, 1);
-      sprite.node.angle = pose.spin + Math.atan2(item.y - item.origin.y, item.x - item.origin.x) * 180 / Math.PI;
+      sprite.node.angle = pose.angle;
     }
     for (let i = thrown; i < this.grenadeSprites.length; i++) this.grenadeSprites[i].node.active = false;
 
     let active = 0;
     for (const effect of b.tacticalEffects) {
-      if (effect.kind !== 'grenade' || !this.grenadeBlastFrames.length) continue;
+      if ((effect.kind !== 'grenade' && effect.kind !== 'proximity-mine') || !this.grenadeBlastFrames.length) continue;
+      const damageRadius = TACTICAL_DEFINITIONS[effect.kind].radius;
       let blast = this.grenadeBlasts[active];
       if (!blast) {
         const node = this.makeNode('Grenade exposure mask', this.grenadeLayer);
@@ -821,7 +1063,7 @@ export class Blackout extends Component {
         blast.revision = b.geometryRevision;
         // The atlas fades to transparent before the outer stencil. Solid cover
         // can still cut through the texture at any distance from the blast.
-        const radius = TACTICAL_DEFINITIONS.grenade.radius + 53;
+        const radius = damageRadius + 53;
         const cover = b.blockers.filter(rect => {
           const nearest = closestOnRect(effect, rect);
           return Math.hypot(nearest.x - effect.x, nearest.y - effect.y) <= radius;
@@ -839,12 +1081,11 @@ export class Blackout extends Component {
         });
         blast.stencil.clear();
         polygon(blast.stencil, blast.points, '#ffffff');
-        const damageRadius = TACTICAL_DEFINITIONS.grenade.radius;
         blast.debris = Array.from({ length: 13 }, (_, i) => rayDistance(effect, i / 13 * Math.PI * 2, damageRadius * (0.59 + (i % 4) * 0.102), cover));
       }
       const age = effect.max - effect.life;
       const phase = age < 0.045 ? 0 : age < 0.14 ? 1 : age < 0.24 ? 2 : age < 0.39 ? 3 : age < 0.70 ? 4 : 5;
-      const size = 85 + 143 * (1 - Math.exp(-age * 12));
+      const size = (85 + 143 * (1 - Math.exp(-age * 12))) * damageRadius / TACTICAL_DEFINITIONS.grenade.radius;
       blast.sprite.spriteFrame = this.grenadeBlastFrames[phase];
       blast.sprite.node.setScale(size / 184, size / 184, 1);
       blast.sprite.color = color('#ffffff', Math.round(255 * (1 - clamp((age - 0.32) / 0.73, 0, 1)) ** 0.75));
@@ -867,6 +1108,132 @@ export class Blackout extends Component {
       this.grenadeBlasts[i].node.active = false;
       this.grenadeBlasts[i].effect = undefined;
     }
+  }
+  private updateSurvivalDeviceArt(dt: number) {
+    const g = this.survivalDevices, b = this.battle, p = b.player;
+    g.clear();
+    let count = 0, objects = 0;
+    const near = (point: { x: number; y: number }) => Math.abs(point.x - p.x) < W / 2 + 55 && Math.abs(point.y - p.y) < H / 2 + 55;
+    const prop = (frame: SpriteFrame | undefined, x: number, y: number, size: number, tint = '#ffffff', angle = 0, pivot = .5) => {
+      if (!frame) return false;
+      const i = objects++;
+      const sprite = this.survivalObjectNodes[i] ??= this.setupSprite(this.makeNode('Survival field object', g.node), frame, size, size);
+      sprite.spriteFrame = frame; sprite.color = color(tint);
+      const transform = sprite.node.getComponent(UITransform)!;
+      transform.setContentSize(size, size * frame.originalSize.height / frame.originalSize.width);
+      transform.setAnchorPoint(pivot, .5);
+      sprite.node.setPosition(x, y);
+      sprite.node.angle = angle;
+      sprite.node.active = true;
+      return true;
+    };
+    if (b.survival?.timed) {
+      const helicopter = EVAC_VEHICLES.helicopter.point, boat = EVAC_VEHICLES.boat.point;
+      if (near(helicopter)) {
+        prop(this.timedSurvivalFrames.get('helipad'), helicopter.x, helicopter.y, 237);
+        prop(this.streetFrames.get('op-blackhawk'), helicopter.x, helicopter.y, 88);
+        prop(this.streetFrames.get('op-rotor'), helicopter.x, helicopter.y + 20, 170,
+          '#ffffff', b.survivalVehicleStatus('helicopter').fuel === undefined ? 36 : this.presentationTime * 540);
+      }
+      if (near(boat)) prop(this.timedSurvivalFrames.get('boat'), boat.x, boat.y, 155, '#ffffff', -90);
+      for (const vehicle of convoyVehicles(b.elapsed)) {
+        if (!vehicle.visible) continue;
+        const tank = vehicle.kind === 'tank', facing = vehicle.angle;
+        const aim = b.survivalConvoyAim.get(vehicle.index);
+        const previous = this.convoyTurretAngles.get(vehicle.index) ?? facing;
+        const heading = previous + clamp(angleDiff(aim && b.elapsed - aim.trackingAt < 1.4 ? aim.angle : facing, previous), -dt * 4.3, dt * 4.3);
+        this.convoyTurretAngles.set(vehicle.index, heading);
+        if (near(vehicle)) {
+          prop(this.timedSurvivalFrames.get(vehicle.kind), vehicle.x, vehicle.y, tank ? 137 : 130, '#ffffff', facing * 180 / Math.PI);
+          prop(this.timedSurvivalFrames.get(tank ? 'tank-turret' : 'carrier-gunner'), vehicle.x, vehicle.y, tank ? 131 : 58,
+            '#ffffff', heading * 180 / Math.PI, .21);
+          if (aim && b.elapsed - aim.shotAt < .11) {
+            const length = tank ? 88 : 42;
+            const x = vehicle.x + Math.cos(heading) * length, y = vehicle.y + Math.sin(heading) * length;
+            disc(g, x, y, tank ? 13 : 7, '#ffbd5d', 220);
+            line(g, x, y, x + Math.cos(heading) * 38, y + Math.sin(heading) * 38, '#ffe09a', 2.4, 198);
+          }
+        }
+        if (vehicle.index !== 0 && vehicle.index !== 2) continue;
+        const flight = { x: vehicle.x - Math.sin(facing) * 108, y: vehicle.y + Math.cos(facing) * 108 };
+        if (near(flight)) {
+          prop(this.streetFrames.get('op-littlebird'), flight.x, flight.y, 47, '#ffffff', facing * 180 / Math.PI - 90);
+          prop(this.streetFrames.get('op-rotor'), flight.x, flight.y, 103, '#c7c6b9', this.presentationTime * 700);
+        }
+      }
+    }
+    for (const crate of b.survivalCrates) {
+      if (!near(crate) || crate.kind === 'dropped' && !crate.goods.length) continue;
+      const { x, y } = crate, size = crate.kind === 'airdrop' ? 66 : crate.kind === 'dropped' ? 33 : 51;
+      const frame = this.survivalCrateFrames.get(crate.kind);
+      disc(g, x + 2, y - 5, size * .43, '#101618', 145);
+      if (frame) {
+        const sprite = this.survivalCrateNodes[count++] ??= this.setupSprite(this.makeNode('Supply container', g.node), frame, size, size);
+        sprite.spriteFrame = frame;
+        sprite.color = color(crate.goods.length ? '#ffffff' : '#696c62');
+        sprite.node.setPosition(x, y);
+        sprite.node.getComponent(UITransform)!.setContentSize(size, size * frame.originalSize.height / frame.originalSize.width);
+        sprite.node.active = true;
+      } else {
+        box(g, x - size / 2, y - size * .3, size, size * .6, crate.goods.length ? '#636758' : '#383c3a');
+        outline(g, x - size / 2, y - size * .3, size, size * .6, '#927b56');
+      }
+      if (crate.opened) line(g, x - size * .38, y + size * .31, x + size * .38, y + size * .31, crate.goods.length ? C.jade : '#656b5f', 3);
+      else if (crate.kind === 'airdrop') disc(g, x, y + 27, 6 + Math.sin(b.elapsed * 5) * 3, '#ffa958', 188);
+    }
+    for (let i = count; i < this.survivalCrateNodes.length; i++) this.survivalCrateNodes[i].node.active = false;
+    for (const item of b.survivalField) {
+      if (!near(item)) continue;
+      disc(g, item.x, item.y, 18, '#d4a972', 38);
+      g.strokeColor = color('#e8ba66', 192); g.lineWidth = 2;
+      g.circle(item.x, item.y, 19); g.stroke();
+      prop(this.survivalItemFrame(item.kind), item.x, item.y, 29);
+    }
+    for (const mine of b.survivalMines) {
+      if (!near(mine)) continue;
+      disc(g, mine.x + 1, mine.y - 2, 13, '#141b1e');
+      const shock = mine.kind === 'shock-mine';
+      if (!prop(this.survivalItemFrame(shock ? 'shock-mine' : 'mine'), mine.x, mine.y, 25)) {
+        disc(g, mine.x, mine.y, 11, '#707764');
+        disc(g, mine.x, mine.y, 4, shock ? '#73ceda' : '#cbb565');
+      }
+      if (mine.fuse !== undefined) {
+        g.strokeColor = color('#ff603f', 120 + Math.round(Math.abs(Math.sin(b.elapsed * 25)) * 110));
+        g.lineWidth = 2; g.circle(mine.x, mine.y, 43); g.stroke();
+      }
+    }
+    for (const sentry of b.survivalSentries) {
+      if (!near(sentry)) continue;
+      const { x, y, angle, hp } = sentry;
+      const dx = Math.cos(angle), dy = Math.sin(angle);
+      disc(g, x + 3, y - 3, 20, '#101417', 170);
+      const drawn = prop(this.survivalItemFrame('sentry'), x, y, 72, hp ? '#ffffff' : '#555851', angle * 180 / Math.PI, .31);
+      if (!drawn) {
+        for (let i = 0; i < 3; i++) {
+          const a = i * Math.PI * 2 / 3 + .35, tx = x + Math.cos(a) * 22, ty = y + Math.sin(a) * 22;
+          line(g, x, y, tx, ty, hp ? '#838570' : '#4b4c43', 6);
+          disc(g, tx, ty, 4, '#323c3b');
+        }
+        line(g, x - dx * 12, y - dy * 12, x + dx * 12, y + dy * 12, '#454d43', 17);
+        line(g, x + dx * 7, y + dy * 7, x + dx * 44, y + dy * 44, '#728071', 6);
+      }
+      if (sentry.muzzle > 0) {
+        line(g, x + dx * 50, y + dy * 50, x + dx * 67, y + dy * 67, '#ffd477', 5);
+        disc(g, x + dx * 54, y + dy * 54, 4, '#fff6b2');
+      }
+      if (hp > 0) {
+        box(g, x - 19, y + 28, 38, 4, '#263130');
+        box(g, x - 19, y + 28, 38 * hp / SENTRY_HP, 4, hp > SENTRY_HP / 3 ? C.jade : '#ed7455');
+      }
+    }
+    const placement = b.survivalPlacement;
+    if (placement || this.suppliesOpen && b.survivalBag?.item(this.survivalHeldItem)?.kind === 'sentry') {
+      const valid = placement ?? b.survivalSentryPreview;
+      const point = valid ?? { x: p.x + Math.cos(p.angle) * 46, y: p.y + Math.sin(p.angle) * 46 };
+      g.strokeColor = color(valid ? C.jade : '#ef6e53', 218);
+      g.lineWidth = 2; g.circle(point.x, point.y, 24); g.stroke();
+    }
+    for (let i = objects; i < this.survivalObjectNodes.length; i++) this.survivalObjectNodes[i].node.active = false;
   }
   private battleSprite(id: BattleImage, rect: { x: number; y: number; w: number; h: number }) {
     const frame = this.battleFrames.get(id);
@@ -929,6 +1296,262 @@ export class Blackout extends Component {
       this.rebuildFloorDetails();
     });
   }
+  private loadSurvivalArt() {
+    resources.load('survival/field-props/spriteFrame', SpriteFrame, (err, source) => {
+      if (err || !this.isValid) return;
+      for (const [id, x, y, w, h] of SURVIVAL_PROPS) this.artFrames.set(id, this.cropUiFrame(source, x, y, w, h));
+      if (this.battle.stage.survival) this.rebuildLevel();
+    });
+    resources.load('survival/street-surfaces/spriteFrame', SpriteFrame, (err, source) => {
+      if (err || !this.isValid) return;
+      this.artFrames.set('survival-asphalt', this.cropUiFrame(source, 0, 0, 640, 640));
+      this.artFrames.set('survival-concrete', this.cropUiFrame(source, 640, 0, 640, 640));
+      if (this.battle.stage.survival) this.rebuildLevel();
+    });
+  }
+  private loadSurvivalBuildingArt(atlas: keyof typeof SURVIVAL_BUILDING_ART) {
+    if (this.survivalArtRequested.has(atlas)) return;
+    this.survivalArtRequested.add(atlas);
+    resources.load(`survival/${atlas}/spriteFrame`, SpriteFrame, (err, source) => {
+      if (!this.isValid) return;
+      if (err) { this.survivalArtRequested.delete(atlas); console.warn('Survival interior artwork could not load:', atlas, err); return; }
+      for (const [id, x, y, w, h] of SURVIVAL_BUILDING_ART[atlas]) this.artFrames.set(id, this.cropUiFrame(source, x, y, w, h));
+      if (this.battle.stage.survival) { this.rebuildLevel(); this.sightTick = 0; }
+    });
+  }
+  private loadHarborMapArt() {
+    if (this.harborArtPending || this.harborArtReady) return;
+    this.harborArtPending = true;
+    const names = ['overview', 'roofs', 'regional-roofs', 'doorstep'];
+    Promise.all(names.map(name => new Promise<SpriteFrame>((resolve, reject) => {
+      resources.load(`survival/harbor-hd/${name}/spriteFrame`, SpriteFrame, (err, frame) => {
+        if (err) reject(err);
+        else resolve(frame);
+      });
+    }))).then(frames => {
+      if (!this.isValid) return;
+      for (let i = 0; i < names.length; i++) {
+        frames[i].packable = false;
+        this.artFrames.set('harbor-hd-' + names[i], frames[i]);
+      }
+      for (const [key, roofs] of [['roofs', HARBOR_ROOFS], ['regional-roofs', HARBOR_REGIONAL_ROOFS]] as const) {
+        const sheet = this.artFrames.get('harbor-hd-' + key)!;
+        roofs.forEach((name, i) => this.artFrames.set('harbor-hd-roof-' + name,
+          this.cropUiFrame(sheet, i % 3 * 512 + 4, Math.floor(i / 3) * 344 + 4, 504, 336)));
+      }
+      this.harborArtReady = true;
+      if (isSurvivalMenu(this.mode)) this.open(this.mode);
+    }).catch(err => console.warn('Harbor terrain artwork could not load:', err)).finally(() => {
+      this.harborArtPending = false;
+    });
+  }
+  private dropHarborChunk(tile: { frame?: SpriteFrame; node?: Node }) {
+    if (tile.node?.isValid) {
+      tile.node.active = false;
+      const sprite = tile.node.getComponent(Sprite);
+      if (sprite) sprite.spriteFrame = null;
+      tile.node.destroy();
+    }
+    tile.frame?.decRef();
+  }
+  private clearHarborStream() {
+    for (const tile of this.harborGround.values()) this.dropHarborChunk(tile);
+    this.harborGround.clear();
+    this.harborStreamCenter = undefined;
+  }
+  private streamHarbor(p: { x: number; y: number }, force = false) {
+    const previous = this.harborStreamCenter;
+    if (!force && previous && Math.hypot(p.x - previous.x, p.y - previous.y) < 36) {
+      if (this.harborLoads === 0) this.pumpHarborStream();
+      return;
+    }
+    this.harborStreamCenter = { ...p };
+    const lead = (value: number) => Math.abs(value) < 30 ? 0 : Math.max(-384, Math.min(384, value * 8));
+    const ahead = { x: p.x + lead(p.x - (previous?.x ?? p.x)), y: p.y + lead(p.y - (previous?.y ?? p.y)) };
+    const ranked = HARBOR_CHUNKS.map(bounds => {
+      const [x, y] = harborDistanceToChunk(p, bounds);
+      const [dx, dy] = harborDistanceToChunk(ahead, bounds);
+      const visible = x <= W / 2 + 24 && y <= H / 2 + 24;
+      return { bounds, x, y, rank: visible ? Math.hypot(x, y) * .01 : 1000 + Math.hypot(dx, dy * 1.22) };
+    }).filter(({ x, y }) => x <= W / 2 + 710 && y <= H / 2 + 550).sort((a, b) => a.rank - b.rank)
+      .slice(0, sys.isMobile ? 10 : 13);
+    const wanted = new Set(ranked.map(({ bounds }) => bounds.kind));
+    for (const [key, tile] of this.harborGround) {
+      if (wanted.has(key)) continue;
+      this.dropHarborChunk(tile);
+      this.harborGround.delete(key);
+    }
+    // Keep request order in sync with camera priority, including while retries are pending.
+    this.harborGround = new Map(ranked.map(({ bounds }) => [bounds.kind, this.harborGround.get(bounds.kind) ?? { bounds }]));
+    this.pumpHarborStream();
+  }
+  private readonly harborPending = new Set<string>();
+  private pumpHarborStream() {
+    const now = Date.now();
+    for (const [key, tile] of this.harborGround) {
+      if (this.harborLoads >= (sys.isMobile ? 2 : 3)) break;
+      if (tile.frame || this.harborPending.has(key) || (tile.retry ?? 0) > now) continue;
+      this.harborPending.add(key);
+      this.harborLoads++;
+      resources.load(`survival/harbor-hd/ground-${key}/spriteFrame`, SpriteFrame, (err, frame) => {
+        this.harborPending.delete(key);
+        this.harborLoads--;
+        const current = this.isValid ? this.harborGround.get(key) : undefined;
+        if (err) {
+          if (current) { current.retry = Date.now() + 1200; console.warn('Harbor chunk unavailable:', key, err); }
+        } else if (current) {
+          frame.packable = false;
+          frame.addRef();
+          current.frame = frame;
+          this.mountHarborChunk(current);
+        } else frame.addRef().decRef();
+        if (this.isValid) this.pumpHarborStream();
+      });
+    }
+  }
+  private mountHarborChunk(tile: { bounds: HarborChunk; frame?: SpriteFrame; node?: Node }) {
+    if (tile.node || !tile.frame || !this.harborGroundLayer) return;
+    const r = tile.bounds;
+    const node = this.makeNode('Harbor ground ' + r.kind, this.harborGroundLayer);
+    const sprite = this.setupSprite(node, tile.frame, r.w, r.h);
+    node.setPosition(r.x + r.w / 2, r.y + r.h / 2);
+    tile.node = sprite.node;
+  }
+  private buildSurvivalRoofs() {
+    const stage = this.battle.stage.survival;
+    if (!stage) return;
+    const p = this.battle.player, offsetX = this.battle.survivalUpperFloor?.offsetX ?? 0;
+    for (const { footprint: bounds, rooms, kind } of stage.buildings) {
+      const node = this.makeNode('Harbor roof ' + bounds.kind, this.survivalRoofLayer);
+      node.setPosition(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
+      const frame = this.artFrames.get('harbor-hd-roof-' + harborBuildingRoof(bounds, kind));
+      if (frame) this.setupSprite(node, frame, bounds.w, bounds.h);
+      else {
+        const g = this.graphics('Roof fallback', node);
+        box(g, -bounds.w / 2 - 10, -bounds.h / 2 - 10, bounds.w + 20, bounds.h + 20, '#403b33');
+      }
+      const opacity = node.addComponent(UIOpacity);
+      opacity.opacity = roomAt({ x: p.x - offsetX, y: p.y }, [bounds]) >= 0 ? 0 : 255;
+      this.survivalRoofs.push({ bounds, rooms, opacity });
+      this.mapNodes.push(node);
+    }
+  }
+  private updateSurvivalRoofs(dt: number) {
+    const { x, y } = this.battle.player, view = this.battle.survivalFloorView;
+    const p = { x: x - (view?.upstairs ? view.stair.offsetX : 0), y };
+    for (const art of this.survivalFloorArt) {
+      const blend = view?.stair === art.stair ? view.blend : 0;
+      const bounds = art.floors[0].bounds;
+      const visible = roomAt(p, [bounds]) >= 0 || view?.stair === art.stair;
+      const near = p.x + W / 2 + 48 >= bounds.x && p.x - W / 2 - 48 <= bounds.x + bounds.w
+        && p.y + H / 2 + 48 >= bounds.y && p.y - H / 2 - 48 <= bounds.y + bounds.h;
+      art.floors.forEach(({ opacity }, i) => {
+        const alpha = Math.round(255 * (i === 0 ? 1 - blend : blend));
+        opacity.node.active = near && alpha > 0;
+        if (alpha !== opacity.opacity) opacity.opacity = alpha;
+      });
+      art.stairs.active = visible;
+      art.upMarker.active = visible && blend < .5;
+      art.downMarker.active = visible && blend >= .5;
+    }
+    this.streamHarbor(p);
+    for (const { node, bounds } of this.harborGround.values()) {
+      if (!node) continue;
+      const [dx, dy] = harborDistanceToChunk(p, bounds);
+      node.active = dx < W / 2 + 48 && dy < H / 2 + 48;
+    }
+    for (const { node, bounds } of this.harborScenery) {
+      node.active = p.x + W / 2 + 84 >= bounds.x && p.x - W / 2 - 84 <= bounds.x + bounds.w
+        && p.y + H / 2 + 84 >= bounds.y && p.y - H / 2 - 84 <= bounds.y + bounds.h;
+    }
+    const fade = Math.round(1200 * dt);
+    let visible = false, approaching = false;
+    for (const roof of this.survivalRoofs) {
+      const r = roof.bounds;
+      const dx = Math.max(r.x - p.x, p.x - r.x - r.w, 0);
+      const dy = Math.max(r.y - p.y, p.y - r.y - r.h, 0);
+      const inside = dx === 0 && dy === 0;
+      roof.opacity.opacity = inside ? Math.max(0, roof.opacity.opacity - fade) : Math.min(255, roof.opacity.opacity + fade);
+      if (inside) this.survivalFocus = roof;
+      const show = roof.opacity.opacity > 0 && dx <= W / 2 + 28 && dy <= H / 2 + 28;
+      roof.opacity.node.active = show;
+      visible ||= show;
+      approaching ||= dx < W / 2 + 460 && dy < H / 2 + 460;
+    }
+    if (this.survivalFocus?.opacity.opacity === 255) this.survivalFocus = undefined;
+    if (this.survivalRoofLayer.active !== visible) { this.survivalRoofLayer.active = visible; this.sightTick = 0; }
+    if (approaching && !this.artFrames.has('survival-couch')) this.loadSurvivalBuildingArt('interior-furniture');
+  }
+  private buildSurvivalFloors(building: SurvivalBuilding, stair: SurvivalStair) {
+    const stage = this.battle.stage;
+    const bounds = [building.footprint, this.battle.rooms[stair.upperRoom]];
+    const base = this.graphics('Underside of residence floors', this.floorArt);
+    const lower = bounds[0];
+    box(base, lower.x, lower.y, lower.w, lower.h, '#302c28');
+    this.mapNodes.push(base.node);
+    const floors: SurvivalFloorArt[] = [];
+    bounds.forEach((r, index) => {
+      const material = index && building.kind === 'shop' ? 'house' : building.kind;
+      const floorFrame = this.artFrames.get('harbor-floor-' + material) ?? this.artFrames.get('survival-concrete');
+      const parent = this.makeNode(index ? 'Residence 2F' : 'Residence 1F', this.floorArt);
+      this.mapNodes.push(parent);
+      if (index) parent.setPosition(-stair.offsetX, 0);
+      const opacity = parent.addComponent(UIOpacity);
+      opacity.opacity = index ? 0 : 255;
+      parent.active = index === 0;
+      if (floorFrame) {
+        const floor = this.makeNode('Residence floorboards', parent);
+        floor.setPosition(r.x + r.w / 2, r.y + r.h / 2);
+        const sprite = this.setupSprite(floor, floorFrame, r.w, r.h);
+        if (index) sprite.color = color('#b7aea0');
+      } else box(this.graphics('Residence floor fallback', parent), r.x, r.y, r.w, r.h, '#655a4a');
+      const blood = this.graphics('Residence blood', parent);
+      const walls = building.walls.filter(w => (w.x > bounds[0].x + bounds[0].w + 10) === !!index);
+      const furniture = building.furniture.filter(f => roomAt(f, [r]) >= 0);
+      const raster = new Set<string>();
+      for (const prop of furniture) {
+        const frame = this.artFrames.get(prop.kind ?? '');
+        if (!frame) continue;
+        const node = this.makeNode(prop.kind ?? 'Furniture', parent);
+        node.setPosition(prop.x + prop.w / 2, prop.y + prop.h / 2);
+        this.setupSprite(node, frame, prop.w, prop.h);
+        raster.add(prop.kind + ':' + prop.x + ':' + prop.y);
+      }
+      drawMap(this.graphics('Residence partitions', parent), 'fixtures', raster, {
+        ...stage, walls: walls.filter(wall => wall.kind !== 'stair-rail'), furniture,
+      });
+      const roomIds = index ? [stair.upperRoom] : building.rooms.filter(room => room !== bounds[1])
+        .map(room => stage.rooms.indexOf(room));
+      const doorIds = this.battle.doors.filter(d => d.rooms.some(room => roomIds.includes(room))).map(d => d.id);
+      for (const id of doorIds) this.survivalFloorDoors.add(id);
+      floors.push({ bounds: r, opacity, doors: this.graphics('Residence doors', parent), doorIds, blood });
+    });
+    const flight = this.makeNode('Residence stair flight', this.floorArt);
+    const r = stair.bounds;
+    const frame = this.stairFrames.get('up');
+    if (frame) {
+      const sprite = this.setupSprite(flight, frame, r.w, r.h);
+      sprite.color = color('#d2bda5');
+    } else {
+      const steps = this.graphics('Stair steps', flight);
+      box(steps, -r.w / 2, -r.h / 2, r.w, r.h, '#473e33');
+      for (let y = -r.h / 2; y < r.h / 2; y += 16) line(steps, -r.w / 2 + 10, y, r.w / 2 - 10, y, '#8c7b5d', 2);
+    }
+    flight.setPosition(r.x + r.w / 2, r.y + r.h / 2);
+    const sign = (text: string, y: number) => {
+      const node = this.makeNode(text, flight);
+      node.setPosition(0, y);
+      node.getComponent(UITransform)!.setContentSize(160, 27);
+      const label = node.addComponent(Label);
+      label.string = text; label.fontSize = 17; label.color = color('#ebd1a0');
+      label.enableOutline = true; label.outlineColor = color('#30291e'); label.outlineWidth = 2;
+      return node;
+    };
+    const upMarker = sign('上楼 ↑', -r.h / 2 - 23);
+    const downMarker = sign('↓ 下楼', r.h / 2 + 23);
+    this.mapNodes.push(flight);
+    this.survivalFloorArt.push({ stair, floors, stairs: flight, upMarker, downMarker });
+  }
   private loadStairArt() {
     resources.load(STAIR_ATLAS, SpriteFrame, (err, source) => {
       if (!this.isValid) return;
@@ -956,52 +1579,154 @@ export class Blackout extends Component {
   private rebuildLevel() {
     for (const node of this.mapNodes) { node.active = false; node.destroy(); }
     this.mapNodes = [];
+    this.survivalRoofs = [];
+    this.harborScenery = [];
+    this.harborGroundLayer = undefined;
+    for (const tile of this.harborGround.values()) tile.node = undefined;
+    this.survivalFloorArt = [];
+    this.survivalFloorDoors.clear();
+    for (const sprite of this.survivalDoorSprites.get(this.doorsLit) ?? []) {
+      if (sprite.node.isValid) sprite.node.destroy();
+    }
+    this.survivalDoorSprites.clear();
+    this.survivalFocus = undefined;
+    if (this.survivalRoofLayer) this.survivalRoofLayer.active = false;
     this.apartmentDoors = [];
     this.getawaySprite = undefined;
-    this.operationLeader = undefined;
     this.doorArtBattle = this.battle;
     this.doorArtStage = this.battle.stage;
     this.apartmentShutterSprite = undefined;
     const stage = this.battle.stage, upper = stage.dorm?.number === 2, lower = stage.dorm?.number === 1;
+    this.setBattleRenderBudget(!!stage.survival);
     this.rasterProps.clear(); this.floors.clear(); this.fixtures.clear(); this.bloodArt.clear(); this.lastBloodRevision = -1;
     this.rebuildFloorDetails();
     const operation = stage.operation;
-    if (operation) {
+    if (stage.survival) {
+      const tile = (id: string, x: number, y: number, w: number, h: number) => {
+        const frame = this.artFrames.get(id);
+        if (!frame) return;
+        const node = this.makeNode(id, this.floorArt);
+        node.setPosition(x + w / 2, y + h / 2);
+        this.setupSprite(node, frame, w, h); this.mapNodes.push(node);
+        this.harborScenery.push({ node, bounds: { x, y, w, h } });
+        return node;
+      };
+      const margin = HARBOR_OVERVIEW_MARGIN * HARBOR_SCALE;
+      const layout = tile('harbor-hd-overview', -margin, -margin, HARBOR_ART_WIDTH * HARBOR_SCALE + 2 * margin,
+        HARBOR_ART_HEIGHT * HARBOR_SCALE + 2 * margin);
+      if (!layout) box(this.floors, 0, 0, HARBOR_ART_WIDTH * HARBOR_SCALE, HARBOR_ART_HEIGHT * HARBOR_SCALE, '#414840');
+      this.harborGroundLayer = this.makeNode('Streamed harbor ground', this.floorArt);
+      this.mapNodes.push(this.harborGroundLayer);
+      for (const resident of this.harborGround.values()) this.mountHarborChunk(resident);
+      for (const building of stage.survival.buildings) {
+        const bounds = building.footprint;
+        for (const entry of building.entries) {
+          const east = entry.baseAngle === Math.PI / 2;
+          const north = !east && entry.y > bounds.y;
+          const depth = building.kind === 'clinic' ? 46 : 30;
+          const width = entry.length + 18;
+          const x = east ? entry.x : entry.x - 9;
+          const y = east ? entry.y - 9 : north ? entry.y : entry.y - depth;
+          const doorstep = { x, y, w: east ? depth : width, h: east ? width : depth, kind: entry.name };
+          const node = tile('harbor-hd-doorstep', x + (doorstep.w - width) / 2, y + (doorstep.h - depth) / 2, width, depth);
+          if (node) node.angle = east ? 90 : north ? 180 : 0;
+        }
+        if (building.stair) {
+          this.buildSurvivalFloors(building, building.stair);
+          for (const r of [...building.walls, ...building.furniture]) this.rasterProps.add(r.kind + ':' + r.x + ':' + r.y);
+          continue;
+        }
+        const material = 'harbor-floor-' + (building.kind === 'utility' ? 'warehouse' : building.kind);
+        for (const room of building.rooms) {
+          const id = this.artFrames.has(material) ? material : 'survival-concrete';
+          if (!tile(id, room.x, room.y, room.w, room.h)) {
+            const g = this.graphics('Harbor interior fallback', this.floorArt);
+            box(g, room.x, room.y, room.w, room.h, '#64645a');
+            this.mapNodes.push(g.node);
+          }
+        }
+      }
+      const radio = stage.survival.radio;
+      const markings = this.graphics('Fort markings', this.propsArt);
+      this.mapNodes.push(markings.node);
+      markings.strokeColor = color('#f3cc80', 175);
+      markings.lineWidth = 2;
+      markings.circle(radio.x, radio.y, 42); markings.stroke();
+      const workbench = stage.survival.workbench;
+      markings.strokeColor = color('#9bbfa3', 164);
+      markings.circle(workbench.x, workbench.y, 26); markings.stroke();
+      this.buildSurvivalRoofs();
+    } else if (operation) {
       const terrain = (id: string, x: number, y: number, w: number, h: number) => {
         const frame = this.streetFrames.get(id);
         if (!frame) return;
         const node = this.makeNode(id, this.floorArt);
         node.setPosition(x, y);
-        this.setupSprite(node, frame, w, h);
+        const sprite = this.setupSprite(node, frame, w, h);
         this.mapNodes.push(node);
+        return sprite.node;
       };
-      const groundId = operation.part === 'compound' ? 'op-indoor' : operation.part === 'defense' ? 'op-ash' : 'op-sand';
-      const tile = 464;
-      for (let row = 0; row < OPERATION_HEIGHT / tile + 1; row++) {
-        for (let col = 0; col < OPERATION_WIDTH / tile + 1; col++) {
-          const x = (col + .5) * tile;
-          const id = operation.part === 'city'
-            ? x >= 1200 && x < 2600 ? (row % 3 === 1 ? 'op-sand' : 'op-pavement')
-              : x >= 2600 ? ((col + row) % 4 === 0 ? 'op-pavement' : groundId)
-                : ((col + row) % 5 === 0 ? 'op-pavement' : groundId)
-            : groundId;
-          terrain(id, x, (row + .5) * tile, tile, tile);
+      const outside = operation.part !== 'compound', bounds = stage.rooms[0];
+      const groundId = outside ? 'op-coastal-sand' : 'op-indoor';
+      const tile = outside ? 384 : 464, padding = outside ? 2 : 0;
+      for (let row = -padding; row < Math.ceil(bounds.h / tile) + 1; row++) {
+        for (let col = -padding; col < Math.ceil(bounds.w / tile) + 1; col++) {
+          const ground = terrain(groundId, (col + .5) * tile, (row + .5) * tile, tile, tile);
+          ground?.setScale(col % 2 ? -1 : 1, row % 2 ? -1 : 1, 1);
         }
       }
-      const lz = operation.part === 'defense' ? stage.exit : stage.spawn;
-      const marker = this.graphics('LZ marker', this.floorArt);
-      marker.lineWidth = 4; marker.strokeColor = color('#d8c391', 150);
-      marker.circle(lz.x, lz.y, 96); marker.stroke();
-      marker.lineWidth = 2; marker.strokeColor = color('#d8c391', 95);
-      marker.circle(lz.x, lz.y, 64); marker.stroke();
-      this.mapNodes.push(marker.node);
-      if (operation.part === 'compound') {
-        const leader = this.operationLeader = this.makeNode('Command leader', this.spriteLayer);
-        const leaderFrame = this.streetFrames.get('op-leader-ak') ?? this.streetFrames.get('op-leader');
-        if (leaderFrame) this.setupSprite(leader, leaderFrame, 59, 48);
-        leader.setPosition(OPERATION_LEADER.x, OPERATION_LEADER.y);
-        leader.angle = 90;
-        this.mapNodes.push(leader);
+      const chapelRunner = operation.chapel?.runner;
+      if (chapelRunner?.kind) terrain(chapelRunner.kind, chapelRunner.x + chapelRunner.w / 2,
+        chapelRunner.y + chapelRunner.h / 2, chapelRunner.w, chapelRunner.h);
+      if (outside) {
+        for (let row = -1; row <= Math.ceil(bounds.h / 1260); row++) for (const strip of OPERATION_SHORE_STRIPS) {
+          if (!strip.alpha) continue;
+          const scale = 1570 / 640;
+          const shore = terrain(strip.id, -70 + (strip.x + strip.width / 2) * scale, (row + 0.5) * 1260, strip.width * scale, 1260);
+          if (shore) {
+            shore.setScale(1, row % 2 ? -1 : 1, 1);
+            shore.getComponent(Sprite)!.color = color('#ffffff', strip.alpha);
+          }
+        }
+        operation.roads.forEach((route, index) => {
+          const width = [238, 178, 212, 165][index];
+          const bed = this.graphics('Continuous street surface', this.floorArt);
+          this.mapNodes.push(bed.node);
+          for (const [extra, opacity] of [[32, 25], [12, 45], [0, 100]]) {
+            bed.lineWidth = width + extra;
+            bed.lineJoin = Graphics.LineJoin.ROUND; bed.lineCap = Graphics.LineCap.ROUND;
+            bed.strokeColor = color('#c5af88', opacity);
+            bed.moveTo(route[0].x, route[0].y);
+            for (const point of route.slice(1)) bed.lineTo(point.x, point.y);
+            bed.stroke();
+          }
+          route.slice(1).forEach((to, i) => {
+            const from = route[i], length = Math.hypot(to.x - from.x, to.y - from.y);
+            const segments = Math.ceil(length / 420);
+            for (let piece = 0; piece < segments; piece++) {
+              const fraction = (piece + 0.5) / segments;
+              const strip = terrain('op-dusty-paving', from.x + (to.x - from.x) * fraction,
+                from.y + (to.y - from.y) * fraction, length / segments + 70, width);
+              if (strip) {
+                strip.angle = Math.atan2(to.y - from.y, to.x - from.x) * 180 / Math.PI;
+                strip.setScale((i + piece) % 2 ? -1 : 1, 1, 1);
+              }
+            }
+          });
+        });
+        const marker = this.graphics('Coastal pads', this.floorArt);
+        marker.lineWidth = 4; marker.strokeColor = color('#eee1bd', 195);
+        marker.circle(OPERATION_LZ.x, OPERATION_LZ.y, 156); marker.stroke();
+        marker.moveTo(OPERATION_LZ.x - 45, OPERATION_LZ.y + 52);
+        marker.lineTo(OPERATION_LZ.x - 45, OPERATION_LZ.y - 52);
+        marker.moveTo(OPERATION_LZ.x + 45, OPERATION_LZ.y + 52);
+        marker.lineTo(OPERATION_LZ.x + 45, OPERATION_LZ.y - 52);
+        marker.moveTo(OPERATION_LZ.x - 45, OPERATION_LZ.y); marker.lineTo(OPERATION_LZ.x + 45, OPERATION_LZ.y); marker.stroke();
+        if (operation.part === 'defense') {
+          marker.strokeColor = color('#b7d2a0', 190);
+          marker.circle(OPERATION_EXTRACT.x, OPERATION_EXTRACT.y, OPERATION_EXTRACT_RADIUS); marker.stroke();
+        }
+        this.mapNodes.push(marker.node);
       }
     } else drawMap(this.floors, 'floor', this.rasterProps, stage);
     const stairs = stage.stairFlight;
@@ -1013,6 +1738,7 @@ export class Blackout extends Component {
       this.mapNodes.push(node);
     }
     for (const f of [...stage.furniture, ...(operation?.scenery ?? [])]) {
+      if (stage.survival && this.rasterProps.has(f.kind + ':' + f.x + ':' + f.y)) continue;
       const reversed = f.kind === 'garage-sedan-reverse' || f.kind === 'garage-suv-reverse';
       const art = f.kind === 'getaway-car' ? 'garage-suv' : f.kind === 'desk' ? 'lobby-desk' : f.kind === 'locker' || f.kind === 'cabinet' ? 'dorm-locker'
         : f.kind === 'sofa' && lower ? 'lobby-sofa' : reversed ? f.kind!.slice(0, -8) : f.kind;
@@ -1036,11 +1762,15 @@ export class Blackout extends Component {
         continue;
       }
       const node = this.makeNode('Prop ' + f.kind, this.propsArt); this.mapNodes.push(node);
-      node.setPosition(f.x + f.w / 2, f.y + f.h / 2);
-      const turn = f.h > f.w && !['apartment-pingpong', 'op-pickup', 'op-roof', 'op-cot', 'op-barrels'].includes(f.kind ?? '');
+      const angle = f.angle ?? 0, cos = Math.cos(angle), sin = Math.sin(angle);
+      node.setPosition(f.x + (f.w * cos - f.h * sin) / 2, f.y + (f.w * sin + f.h * cos) / 2);
+      const turn = f.kind === 'op-office-cabinet' ? f.w > f.h :
+        f.h > f.w && !['apartment-pingpong', 'op-pickup', 'op-roof', 'op-cot', 'op-barrels'].includes(f.kind ?? '') &&
+        (!f.angle || f.kind === 'op-wall-mid');
       const sprite = this.setupSprite(node, frame, turn ? f.h : f.w, turn ? f.w : f.h);
       sprite.trim = true;
-      node.angle = (turn ? 90 : 0) + (reversed ? 180 : 0);
+      if (stage.survival) this.harborScenery.push({ node, bounds: f });
+      node.angle = angle * 180 / Math.PI + (turn ? 90 : 0) + (reversed ? 180 : 0);
       if (f.kind === 'getaway-car') { this.getawaySprite = sprite; node.angle = -90; }
       this.rasterProps.add(f.kind + ':' + f.x + ':' + f.y);
     }
@@ -1050,7 +1780,7 @@ export class Blackout extends Component {
     const capRight = this.streetFrames.get('op-wall-cap-right');
     if (operation && capLeft && capMid && capRight) {
       for (const wall of stage.walls) {
-        if (wall.kind === 'op-roof') continue;
+        if (wall.kind === 'op-roof' || wall.kind === 'op-sea') continue;
         const vertical = wall.h > wall.w;
         const length = vertical ? wall.h : wall.w, thickness = vertical ? wall.w : wall.h;
         const artHeight = Math.max(thickness, 34);
@@ -1074,7 +1804,7 @@ export class Blackout extends Component {
       const wallFrame = operation ? this.streetFrames.get('op-wall') :
         floor === 'garage' || floor === 'home' ? this.streetFrames.get(floor + '-wall') : undefined;
       if (wallFrame) for (const wall of stage.walls) {
-        if (wall.kind === 'op-roof') continue;
+        if (wall.kind === 'op-roof' || wall.kind === 'op-sea') continue;
         const vertical = wall.h > wall.w, length = vertical ? wall.h : wall.w, thickness = vertical ? wall.w : wall.h;
         const segments = Math.ceil(length / 390);
         for (let i = 0; i < segments; i++) {
@@ -1126,11 +1856,14 @@ export class Blackout extends Component {
         if (frame) this.tileFloor(r, frame, r.kind === 'shop-tile' ? 300 : 384);
       }
     }
-    for (const [i, r] of (operation ? [] : stage.rooms).entries()) {
+    const signedRooms = operation ? [] : stage.survival ? stage.rooms.filter((r, i) => i !== stage.survival!.streetRoom
+      && !stage.survival!.buildings.some(building => building.stair && building.rooms.includes(r))) : stage.rooms;
+    for (const [i, r] of signedRooms.entries()) {
       const bedroom = upper ? i >= 1 && i <= 3 : !lower && (i === 1 || i === 2);
       const frame = stage.apartment ? this.streetFrames.get('apartment-' + stage.apartment.floors[i]) : this.artFrames.get(lower && (i === 0 || i === 4 || i === 10) ? 'lobby-floor' : bedroom ? 'bedroom' : 'corridor');
-      if (!stage.street && frame) this.tileFloor(r, frame, floor === 'garage' || floor === 'home' ? 480 : 384, floor === 'garage' || floor === 'home' ? 320 : 384);
+      if (!stage.street && !stage.survival && frame) this.tileFloor(r, frame, floor === 'garage' || floor === 'home' ? 480 : 384, floor === 'garage' || floor === 'home' ? 320 : 384);
       const n = this.makeNode('Area sign ' + i, this.signsArt); this.mapNodes.push(n);
+      if (stage.survival) this.harborScenery.push({ node: n, bounds: r });
       n.setPosition(r.x + r.w / 2, stage.street ? r.y + r.h - 35 : r.y + (i === 0 && upper ? 104 : 43));
       n.getComponent(UITransform)!.setContentSize(r.w - 24, 35); const label = n.addComponent(Label);
       label.string = r.kind || ''; label.fontSize = 19; label.isBold = true;
@@ -1198,7 +1931,8 @@ export class Blackout extends Component {
   private hasPlayerArt() { return this.artFrames.has(this.battle.heroId === HEROINE_ID ? 'heroine' : 'operator') && [0, HEROINE_ID].includes(this.battle.heroId); }
   private playerWeaponMount() {
     const pose = this.motion.pose;
-    return weaponMount(this.battle.player, pose.scale, this.hasPlayerArt(), this.battle.heroId, pose);
+    const size = this.battle.stage.operation && pose.rollFrame < 0 ? OPERATION_GHOST_SIZE / 82 : 1;
+    return weaponMount(this.battle.player, pose.scale * size, this.hasPlayerArt(), this.battle.heroId, pose);
   }
   private rollKey() { return (this.battle.heroId === HEROINE_ID ? 'heroineRoll-' : 'roll-') + this.motion.pose.rollFrame; }
   private setupSprite(node: Node, frame: SpriteFrame, width: number, height: number): Sprite {
@@ -1209,9 +1943,10 @@ export class Blackout extends Component {
   }
   private updateActorSprites() {
     const b = this.battle, active = new Set<string>();
+    const boarding = b.operationRun?.phase === 'boarding';
     const brute = b.apartment && this.streetFrames.get('brute');
-    if (this.operationLeader) this.operationLeader.active = b.sees(OPERATION_LEADER, 36);
-    const nearby = b.enemies.filter(e => e.hp > 0 && (e.type === 'walker' || e.type === 'gunner' || e.type === 'boss' && (!!brute || !!e.operationBoss)) && (!(b.stage.street || b.stage.operation) || b.sees(e, 35)));
+    const injecting = b.operationRun?.phase === 'injection' ? b.operationRun.bossId : undefined;
+    const nearby = b.enemies.filter(e => (e.hp > 0 || e.id === injecting) && (e.type === 'walker' || e.type === 'gunner' || e.type === 'boss' && (!!brute || !!e.operationBoss)) && (!(b.stage.street || b.stage.operation || b.stage.survival) || b.sees(e, 35)));
     const enemyIds = new Set(nearby.map(e => 'enemy-' + e.id));
     for (const [id, sprite] of this.actorSprites) if (id.startsWith('enemy-') && !enemyIds.has(id)) {
       sprite.node.active = false;
@@ -1240,9 +1975,12 @@ export class Blackout extends Component {
     };
     const player = this.artFrames.get(b.heroId === HEROINE_ID ? 'heroine' : 'operator'), walker = this.artFrames.get('walker');
     const pose = this.motion.pose, roll = this.artFrames.get(this.rollKey());
-    if (b.player.hp > 0 && !b.evacuationDrive) {
+    if (b.player.hp > 0 && !b.evacuationDrive && !boarding) {
       if (pose.rollFrame >= 0) { if (roll) show('player-roll', roll, b.player.x, b.player.y, pose.angle, b.player.hit > 0, true, true, pose.scale); }
-      else if (player && [0, HEROINE_ID].includes(b.heroId)) show('player', player, b.player.x + pose.offsetX, b.player.y + pose.offsetY, pose.angle, b.player.hit > 0, true, false, pose.scale);
+      else if (player && [0, HEROINE_ID].includes(b.heroId)) {
+        const sprite = show('player', player, b.player.x + pose.offsetX, b.player.y + pose.offsetY, pose.angle, b.player.hit > 0, true, false, pose.scale);
+        if (b.stage.operation) sprite.node.getComponent(UITransform)!.setContentSize(OPERATION_GHOST_SIZE, OPERATION_GHOST_SIZE);
+      }
     } else if (this.fallTime > 0) {
       const index = this.fallTime < 0.13 ? 0 : this.fallTime < 0.31 ? 1 : 2;
       const falling = this.fallFrames.get(b.heroId === HEROINE_ID ? 'lin' : 'operator')?.[this.fallVariant * 3 + index];
@@ -1255,7 +1993,7 @@ export class Blackout extends Component {
       }
     }
     const operator = this.artFrames.get('operator');
-    if (!b.evacuationDrive && (operator || b.apartment)) for (const ally of b.allies) if (ally.hp > 0 || ally === b.apartment?.engineer) {
+    if (!b.evacuationDrive && !boarding && (operator || b.apartment)) for (const ally of b.allies) if (ally.hp > 0 || ally === b.apartment?.engineer) {
       const pose = this.enemyPoses.get(ally.id);
       const engineer = ally === b.apartment?.engineer;
       const armed = engineer && ally.hp > 0 && b.engineerArmed;
@@ -1266,7 +2004,7 @@ export class Blackout extends Component {
         const sprite = show('ally-' + ally.slot, frame, ally.x + (pose?.offsetX ?? 0), ally.y + (pose?.offsetY ?? 0), angle, ally.hit > 0 || ally.hp === 0, false, false, ally.hp === 0 ? 0.78 : pose?.scale ?? 1, !engineer);
         if (operationSoldier) {
           const transform = sprite.node.getComponent(UITransform)!;
-          transform.setContentSize(45, 67); transform.setAnchorPoint(0.5, 0.32);
+          transform.setContentSize(OPERATION_SOLDIER_SIZE.width, OPERATION_SOLDIER_SIZE.height); transform.setAnchorPoint(0.5, 0.32);
         } else if (engineer) {
           const transform = sprite.node.getComponent(UITransform)!;
           transform.setContentSize(armed ? 108 : 96, armed ? 54 : 64);
@@ -1278,26 +2016,33 @@ export class Blackout extends Component {
       const model = paralyzedModelPosition(e, b.elapsed);
       if (e.operationBoss) {
         const leader = e.operationBoss === 'leader';
-        const frame = (leader ? this.streetFrames.get('op-leader-ak') ?? this.streetFrames.get('op-leader') :
-          this.streetFrames.get('op-king')) ?? this.streetFrames.get('op-leader');
+        const injection = e.id === injecting;
+        const frame = this.streetFrames.get(injection ? 'op-rimelet-injection' : leader ? 'op-rimelet-human' : 'op-rimelet-mutated');
         if (frame) {
-          const sprite = show('enemy-' + e.id, frame, model.x, model.y, e.angle - Math.PI / 2, e.hit > 0, false, false, leader ? 1.05 : 1.45);
+          const sway = injection ? 0.045 * Math.sin((b.operationRun?.phaseTime ?? 0) * 15) : 0;
+          const slam = leader ? 0 : b.operationRun?.slam ?? 0;
+          const jump = slam > 0 && slam < 0.55 ? 48 * Math.sin(Math.PI * slam / 0.55) : 0;
+          const sprite = show('enemy-' + e.id, frame, model.x, model.y + jump, e.angle - Math.PI / 2 + sway, e.hit > 0);
           const transform = sprite.node.getComponent(UITransform)!;
-          transform.setContentSize(leader ? 62 : 108, leader ? 106 : 96);
-          transform.setAnchorPoint(0.5, 0.42);
+          transform.setContentSize(OPERATION_UNIT_ART.width, OPERATION_UNIT_ART.height);
+          transform.setAnchorPoint(0.5, OPERATION_UNIT_ART.anchorY);
         }
         continue;
       }
       const chargeFrame = e.charge && this.streetFrames.get('brute-charge');
-      const opFrame = e.type === 'gunner' ? this.streetFrames.get('op-gunner') :
+      const variant = e.type === 'gunner' && (e.appearance === 1 ? this.streetFrames.get('op-gunner-helmet') :
+        e.appearance === 2 ? this.streetFrames.get('op-gunner-scarf') : undefined);
+      const opFrame = e.type === 'gunner' ? variant || this.streetFrames.get('op-gunner') :
         b.stage.operation?.part === 'defense' ? this.streetFrames.get('op-infected') : undefined;
-      const frame = opFrame || (e.type === 'boss' ? chargeFrame || brute : this.artFrames.get('dorm-walker-' + e.appearance) ?? walker);
+      const timed = e.survivalVariant && this.timedSurvivalFrames.get(e.survivalVariant);
+      const frame = opFrame || timed || (e.type === 'boss' ? chargeFrame || brute : this.artFrames.get('dorm-walker-' + e.appearance) ?? walker);
       if (!frame) continue;
       if (opFrame) {
         const sprite = show('enemy-' + e.id, frame, model.x, model.y, e.angle - Math.PI / 2, e.hit > 0, false, false, this.enemyPoses.get(e.id)?.scale || 1);
         const transform = sprite.node.getComponent(UITransform)!;
-        transform.setContentSize(e.type === 'gunner' ? 44 : 52, e.type === 'gunner' ? 66 : 54);
-        transform.setAnchorPoint(0.5, 0.31);
+        transform.setContentSize(variant ? OPERATION_UNIT_ART.width : e.type === 'gunner' ? 52 : 60,
+          variant ? OPERATION_UNIT_ART.height : e.type === 'gunner' ? 77 : 62);
+        transform.setAnchorPoint(0.5, variant ? OPERATION_UNIT_ART.anchorY : 0.31);
         continue;
       }
       if (e.type === 'boss' && brute) {
@@ -1312,7 +2057,8 @@ export class Blackout extends Component {
         const transform = sprite.node.getComponent(UITransform)!;
         if (chargeFrame) transform.setContentSize(66, 76);
         transform.setAnchorPoint(chargeFrame ? 0.44 : 0.39, 0.5);
-      } else show('enemy-' + e.id, frame, model.x, model.y, e.angle, e.hit > 0, false, false, this.enemyPoses.get(e.id)?.scale || 1);
+      } else show('enemy-' + e.id, frame, model.x, model.y, e.angle, e.hit > 0, false, false,
+        (this.enemyPoses.get(e.id)?.scale || 1) * (e.survivalVariant === 'overrun' ? 1.4 : e.survivalVariant === 'breaker' ? 1.18 : 1));
     }
     for (const [id, sprite] of this.actorSprites) if (!active.has(id)) sprite.node.active = false;
   }
@@ -1334,6 +2080,10 @@ export class Blackout extends Component {
     return label;
   }
   private sbox(g: Graphics, x: number, y: number, w: number, h: number, fill: string, a = 255) { box(g, x - W / 2, y - H / 2, w, h, fill, a); }
+  private blackFade(g: Graphics, fraction: number) {
+    g.clear();
+    this.sbox(g, 0, 0, W, H, '#000000', Math.round(clamp(fraction, 0, 1) * 255));
+  }
   private soutline(g: Graphics, x: number, y: number, w: number, h: number, fill: string, a = 255) { outline(g, x - W / 2, y - H / 2, w, h, fill, a); }
   private sline(g: Graphics, x: number, y: number, x2: number, y2: number, fill: string, width = 1, a = 255) { line(g, x - W / 2, y - H / 2, x2 - W / 2, y2 - H / 2, fill, width, a); }
   private buildTutorialPrompt() {
@@ -1383,7 +2133,7 @@ export class Blackout extends Component {
     button.transition = Button.Transition.NONE;
     // Let Cocos hit-test the real UI node and emit one click on release.
     node.on(Button.EventType.CLICK, () => {
-      if (this.transition) return;
+      if (this.transition || button.interactable === false) return;
       if (this.readerLayer && (!id.startsWith('reader-') || this.readerAnimating)) return;
       action();
     }, this);
@@ -1419,8 +2169,11 @@ export class Blackout extends Component {
     this.lowerFloor = lower;
     return create(id, upper);
   }
-  private toast(s: string, duration = 3.4) { this.notice = s; this.noticeTime = duration; this.uiTick = 0; }
-  private resetInput() { this.mouseAimInput = false; this.aimAssist.reset(); this.sweeping = false; this.lastFacing = this.battle.player.angle; this.keys.clear(); this.mouseFire = false; this.moveTouch = this.aimTouch = -1; this.moving = this.aiming = false; this.aimRadius = 0; this.aimOuter = false; this.moveVector = { x: 0, y: 0 }; }
+  private toast(s: string, duration = this.mode === 'playing' ? 2.2 : 3.4, kind: NoticeKind = 'inspect') {
+    if (s !== this.notice || this.noticeTime <= 0 || kind !== this.noticeKind) this.noticeSince = this.presentationTime;
+    this.notice = s; this.noticeTime = duration; this.noticeKind = kind; this.uiTick = 0;
+  }
+  private resetInput() { this.survivalDoorHold = undefined; this.operationGrenadeTouch = undefined; this.operationGrenadeKey = false; this.mouseAimInput = false; this.aimAssist.reset(); this.sweeping = false; this.lastFacing = this.battle.player.angle; this.keys.clear(); this.mouseFire = this.mouseQueuedFire = false; this.moveTouch = this.aimTouch = -1; this.moving = this.aiming = false; this.aimRadius = 0; this.aimOuter = false; this.moveVector = { x: 0, y: 0 }; }
   private closeReader() {
     if (!this.readerLayer || this.readerClosing) return;
     this.reader = closeReader(this.reader);
@@ -1502,6 +2255,16 @@ export class Blackout extends Component {
     for (const button of this.buttons) { button.node.active = false; button.node.destroy(); }
     this.buttons = [];
   }
+  private dismissUiLayer(layer: Node) {
+    const within = (node: Node) => {
+      for (let parent = node.parent; parent; parent = parent.parent) if (parent === layer) return true;
+      return false;
+    };
+    this.buttons = this.buttons.filter(button => !within(button.node));
+    for (const [id, label] of this.labels) if (within(label.node)) this.labels.delete(id);
+    layer.active = false;
+    layer.destroy();
+  }
   private open(mode: Mode) {
     if (this.readerLayer) return;
     // A pending scene decision survives hide/pause requests. Only its actions
@@ -1510,6 +2273,9 @@ export class Blackout extends Component {
     if (mode === 'settings' && (this.mode === 'playing' || this.mode === 'pause')) this.battleSettings = true;
     if (mode !== 'settings' && mode !== 'help') this.battleSettings = false;
     if (this.reader.open || this.readerLayer) this.closeReader();
+    if (mode !== 'street-loading') this.departure = undefined;
+    if (mode === 'profile-info') this.profileEditor ??= { ...this.profile.identity, tab: 'dossier' };
+    else this.profileEditor = undefined;
     this.clearGuide(!showsBattle(mode, this.battleSettings));
     this.mode = mode; this.resetInput(); this.sightTick = 0;
     if (this.operationDialogue && (mode === 'operation-cinematic' || mode === 'result' || mode === 'menu' ||
@@ -1525,9 +2291,13 @@ export class Blackout extends Component {
       if (icon) icon.active = false;
     }
     const battleView = showsBattle(mode, this.battleSettings);
+    if (mode !== 'street-loading' && !battleView) this.clearHarborStream();
     this.exitArrow.node.active = mode === 'playing';
     if (this.battleArtwork) { this.battleArtwork.active = false; this.battleArtwork.destroy(); this.battleArtwork = undefined; }
+    this.playerStatus = this.noticeHud = this.promptHud = undefined;
     this.objectiveHud = undefined;
+    this.operationBossHud = undefined;
+    if (mode !== 'playing' && this.airborne) this.airborne.root.active = false;
     this.battleSticks = []; this.moveCap = undefined; this.capOffset = { x: 0, y: 0 }; this.hudActions = []; this.supplySlotNodes = [];
     this.homeBackdrop.active = !battleView;
     this.outputSprite.node.active = battleView;
@@ -1535,6 +2305,7 @@ export class Blackout extends Component {
     this.actorCamera.enabled = battleView;
     if (mode !== 'playing') { this.feedback.suspend(); this.motion.suspend(); this.weaponEffects.clear(); }
     if (this.homeArtwork) { this.homeArtwork.active = false; this.homeArtwork.destroy(); this.homeArtwork = undefined; }
+    if (this.profileLayer) { this.profileLayer.active = false; this.profileLayer.destroy(); this.profileLayer = this.profilePage = undefined; this.profileTabs = undefined; }
     if (this.chapterMap) { this.chapterMap.active = false; this.chapterMap.destroy(); this.chapterMap = undefined; }
     if (this.achievementsLayer) { this.achievementsLayer.active = false; this.achievementsLayer.destroy(); this.achievementsLayer = undefined; }
     if (this.missionLayer) { this.missionLayer.active = false; this.missionLayer.destroy(); this.missionLayer = undefined; }
@@ -1543,9 +2314,21 @@ export class Blackout extends Component {
     this.checkInPulse = undefined;
     if (mode !== 'checkin') this.checkInClaimFeedback = undefined;
     if (this.dialogArtwork) { this.dialogArtwork.active = false; this.dialogArtwork.destroy(); this.dialogArtwork = undefined; }
+    if (this.harborMapLayer) { this.harborMapLayer.active = false; this.harborMapLayer.destroy(); this.harborMapLayer = undefined; }
+    if (this.survivalBagLayer) {
+      this.survivalBagLayer.active = false; this.survivalBagLayer.destroy();
+      this.survivalBagLayer = undefined; this.survivalBagArt = undefined; this.survivalBagIcons = [];
+      this.survivalBagSkin = this.survivalBagItemLayer = undefined; this.survivalBagSkinNodes = [];
+    }
+    this.survivalQuickOpen = this.survivalWorkshopOpen = false;
+    this.survivalDoorPanel = undefined;
+    if (this.battle.survival) this.suppliesOpen = false;
+    this.survivalHeldItem = undefined; this.survivalCrateId = undefined; this.survivalDrag = undefined;
+    this.survivalVehiclePanel = this.survivalAmmo = this.survivalSwap = undefined;
+    this.survivalRotatePreview = undefined;
     if (this.shopLayer) { this.shopLayer.active = false; this.shopLayer.destroy(); this.shopLayer = undefined; }
     if (this.caseLayer) { this.caseLayer.active = false; this.caseLayer.destroy(); this.caseLayer = undefined; }
-    if (mode !== 'cases') this.casePreview = this.caseRoll = undefined;
+    if (mode !== 'cases') this.casePreview = this.caseRoll = this.caseReel = undefined;
     if (this.backpackLayer) { this.backpackLayer.active = false; this.backpackLayer.destroy(); this.backpackLayer = undefined; }
     this.backpackTouch = undefined;
     if (this.trainingLayer) {
@@ -1560,9 +2343,13 @@ export class Blackout extends Component {
     for (const label of this.labels.values()) label.node.destroy(); this.labels.clear();
     this.modalArt.clear(); this.hud.clear(); this.uiTick = 0;
     if (mode === 'playing') { this.buildHud(); if (this.tutorialPrompt) this.buildTutorialPrompt(); return; }
-    if (mode === 'menu' || mode === 'checkin' || mode === 'backpack') {
+    if (mode === 'menu' || mode === 'profile-info' || mode === 'checkin' || mode === 'backpack') {
       this.refreshCheckInRewards();
       this.buildMenu();
+      if (mode === 'profile-info') {
+        for (const button of this.buttons) button.node.getComponent(Button)!.interactable = false;
+        this.buildProfileInfo();
+      }
       if (mode === 'checkin') { this.clearButtons(); this.buildCheckIn(); }
       if (mode === 'backpack') this.renderBackpack();
     }
@@ -1583,6 +2370,9 @@ export class Blackout extends Component {
     else if (mode === 'pause') this.buildPause();
     else if (mode === 'revive') this.buildRevive();
     else if (mode === 'result') this.buildResult();
+    else if (isSurvivalMenu(mode)) this.buildSurvivalSelection();
+    else if (mode === 'survival-radio') this.buildSurvivalRadio();
+    else if (mode === 'survival-map') this.buildSurvivalMap();
   }
   private panel(title: string, subtitle: string, back = () => this.open('menu')) {
     this.sbox(this.modalArt, 0, 0, W, H, C.ink, 224);
@@ -1633,8 +2423,10 @@ export class Blackout extends Component {
     }
   }
   private showChapter(chapter: Chapter) {
+    if (!this.chapterUnlocked(chapter)) { this.toast(CHAPTERS[chapter].locked); return; }
     this.selectedChapter = chapter;
-    this.open('chapter-intro');
+    this.sortieHero = HERO_IDS.find(id => this.sortieAllowed(id)) ?? HEROINE_ID;
+    this.open('select-hero');
   }
   private campaignSprite(parent: Node, id: CampaignImage | SpriteFrame, x: number, y: number, w: number, h: number, fit = false) {
     const frame = typeof id === 'string' ? this.campaignFrames.get(id) : id;
@@ -1657,69 +2449,57 @@ export class Blackout extends Component {
   private buildChapterMap() {
     const root = this.chapterMap = this.makeNode('Exploration map', this.modal);
     root.setSiblingIndex(0);
-    if (!this.campaignSprite(root, 'map', W / 2, H / 2, W, H)) this.sbox(this.graphics('Map background', root), 0, 0, W, H, '#131d21');
+    if (!this.campaignSprite(root, 'satellite-map', W / 2, H / 2, W, H)) {
+      this.sbox(this.graphics('Satellite fallback', root), 0, 0, W, H, '#24302c');
+    }
     if (!this.campaignSprite(root, 'map-frame', W / 2, H / 2, W, H)) {
-      this.campaignLabel(root, 'map-title', '探索地图', 50, 674, 33, 300);
-      this.campaignLabel(root, 'map-return', '返回首页', 1212, 672, 19, 145, C.text, Label.HorizontalAlign.RIGHT);
+      this.campaignLabel(root, 'map-title', '探索地图', 50, 669, 33, 280);
+      this.campaignLabel(root, 'map-return', '返回首页', 1238, 674, 20, 180, C.text, Label.HorizontalAlign.RIGHT);
     }
     for (const chapter of [1, 2, 3, 4] as const) {
-      const { x, y, name, location, side } = CHAPTERS[chapter];
+      const { name, location } = CHAPTERS[chapter];
       const locked = !this.chapterUnlocked(chapter);
-      const cardX = x + side * 155, tint = locked ? '#babdc0' : '#f4d297';
-      this.campaignSprite(root, locked ? 'pin-locked' : 'pin', x, y + 4, 76, 98);
-      this.campaignLabel(root, 'map-point-' + chapter, '0' + chapter, x, y + 19, 22, 49, tint, Label.HorizontalAlign.CENTER);
-      this.campaignSprite(root, 'chapter-card', cardX, y - 14, 234, 70);
-      const preview = this.campaignSprite(root, `chapter-${chapter}`, cardX - 70, y - 13, 75, 45);
+      const y = 544 - (chapter - 1) * 111, tint = locked ? '#babdc0' : '#f4d297';
+      this.campaignSprite(root, 'chapter-card', 1060, y, 344, 92);
+      const preview = this.campaignSprite(root, `chapter-${chapter}`, 949, y, 86, 54);
       if (locked && preview) preview.color = color('#6e7478');
-      if (locked) this.campaignSprite(root, 'lock', cardX - 70, y - 13, 20, 24, true);
-      this.campaignLabel(root, 'map-chapter-' + chapter, name, cardX - 22, y - 3, 22, 132, tint);
-      this.campaignLabel(root, 'map-location-' + chapter, locked ? '尚未解锁' : location, cardX - 22, y - 28, 14, 121, tint);
-      if (this.mode === 'chapters') {
-        this.addButton('chapter-' + chapter, Math.min(x - 38, cardX - 117), y - 55, 311, 106, () => this.showChapter(chapter));
-      }
+      if (locked) this.campaignSprite(root, 'lock', 949, y, 20, 25, true);
+      this.campaignLabel(root, 'map-chapter-' + chapter, name, 1009, y + 13, 24, 196, tint);
+      this.campaignLabel(root, 'map-location-' + chapter, locked ? '尚未解锁' : location, 1009, y - 15, 16, 194, tint);
+      if (this.mode === 'chapters') this.addButton('chapter-' + chapter, 891, y - 46, 340, 92, () => this.showChapter(chapter));
     }
     if (this.mode === 'chapters') {
-      this.addButton('map-back', 1061, 645, 195, 58, () => this.open('menu'));
-      return;
+      this.addButton('map-back', 1052, 645, 219, 64, () => this.open('menu'));
+    } else {
+      this.sbox(this.graphics('Dimmed campaign map', root), 0, 0, W, H, '#000000', 147);
+      this.buildSortiePicker(root);
     }
-    this.sbox(this.graphics('Dimmed campaign map', root), 0, 0, W, H, '#000000', 135);
-    if (this.mode === 'select-hero') { this.buildSortiePicker(root); return; }
-    const chapter = this.selectedChapter;
-    const data = CHAPTERS[chapter];
-    const unlocked = this.chapterUnlocked(chapter);
-    const back = () => this.open('chapters');
-    this.dialog(data.name, [
-      { id: 'chapter-enter', label: unlocked ? '选择角色' : '尚未解锁', enabled: unlocked, run: () => this.openSortiePicker() },
-      { id: 'chapter-cancel', label: '返回地图', run: back },
-    ], back);
-    this.dialogText('chapter-place', ['第一章', '第二章', '第三章', '第四章'][chapter - 1] + ' · ' + data.location, W / 2, 448, 20, 640, C.gold);
-    data.lines.forEach((line, i) => this.dialogText('chapter-line-' + i, line, W / 2, 395 - i * 34, 20, 670));
-    if (!unlocked) this.dialogText('chapter-locked', data.locked, W / 2, 307, 20, 640, '#f5cb8b');
   }
   private sortieAllowed(id: HeroId, chapter = this.selectedChapter) {
     const cast: readonly HeroId[] = CHAPTERS[chapter].cast;
     return cast.includes(id) && (chapter === 4 || this.profile.owned[id]);
   }
-  private openSortiePicker() {
-    if (!this.chapterUnlocked(this.selectedChapter)) return;
-    this.sortieHero = HERO_IDS.find(id => this.sortieAllowed(id)) ?? HEROINE_ID;
-    this.open('select-hero');
+  private closeSurvivalPicker() {
+    this.open(this.profile.survivalMaps[this.selectedSurvivalMap] ? 'survival-resume' : 'survival-entry');
   }
   private dispatchSortie() {
     if (this.mode === 'select-hero' && this.sortieAllowed(this.sortieHero)) this.startBattle(this.selectedChapter);
+    if (this.mode === 'survival-hero' && this.profile.owned[this.survivalHero]) this.loadSurvivalDeparture(this.selectedSurvivalMap, this.survivalHero);
   }
-  private buildSortiePicker(root: Node) {
+  private buildSortiePicker(root: Node, survival = false) {
     const center = Label.HorizontalAlign.CENTER, right = Label.HorizontalAlign.RIGHT;
-    const id = this.sortieHero, p = this.profile, hero = heroes[id], kit = p.armory.kits[id];
-    const operation = this.selectedChapter === 4;
+    const id = survival ? this.survivalHero : this.sortieHero, p = this.profile, hero = heroes[id], kit = p.armory.kits[id];
+    const operation = !survival && this.selectedChapter === 4;
+    const allowedHero = (candidate: HeroId) => survival ? p.owned[candidate] : this.sortieAllowed(candidate);
     const art = this.campaignSprite(root, 'hero-frame', 640, 359, 1116, 628);
     const text = (key: string, value: string, x: number, y: number, size: number, w: number, tint = C.text, align = Label.HorizontalAlign.LEFT) =>
       this.campaignLabel(root, 'sortie-' + key, value, x, y, size, w, tint, align);
     this.campaignSprite(root, 'team', 187, 600, 66, 52, true);
     text('title', '选择战斗角色', 233, 598, 32, 278, '#ffdf9f');
-    text('chapter', CHAPTERS[this.selectedChapter].name + (operation ? '  ·  联合作战' : '  ·  单人行动'), 1008, 593, 18, 280, C.text, right);
+    const title = survival ? SURVIVAL_MAPS[this.selectedSurvivalMap].name : CHAPTERS[this.selectedChapter].name + (operation ? '  ·  联合作战' : '  ·  单人行动');
+    text('chapter', title, 1008, 593, 18, 280, C.text, right);
     if (!art) text('close-label', '×', 1108, 601, 35, 55, C.gold, center);
-    this.addButton('sortie-close', 1076, 568, 72, 67, () => this.open('chapter-intro'));
+    this.addButton('sortie-close', 1076, 568, 72, 67, () => survival ? this.closeSurvivalPicker() : this.open('chapters'));
 
     const portrait = this.trainingFrames.get(`${TRAINING_PROFILES[id].key}-art`);
     if (portrait) {
@@ -1733,7 +2513,7 @@ export class Blackout extends Component {
       this.setupSprite(picture, portrait, width, height);
     }
     for (const [i, candidate] of HERO_IDS.entries()) {
-      const x = 482 + i * 148, y = 382, active = id === candidate, allowed = this.sortieAllowed(candidate);
+      const x = 482 + i * 148, y = 382, active = id === candidate, allowed = allowedHero(candidate);
       this.campaignSprite(root, active ? 'hero-active' : 'hero-card', x, y, 128, 177);
       const face = this.trainingFrames.get(`${TRAINING_PROFILES[candidate].key}-face`);
       if (face) {
@@ -1743,15 +2523,16 @@ export class Blackout extends Component {
       text('hero-' + candidate, heroes[candidate].name, x, y - 51, 19, 110, active ? '#ffe0a1' : '#d7cec2', center);
       if (!allowed) {
         this.campaignSprite(root, 'lock', x - 41, y - 72, 13, 15, true);
-        text('blocked-' + candidate, operation ? '未参与行动' : p.owned[candidate] ? '本关限定凛' : '尚未解锁', x + 8, y - 72, 13, 88, '#c4b59e', center);
+        text('blocked-' + candidate, operation ? '未参与行动' : !survival && p.owned[candidate] ? '本关限定凛' : '尚未解锁', x + 8, y - 72, 13, 88, '#c4b59e', center);
       } else {
         this.addButton('sortie-hero-' + candidate, x - 64, y - 88, 128, 176, () => {
-          if (!this.sortieAllowed(candidate) || active) return;
-          this.sortieHero = candidate; this.open('select-hero');
+          if (!allowedHero(candidate) || active) return;
+          if (survival) { this.survivalHero = candidate; this.open('survival-hero'); }
+          else { this.sortieHero = candidate; this.open('select-hero'); }
         });
       }
     }
-    text('restriction', operation ? '剧情指定  ·  幽灵行动组' : '剧情指定  ·  仅凛可出战', 642, 251, 18, 417, '#e7c891', center);
+    if (!survival) text('restriction', operation ? '剧情指定  ·  幽灵行动组' : '剧情指定  ·  仅凛可出战', 642, 251, 18, 417, '#e7c891', center);
     text('name', operation ? '幽灵 · 任务配装' : hero.name + '  Lv.' + p.levels[id], 907, 508, 27, 212, '#ffdb96');
     text('role', '定位  ' + hero.role, 908, 470, 17, 208);
     text('weapon', '武器  ' + WEAPON_TYPES[hero.weapon], 908, 443, 17, 208);
@@ -1769,7 +2550,7 @@ export class Blackout extends Component {
     const face = this.trainingFrames.get(`${TRAINING_PROFILES[id].key}-face`);
     if (face) this.campaignSprite(root, face, 347, 150, 62, 62, true);
     text('start', '开始战斗  »', 970, 155, 30, 258, '#ffecd0', center);
-    if (this.sortieAllowed(id)) this.addButton('sortie-start', 838, 122, 270, 65, () => this.dispatchSortie());
+    if (allowedHero(id)) this.addButton('sortie-start', 838, 122, 270, 65, () => this.dispatchSortie());
   }
   private homeSprite(id: HomeImage, x: number, top: number, w: number, h: number, available = true) {
     const frame = this.homeFrames.get(id);
@@ -1910,24 +2691,218 @@ export class Blackout extends Component {
     this.play('win');
     this.open('achievements');
   }
+  private profilePortrait(id: HeroId) {
+    return this.trainingFrames.get(`${TRAINING_PROFILES[id].key}-face`) ??
+      (id === HEROINE_ID ? this.linPortrait ?? this.homeFrames.get('profile_panel') : id === GHOST_ID ? this.ghostPortrait : undefined);
+  }
+  private canRefreshProfileArt() {
+    return this.mode === 'profile-info' && !this.profileEditor?.editing;
+  }
+  private buildProfileInfo() {
+    const root = this.profileLayer = this.makeNode('Survivor dossier', this.modal);
+    const left = 100, bottom = 57, width = 1080, height = 606, right = left + width, top = bottom + height;
+    const shade = this.graphics('Dossier backdrop', root);
+    this.sbox(shade, 0, 0, W, H, '#07090a', 182);
+    if (!this.campaignSprite(root, 'profile-shell', W / 2, H / 2, width, height) &&
+        !this.campaignSprite(root, 'profile-panel', W / 2, H / 2, width, height)) {
+      this.sbox(shade, left, bottom, width, height, '#171918');
+      this.soutline(shade, left, bottom, width, height, '#9d7952');
+    }
+    const close = () => this.open('menu');
+    for (const [index, [x, y, w, h]] of [[0, 0, W, bottom], [0, top, W, H - top],
+      [0, bottom, left, height], [right, bottom, W - right, height]].entries()) {
+      this.addButton('profile-outside-' + index, x, y, w, h, close, root);
+    }
+    this.campaignLabel(root, 'profile-title', '账号信息', 248, 621, 30, 216, '#fee6be');
+    this.text('profile-title-sub', 'ACCOUNT', 249, 591, 14, '#c0a77f', root, 140).isBold = true;
+    this.campaignLabel(root, 'profile-close-label', '×', 1127, 592, 39, 51, '#ffce81', Label.HorizontalAlign.CENTER);
+    this.addButton('profile-close', 1096, 563, 62, 55, close, root);
+
+    const nav = this.graphics('Account navigation fallback', root);
+    const tabAt = (key: 'dossier' | 'settings', title: string, y: number) => {
+      const art = this.campaignSprite(root, 'plate', 239, y, 160, 53);
+      if (!art) this.sbox(nav, 159, y - 26, 160, 52, '#302d29');
+      this.campaignLabel(root, 'profile-tab-' + key + '-text', title, 249, y, 22, 100, '#e3cfaa', Label.HorizontalAlign.CENTER);
+      this.addButton('profile-tab-' + key, 160, y - 26, 158, 52, () => this.showProfilePage(key), root);
+      return art;
+    };
+    this.profileTabs = [tabAt('dossier', '档案', 507), tabAt('settings', '设置', 441)];
+    this.renderProfilePage();
+  }
+  private showProfilePage(tab: NonNullable<Blackout['profileEditor']>['tab']) {
+    if (!this.profileEditor || tab === this.profileEditor.tab) return;
+    this.profileEditor.tab = tab;
+    this.renderProfilePage();
+  }
+  private renderProfilePage() {
+    const editor = this.profileEditor!, panel = this.profileLayer!;
+    if (this.profilePage) this.dismissUiLayer(this.profilePage);
+    const root = this.profilePage = this.makeNode('Account page', panel);
+    this.profileTabs?.forEach((sprite, i) => {
+      const active = i === 0 ? editor.tab === 'dossier' : editor.tab !== 'dossier';
+      const frame = this.campaignFrames.get(active ? 'plate-active' : 'plate');
+      if (sprite && frame) sprite.spriteFrame = frame;
+      const label = this.labels.get(i === 0 ? 'profile-tab-dossier-text' : 'profile-tab-settings-text');
+      if (label) label.color = color(active ? '#ffde9e' : '#bcb1a1');
+    });
+    const details = this.graphics('Dossier controls', root), center = Label.HorizontalAlign.CENTER, right = Label.HorizontalAlign.RIGHT;
+    const text = (id: string, value: string, x: number, y: number, size: number, w: number, tint = '#ddd3bf', align = Label.HorizontalAlign.LEFT) =>
+      this.text('profile-' + id, value, x, y, size, tint, root, w, align);
+    const button = (id: string, title: string, x: number, y: number, w: number, h: number, action: () => void, active = false) => {
+      const art = this.campaignSprite(root, active ? 'plate-active' : 'plate', x + w / 2, y + h / 2, w, h);
+      if (!art) {
+        this.sbox(details, x, y, w, h, active ? '#49371f' : '#25282a');
+        this.soutline(details, x, y, w, h, active ? '#ebb570' : '#73614b', 233);
+      }
+      text(id + '-text', title, x + w / 2, y + h / 2, 18, w - 10, active ? '#ffdda0' : '#ddceba', center).isBold = true;
+      const hit = this.addButton('profile-' + id, x, y, w, h, action, root);
+      if (art) this.setButtonArtwork(hit, art.node);
+    };
+    if (editor.tab === 'guide') {
+      text('guide-title', '操作说明', 365, 549, 25, 245, '#f4d8a6').isBold = true;
+      button('guide-back', '返回设置', 976, 526, 134, 39, () => this.showProfilePage('settings'));
+      CONTROL_GUIDE.forEach(([name, mobile, desktop], i) => {
+        const y = 491 - i * 44;
+        this.sbox(details, 362, y - 19, 752, 39, i % 2 === 0 ? '#242526' : '#202121');
+        text('guide-topic-' + i, name, 375, y, 15, 105, '#f0d4a2');
+        text('guide-touch-' + i, mobile, 484, y, 14, 310);
+        text('guide-key-' + i, desktop, 797, y, 14, 305);
+      });
+      text('guide-tip', '木门可破坏，锁住的铁门需钥匙。Esc / P 暂停。', 375, 126, 15, 695, '#b8aa92');
+      return;
+    }
+    if (editor.tab === 'settings') {
+      text('settings-title', '设置', 363, 549, 26, 250, '#f4d8a6').isBold = true;
+      const options = [
+        ['sound', '音效', '游戏音效'],
+        ['aimAssist', '轻辅助瞄准', '仅手机主动瞄准时生效'],
+        ['autoFire', '自动开火', '准星对准可见目标时自动射击'],
+      ] as const;
+      options.forEach(([key, title, hint], i) => {
+        const y = 480 - i * 89, enabled = this.profile[key];
+        this.sbox(details, 363, y - 36, 750, 72, '#252626');
+        this.soutline(details, 363, y - 36, 750, 72, '#51483d');
+        text(key, title, 389, y + 13, 20, 310, '#edcf9d');
+        text(key + '-hint', hint, 389, y - 14, 15, 520);
+        button(key, enabled ? '已开启' : '已关闭', 940, y - 21, 142, 42, () => {
+          if (key === 'autoFire') this.toggleAutoFire();
+          else { this.profile[key] = !enabled; this.save(); }
+          this.renderProfilePage();
+        }, enabled);
+      });
+      button('guide', '操作说明', 364, 153, 179, 46, () => this.showProfilePage('guide'));
+      return;
+    }
+
+    const unlocked = 1 + Number(this.profile.streetUnlocked) + Number(this.profile.apartmentUnlocked) + Number(this.profile.owned[ENGINEER_ID]);
+    const banner = this.campaignSprite(root, 'profile-banner', 737, 498, 758, 146);
+    banner?.node.setSiblingIndex(0);
+    if (!banner) this.sbox(details, 358, 425, 758, 146, '#282828');
+    this.soutline(details, 358, 425, 758, 146, '#6c5941', 195);
+    this.sbox(details, 378, 446, 105, 105, '#2b2c2e');
+    const headingFrame = this.campaignFrames.get('hero-active');
+    const avatar = this.profilePortrait(editor.avatar);
+    if (headingFrame) this.campaignSprite(root, headingFrame, 431, 498, 115, 115);
+    if (avatar) this.campaignSprite(root, avatar, 431, 498, 96, 96, true);
+    this.soutline(details, 378, 446, 105, 105, '#bb864e', 188);
+    const displayName = text('display-name', profileName(editor.name), 505, 536, 29, 423, '#fff0d7');
+    displayName.isBold = true;
+    text('local', '本地档案', 506, 501, 16, 154, '#c0a786');
+    text('progress', '关卡解锁', 506, 466, 15, 108, '#f2cc91');
+    this.sbox(details, 604, 459, 392, 9, '#141414', 242);
+    this.sbox(details, 604, 459, 392 * unlocked / 4, 9, '#e6af58');
+    text('progress-value', `${unlocked} / 4`, 1086, 464, 17, 87, '#f7daab', right);
+
+    this.sbox(details, 358, 274, 435, 135, '#222324');
+    this.soutline(details, 358, 274, 435, 135, '#544a3d');
+    text('avatar-heading', '头像', 376, 390, 19, 100, '#f2d2a0').isBold = true;
+    HERO_IDS.forEach((id, i) => {
+      const x = 376 + i * 107, active = id === editor.avatar;
+      if (!this.campaignSprite(root, active ? 'hero-active' : 'hero-card', x + 45.5, 327.5, 97, 91)) {
+        this.sbox(details, x, 286, 91, 83, active ? '#3c3022' : '#292d2e');
+        this.soutline(details, x, 286, 91, 83, active ? '#ffc376' : '#685a46');
+      }
+      const frame = this.profilePortrait(id);
+      if (frame) this.campaignSprite(root, frame, x + 45, 333, 61, 61, true);
+      text('avatar-' + id, heroes[id].name, x + 45, 298, 14, 79, active ? '#ffe0a4' : '#cbc2b2', center);
+      if (active) text('avatar-selected', '✓', x + 76, 352, 17, 18, '#ffcf79', center).isBold = true;
+      this.addButton('profile-avatar-' + id, x, 286, 91, 83, () => {
+        if (editor.avatar === id) return;
+        editor.avatar = id; this.renderProfilePage();
+      }, root);
+    });
+
+    const entries = [
+      ['战役进度', `${unlocked} / 4 关已解锁`, 'badge-chapter'],
+      ['已解锁角色', `${HERO_IDS.filter(id => this.profile.owned[id]).length} / ${HERO_IDS.length}`, 'badge-growth'],
+      ['累计击杀', this.profile.achievementProgress.kills.toLocaleString('zh-CN'), 'badge-combat'],
+    ] as const;
+    entries.forEach(([title, value, badge], i) => {
+      const y = 371 - i * 67;
+      this.sbox(details, 810, y - 25, 306, 51, '#282727');
+      this.soutline(details, 810, y - 25, 306, 51, '#51483c');
+      this.campaignSprite(root, badge, 837, y, 32, 32, true);
+      text('field-' + i, title, 862, y, 17, 121, '#d7bc91');
+      text('value-' + i, value, 1101, y, 17, 133, '#f1cc92', right);
+    });
+
+    text('name-label', '昵称', 375, 246, 19, 110, '#f2d2a0').isBold = true;
+    this.sbox(details, 358, 179, 435, 49, '#222728');
+    this.soutline(details, 358, 179, 435, 49, '#9b7953');
+    const input = this.makeNode('Profile nickname input', root);
+    input.active = false;
+    input.setPosition(575.5 - W / 2, 203.5 - H / 2);
+    input.getComponent(UITransform)!.setContentSize(408, 49);
+    const label = this.text('profile-nickname', editor.name, W / 2, H / 2, 20, '#f4e9d7', input, 400);
+    const placeholder = this.text('profile-nickname-placeholder', '输入昵称', W / 2, H / 2, 19, '#b9ab95', input, 400);
+    label.node.getComponent(UITransform)!.setAnchorPoint(0, 1);
+    placeholder.node.getComponent(UITransform)!.setAnchorPoint(0, 1);
+    const nickname = input.addComponent(EditBox);
+    nickname.textLabel = label; nickname.placeholderLabel = placeholder;
+    nickname.inputMode = EditBox.InputMode.SINGLE_LINE;
+    label.verticalAlign = Label.VerticalAlign.CENTER;
+    nickname.maxLength = PROFILE_NAME_LIMIT * 2;
+    nickname.placeholder = '输入昵称';
+    nickname.string = editor.name;
+    const syncName = () => { editor.name = nickname.string; displayName.string = profileName(editor.name); };
+    input.on(EditBox.EventType.EDITING_DID_BEGAN, () => { editor.editing = true; }, this);
+    input.on(EditBox.EventType.EDITING_DID_ENDED, () => { editor.editing = false; syncName(); }, this);
+    input.on(EditBox.EventType.TEXT_CHANGED, syncName, this);
+    input.active = true;
+    button('save', '保存档案', 360, 114, 195, 48, () => {
+      const identity = { name: profileName(nickname.string), avatar: editor.avatar };
+      const next = { ...this.profile, identity };
+      if (!this.persist(next)) { this.toast('保存失败，请重试'); return; }
+      this.profile = next;
+      editor.name = identity.name;
+      nickname.string = identity.name;
+      syncName();
+      const homeName = this.labels.get('home-profile');
+      if (homeName) homeName.string = identity.name;
+      const homeAvatar = this.profilePortrait(identity.avatar);
+      if (this.homeProfileAvatar && homeAvatar) this.homeProfileAvatar.spriteFrame = homeAvatar;
+      text('saved', '档案已保存', 579, 138, 15, 159, '#f1ce99');
+    }, true);
+  }
   private buildMenu() {
     this.homeArtwork = this.makeNode('Home artwork', this.modal);
     const roster = () => this.showRoster('menu', HEROINE_ID);
     const shop = () => { this.shopBack = 'menu'; this.shopProduct = undefined; this.open('shop'); };
     const recruit = () => this.showRecruit('menu');
-    const unavailable = (name: string) => () => this.toast(`${name}尚未开放`);
-    const selected = HEROINE_ID;
-
     this.sbox(this.modalArt, 0, H - 72, W, 72, '#070b0e', 167);
     this.sline(this.modalArt, 0, H - 72, W, H - 72, '#6b6354', 1, 105);
     this.homePlate(21, 654, 290, 55);
-    if (this.trainingFrames.has('lin-face') && this.trainingFrames.has('frame')) {
-      this.trainingSprite('lin-face', this.homeArtwork, 53, 682, 46, 46);
+    const avatar = this.profilePortrait(this.profile.identity.avatar);
+    this.homeProfileAvatar = undefined;
+    if (avatar) {
+      this.homeProfileAvatar = this.campaignSprite(this.homeArtwork, avatar, 53, 682, 46, 46, true);
       this.trainingSprite('frame', this.homeArtwork, 53, 682, 57, 55);
-    } else this.homeSprite('profile_panel', 22, 8, 62, 60);
-    this.text('home-profile', '幸存者档案', 94, 690, 20, '#f0e6d4', this.modal, 194);
-    this.text('home-hero', `${heroes[selected].name}   Lv.${this.profile.levels[selected]}`, 94, 667, 15, C.gold, this.modal, 194);
-    this.addButton('profile', 21, 652, 290, 59, roster);
+    } else {
+      this.text('home-avatar', heroes[this.profile.identity.avatar].name, 53, 680, 15, C.gold, this.modal, 49, Label.HorizontalAlign.CENTER);
+    }
+    this.text('home-profile', this.profile.identity.name, 94, 690, 17, '#f0e6d4', this.modal, 216);
+    this.text('home-hero', '本地档案', 94, 667, 15, C.gold, this.modal, 194);
+    this.addButton('profile', 21, 652, 290, 59, () => this.open('profile-info'));
 
     const resource = (id: 'materials' | 'tickets', icon: HomeImage, title: string, count: number, x: number, action: () => void) => {
       this.homePlate(x, 660, 174, 45);
@@ -1958,7 +2933,6 @@ export class Blackout extends Component {
       title.outlineColor = color('#15110c');
       title.outlineWidth = 1.5;
     }
-    this.homeTile('settings', 'button_settings', '设置', 34, 502, 105, 91, () => this.open('settings'));
 
     const carried = this.profile.armory.tactical, unlocked = this.profile.tacticalUnlocked;
     if (carried && this.profile.armory.counts[carried]) {
@@ -1974,13 +2948,11 @@ export class Blackout extends Component {
       });
     }
     for (const mode of MODE_CARDS) {
-      const width = 434, height = width * mode.height / mode.width, available = mode.id === 'start';
+      const width = 434, height = width * mode.height / mode.width;
       const artwork = this.homeTile(mode.id, mode.art, mode.title, 821, mode.top, width, height,
-        available ? () => this.open('chapters') : unavailable(mode.title), available, MODE_EDGE_ANGLE - mode.edgeAngle);
-      if (!available && artwork) {
-        this.text(mode.id + '-status', '未开放', W / 2 + width / 2 - 34, H / 2 + height / 2 - 34,
-          15, '#e5d6bc', artwork, 100, Label.HorizontalAlign.RIGHT);
-      }
+        () => this.open(mode.id === 'start' ? 'chapters' : 'survival-entry'), true, MODE_EDGE_ANGLE - mode.edgeAngle);
+      if (mode.id === 'survival' && artwork && SURVIVAL_MAP_IDS.some(id => !!this.profile.survivalMaps[id])) this.text('survival-status', '可继续', W / 2 + width / 2 - 34,
+        H / 2 + height / 2 - 34, 15, '#e5d6bc', artwork, 100, Label.HorizontalAlign.RIGHT);
     }
 
     this.homeTile('daily', 'nav_daily_tasks', '每日任务', 499, 623, 136, 84, () => this.open('missions'));
@@ -2456,11 +3428,11 @@ export class Blackout extends Component {
     label.outlineColor = color('#120e0e');
     return label;
   }
-  private caseButton(id: string, value: string, x: number, y: number, w: number, h: number, action?: () => void, active = false, size = 20) {
-    const art = this.caseArt(active ? 'button-gold' : 'button-dark', x, y, w, h);
-    this.caseText(id, value, x, y, size, w - 20, action ? '#fff0cd' : '#a29482');
+  private caseButton(id: string, value: string, x: number, y: number, w: number, h: number, action?: () => void, active = false, size = 20, parent = this.caseLayer!) {
+    const art = this.caseArt(active ? 'button-gold' : 'button-dark', x, y, w, h, false, parent);
+    this.caseText(id, value, x, y, size, w - 20, action ? '#fff0cd' : '#a29482', Label.HorizontalAlign.CENTER, parent);
     if (action) {
-      const button = this.addButton('case-' + id, x - w / 2, y - h / 2, w, h, action);
+      const button = this.addButton('case-' + id, x - w / 2, y - h / 2, w, h, action, parent);
       if (art) this.setButtonArtwork(button, art);
     }
   }
@@ -2486,46 +3458,46 @@ export class Blackout extends Component {
     this.caseArt('key', 1026, 673, 32, 27, true);
     this.caseText('keys', String(this.profile.cases.keys), 1092, 673, 23, 87, '#ffd383');
     const pending = this.profile.cases.pending;
-    if (!this.caseRoll) this.caseButton('back', pending ? '关闭' : '返回', 1210, 673, 108, 50, () => this.backFromCases(), false, 19);
-    if (pending && !this.caseRoll) { this.buildCaseResults(pending); return; }
+    this.caseButton('back', '返回', 1210, 673, 108, 50, () => this.backFromCases(), false, 19);
     if (this.casePreview) { this.buildCasePreview(this.casePreview); return; }
 
-    const id = this.selectedCase, roll = this.caseRoll;
+    const id = pending?.caseId ?? this.selectedCase;
     CASE_IDS.forEach((boxId, i) => {
       const y = 516 - i * 143;
       this.caseArt(boxId === id ? 'card-3' : 'card-0', 109, y, 166, 129);
       this.caseArt(`${boxId}-closed`, 109, y + 24, 131, 90, true);
       this.caseText(boxId, CASES[boxId].name, 109, y - 41, 19, 148, boxId === id ? '#ffda8e' : '#e7dcce');
-      if (!roll) this.addButton('case-box-' + boxId, 26, y - 64, 166, 128, () => { this.selectedCase = boxId; this.open('cases'); });
+      this.addButton('case-box-' + boxId, 26, y - 64, 166, 128, () => {
+        if (boxId === id) return;
+        this.selectedCase = boxId; this.open('cases');
+      });
     });
     const closed = this.caseArt(`${id}-closed`, 659, 509, 410, 283, true);
-    if (roll) {
-      const opened = this.caseArt(`${id}-open`, 659, 509, 410, 283, true);
-      if (closed) roll.closed = closed.addComponent(UIOpacity);
-      if (opened) { roll.opened = opened.addComponent(UIOpacity); roll.opened.opacity = 0; }
-    }
+    const opened = this.caseArt(`${id}-open`, 659, 509, 410, 283, true);
+    if (closed) closed.active = !pending;
+    if (opened) opened.active = !!pending;
+
     this.caseArt('card-0', 1104, 508, 267, 139);
     this.caseText('box-name', CASES[id].name, 1104, 545, 25, 247, '#ffdb94');
     CASES[id].lines.forEach((value, i) => this.caseText('box-info-' + i, value, 1104, 507 - 23 * i, 15, 242));
-    this.caseButton('preview', '掉落预览', 1146, 404, 160, 42, roll ? undefined : () => {
+    this.caseButton('preview', '掉落预览', 1146, 404, 160, 42, () => {
       this.casePreview = { page: 0 }; this.open('cases');
     }, false, 17);
 
-    this.buildCaseTrack(id, roll);
-    for (const [i, count] of ([1, 10] as const).entries()) {
-      const x = 564 + i * 340, canAfford = this.profile.cases.keys >= count;
-      const art = this.caseArt(count === 10 && canAfford ? 'button-gold' : 'button-dark', x, 99, 282, 84);
-      this.caseText('open-label-' + count, `开 ${count} 次`, x, 112, 27, 230, canAfford ? '#fff0cd' : '#ae9e89');
-      this.caseArt('key', x - 21, 82, 24, 19, true);
-      this.caseText('cost-' + count, `×${count}`, x + 20, 82, 16, 56, canAfford ? '#ffdda0' : '#ae9e89');
-      if (!roll) {
-        const button = this.addButton('case-open-' + count, x - 141, 57, 282, 84, () => this.startCaseOpening(count));
-        if (art) this.setButtonArtwork(button, art);
-      }
-    }
+    const reel = this.caseReel = this.buildCaseTrack(id, pending);
+    reel.closed = closed; reel.opened = opened;
+    const x = 740;
+    reel.openButtonArt = this.caseArt('button-dark', x, 99, 282, 84);
+    this.caseText('open-label-1', '开一次', x, 112, 27, 230);
+    this.caseArt('key', x - 21, 82, 24, 19, true);
+    this.caseText('cost-1', '×1', x + 20, 82, 16, 56);
+    const button = this.addButton('case-open-1', x - 141, 57, 282, 84, () => this.startCaseOpening());
+    if (reel.openButtonArt) this.setButtonArtwork(button, reel.openButtonArt);
     this.caseText('key-source', `探索通关 +${CLEAR_CASE_KEYS} 把   /   领取每日任务 +${DAILY_CASE_KEYS} 把`, 732, 38, 15, 660, '#d9c2a1');
+    this.setCaseControls(!pending);
+    if (pending) reel.result = this.buildCaseResults(pending);
   }
-  private buildCaseTrack(id: CaseId, roll?: CaseRoll) {
+  private buildCaseTrack(id: CaseId, settled?: CaseOpening): CaseReel {
     const x = 740, y = 264, width = 1018, height = 188;
     this.caseArt('tray', x, y, width + 18, height + 24);
     const clip = this.makeNode('Case roll viewport', this.caseLayer!);
@@ -2533,22 +3505,53 @@ export class Blackout extends Component {
     clip.getComponent(UITransform)!.setContentSize(width, height);
     clip.addComponent(Mask).type = Mask.Type.GRAPHICS_RECT;
     const track = this.makeNode('Case roll track', clip);
-    track.setPosition(-CASE_START * CASE_PITCH, 0);
-    const pool = CASE_POOLS[id], idleCount = CASE_START * 2 + 1, cards = roll ? CASE_STOP + CASE_START + 1 : idleCount;
-    for (let i = 0; i < cards; i++) {
-      const prize = i < idleCount ? pool[(i * 11 + 5) % pool.length] :
-        i === CASE_STOP ? casePrize(id, roll!.opening.rewards[0].id)! : sampleCasePrize(id);
-      const card = this.makeNode('Reel card ' + i, track), cx = W / 2, cy = H / 2;
-      card.setPosition(i * CASE_PITCH, 0);
-      this.caseArt(`card-${prize.type === 'mod' ? prize.quality : 0}`, cx, cy, 141, 153, false, card);
-      this.caseIcon(prize, cx, cy + 16, 113, 75, card);
-      this.caseText('reel-name-' + i, prize.title, cx, cy - 34, 16, 137, '#f5e5ca', Label.HorizontalAlign.CENTER, card);
-      this.caseText('reel-quality-' + i, this.caseCaption(prize), cx, cy - 55, 14, 130,
-        prize.type === 'mod' ? QUALITY_COLORS[prize.quality] : '#ddd0b8', Label.HorizontalAlign.CENTER, card);
-      if (roll) { card.active = Math.abs(i - CASE_START) <= CASE_START; roll.cards.push(card); }
-    }
+    const cx = W / 2, cy = H / 2, center = Label.HorizontalAlign.CENTER;
+    const cards = Array.from({ length: CASE_RADIUS * 2 + 1 }, (_, slot): CaseReelCard => {
+      const node = this.makeNode('Reel card ' + slot, track);
+      const plate = this.caseArt('card-0', cx, cy, 141, 153, false, node)?.getComponent(Sprite) ?? undefined;
+      const title = this.caseText('reel-name-' + slot, '', cx, cy - 34, 16, 137, '#f5e5ca', center, node);
+      const caption = this.caseText('reel-quality-' + slot, '', cx, cy - 55, 14, 130, '#ddd0b8', center, node);
+      return { node, title, caption, plate };
+    });
+    const previous = this.caseReel?.id === id ? this.caseReel : undefined;
+    const position = previous?.position ?? 0;
+    const winner = settled ? { index: Math.round(position), prize: casePrize(id, settled.rewards[0].id)! } : previous?.winner;
+    const reel = { id, track, cards, position, winner, speed: settled ? 0 : previous?.speed ?? CASE_IDLE_SPEED };
+    this.renderCaseTrack(reel);
     this.caseArt('pointer', x, y, 36, 209);
-    if (roll) roll.track = track;
+    return reel;
+  }
+  private renderCaseTrack(reel: CaseReel) {
+    const center = Math.floor(reel.position), pool = CASE_POOLS[reel.id], count = reel.cards.length;
+    // Keep coordinates near the viewport and recycle cards a full slot outside the mask.
+    reel.track.setPosition(-(reel.position - center) * CASE_PITCH, 0);
+    for (let offset = -CASE_RADIUS; offset <= CASE_RADIUS; offset++) {
+      const index = center + offset, card = reel.cards[(index % count + count) % count];
+      card.node.setPosition(offset * CASE_PITCH, 0);
+      if (card.index === index) continue;
+      card.index = index;
+      const prize = reel.winner?.index === index ? reel.winner.prize : pool[((index + 2) % pool.length + pool.length) % pool.length];
+      const quality = prize.type === 'mod' ? prize.quality : 0;
+      const frame = this.caseFrames.get(`card-${quality}`);
+      if (card.plate && frame) card.plate.spriteFrame = frame;
+      if (card.icon) { card.icon.active = false; card.icon.destroy(); }
+      const icon = card.icon = this.makeNode('Case prize art', card.node);
+      icon.setSiblingIndex(1);
+      this.caseIcon(prize, W / 2, H / 2 + 16, 113, 75, icon);
+      card.title.string = prize.title;
+      card.caption.string = this.caseCaption(prize);
+      card.caption.color = color(prize.type === 'mod' ? QUALITY_COLORS[quality] : '#ddd0b8');
+    }
+  }
+  private setCaseControls(enabled: boolean) {
+    for (const { node } of this.buttons) node.getComponent(Button)!.interactable = enabled;
+    const affordable = enabled && this.profile.cases.keys >= 1;
+    const art = this.caseReel?.openButtonArt?.getComponent(Sprite);
+    const frame = this.caseFrames.get(affordable ? 'button-gold' : 'button-dark');
+    if (art && frame) art.spriteFrame = frame;
+    const label = this.labels.get('cases-open-label-1'), cost = this.labels.get('cases-cost-1');
+    if (label) label.color = color(affordable ? '#fff0cd' : '#ae9e89');
+    if (cost) cost.color = color(affordable ? '#ffdda0' : '#ae9e89');
   }
   private buildCasePreview(state: { page: number; quality?: Quality }) {
     const id = this.selectedCase;
@@ -2579,63 +3582,75 @@ export class Blackout extends Component {
     this.caseButton('next', '下一页', 784, 106, 145, 47, state.page + 1 < pages ? () => turn(1) : undefined, false, 17);
   }
   private buildCaseResults(opening: CaseOpening) {
-    const single = opening.rewards.length === 1;
-    this.caseArt('tray', W / 2, 352, single ? 760 : 1190, 548);
-    this.caseText('result-title', single ? '开箱奖励' : '十连开箱奖励', W / 2, 583, 32, 555, '#ffdc96');
-    this.caseText('result-box', CASES[opening.caseId].name, W / 2, 542, 17, 290, '#d4bc99');
-    const tint = (prize: CasePrize) => prize.type === 'mod' ? QUALITY_COLORS[prize.quality] : '#ead9b9';
+    const panel = this.makeNode('Case reward overlay', this.caseLayer!);
+    const shade = this.graphics('Reward backdrop', panel);
+    this.sbox(shade, 0, 0, W, H, '#080c0e', 100);
+    const single = opening.rewards.length === 1, center = single ? 1040 : W / 2;
+    const text = (id: string, value: string, x: number, y: number, size: number, width: number, tint?: string) =>
+      this.caseText(id, value, x, y, size, width, tint, Label.HorizontalAlign.CENTER, panel);
+    this.caseArt('tray', center, single ? 409 : 352, single ? 395 : 1190, single ? 441 : 548, false, panel);
+    text('result-title', '开箱奖励', center, 583, 30, single ? 335 : 555, '#ffdc96');
+    text('result-box', CASES[opening.caseId].name, center, 547, 16, 290, '#d4bc99');
     opening.rewards.forEach((reward, i) => {
       const prize = casePrize(opening.caseId, reward.id)!;
-      const x = single ? W / 2 : 186 + i % 5 * 227, y = single ? 349 : 422 - Math.floor(i / 5) * 195;
-      this.caseArt(`card-${prize.type === 'mod' ? prize.quality : 0}`, x, y, single ? 392 : 214, single ? 286 : 176);
-      this.caseIcon(prize, x, y + (single ? 38 : 36), single ? 205 : 143, single ? 116 : 71);
-      this.caseText('reward-' + i, prize.title, x, y - (single ? 39 : 15), single ? 26 : 19, single ? 364 : 195);
-      this.caseText('quality-' + i, this.caseCaption(prize), x, y - (single ? 69 : 37), single ? 20 : 16, 193, tint(prize));
-      if (reward.mod) {
-        const descriptions = modDescription(reward.mod).split(' · ');
-        descriptions.forEach((value, line) => this.caseText(`reward-stat-${i}-${line}`, value, x, y - (single ? 93 : 54) - 15 * line,
-          single ? 17 : 13, single ? 338 : 199, tint(prize)));
-      }
+      const x = single ? center : 186 + i % 5 * 227, y = single ? 405 : 422 - Math.floor(i / 5) * 195;
+      const tint = prize.type === 'mod' ? QUALITY_COLORS[prize.quality] : '#ead9b9';
+      this.caseArt(`card-${prize.type === 'mod' ? prize.quality : 0}`, x, y, single ? 333 : 214, single ? 260 : 176, false, panel);
+      this.caseIcon(prize, x, y + (single ? 39 : 36), single ? 170 : 143, single ? 106 : 71, panel);
+      text('reward-' + i, prize.title, x, y - (single ? 32 : 15), single ? 24 : 19, single ? 313 : 195);
+      text('quality-' + i, this.caseCaption(prize), x, y - (single ? 62 : 37), single ? 19 : 16, 193, tint);
+      if (reward.mod) modDescription(reward.mod).split(' · ').forEach((value, line) =>
+        text(`reward-stat-${i}-${line}`, value, x, y - (single ? 85 : 54) - 15 * line, single ? 16 : 13, single ? 311 : 199, tint));
     });
-    this.caseButton('done', '确认', W / 2, 109, 228, 59, () => this.backFromCases(), true, 22);
+    this.caseButton('done', '确认', center, single ? 231 : 109, 211, 55, () => this.backFromCases(), true, 21, panel);
+    return panel;
   }
-  private startCaseOpening(count: DrawCount) {
-    if (this.caseRoll || this.casePreview) return;
-    const transaction = prepareCaseOpening(this.profile, this.selectedCase, count);
+  private startCaseOpening() {
+    const reel = this.caseReel;
+    if (!reel || this.caseRoll || this.casePreview || reel.result) return;
+    const transaction = prepareCaseOpening(this.profile, this.selectedCase, 1);
     if ('reason' in transaction) {
       if (transaction.reason === 'pending') { this.open('cases'); return; }
-      this.toast(transaction.reason === 'keys' ? `钥匙不足 · 开 ${count} 次需要 ${count} 把钥匙` :
-        transaction.reason === 'mods' ? `配件空间不足 · 开 ${count} 次需要预留 ${count} 格，可在武器改装中分解配件` : '有奖励库存接近上限，请先消耗一部分再开箱');
+      this.toast(transaction.reason === 'keys' ? '钥匙不足 · 开一次需要 1 把钥匙' :
+        transaction.reason === 'mods' ? '配件空间不足 · 请预留 1 格，可在武器改装中分解配件' : '有奖励库存接近上限，请先消耗一部分再开箱');
       return;
     }
     if (!this.persist(transaction.profile)) { this.toast('本地存档写入失败，请重试'); return; }
     this.profile = transaction.profile;
-    this.caseRoll = { opening: transaction.opening, elapsed: 0, cell: CASE_START, cards: [] };
-    this.open('cases');
+    const start = reel.position, stop = Math.ceil(start) + 33;
+    reel.winner = { index: stop, prize: casePrize(reel.id, transaction.opening.rewards[0].id)! };
+    this.caseRoll = { opening: transaction.opening, elapsed: 0, start, stop, entryRate: reel.speed / (stop - start) };
+    this.labels.get('cases-keys')!.string = String(this.profile.cases.keys);
+    this.setCaseControls(false);
   }
   private stepCaseRoll(dt: number) {
+    const reel = this.caseReel;
+    if (!reel || this.casePreview || reel.result) return;
     const roll = this.caseRoll;
-    if (!roll) return;
-    roll.elapsed += dt;
-    const position = CASE_START + (CASE_STOP - CASE_START) * caseRollProgress(roll.elapsed);
-    roll.track?.setPosition(-position * CASE_PITCH, 0);
-    const open = Math.round(255 * Math.min(1, roll.elapsed / 0.42));
-    if (roll.closed) roll.closed.opacity = 255 - open;
-    if (roll.opened) roll.opened.opacity = open;
-    const cell = Math.round(position);
-    if (cell !== roll.cell) {
-      roll.cell = cell;
-      roll.cards.forEach((card, i) => {
-        const visible = Math.abs(i - cell) <= CASE_START;
-        if (card.active !== visible) card.active = visible;
-      });
-      const click = this.clips.get('reload');
-      if (click && this.profile.sound) this.audio.playOneShot(click, 0.075);
+    if (!roll) {
+      const speed = Math.min(CASE_IDLE_SPEED, reel.speed + dt * .88);
+      reel.position += (reel.speed + speed) * .5 * dt;
+      reel.speed = speed;
+      this.renderCaseTrack(reel);
+      return;
     }
+    const previous = Math.round(reel.position);
+    roll.elapsed += dt;
+    reel.position = roll.elapsed >= CASE_ROLL_TIME ? roll.stop :
+      roll.start + (roll.stop - roll.start) * caseRollProgress(roll.elapsed, roll.entryRate);
+    this.renderCaseTrack(reel);
+    if (Math.round(reel.position) !== previous) {
+      const click = this.clips.get('reload');
+      if (click && this.profile.sound) this.audio.playOneShot(click, .075);
+    }
+    if (roll.elapsed < CASE_ROLL_TIME) return;
+    reel.speed = 0;
+    if (reel.closed) reel.closed.active = false;
+    if (reel.opened) reel.opened.active = true;
     if (roll.elapsed < CASE_ROLL_TIME + CASE_HOLD) return;
     this.caseRoll = undefined;
     this.play(roll.opening.rewards.some(reward => (reward.mod?.quality ?? 0) >= 2) ? 'win' : 'hit');
-    this.open('cases');
+    reel.result = this.buildCaseResults(roll.opening);
   }
   private backFromCases() {
     if (this.caseRoll) return;
@@ -2645,7 +3660,14 @@ export class Blackout extends Component {
       if (!this.persist(next)) { this.toast('本地存档写入失败，请重试'); return; }
       this.selectedCase = this.profile.cases.pending.caseId;
       this.profile = next;
-      this.open('cases');
+      const reel = this.caseReel;
+      if (reel?.result) {
+        this.dismissUiLayer(reel.result);
+        reel.result = undefined;
+        if (reel.closed) reel.closed.active = true;
+        if (reel.opened) reel.opened.active = false;
+        this.setCaseControls(true);
+      } else this.open('cases');
       return;
     }
     this.open('shop');
@@ -3220,21 +4242,347 @@ export class Blackout extends Component {
   }
   private buildHelp() {
     this.panel('行动指南', '射击、移动、闪避和观察视野，是你在宿舍内生存的手段。', () => this.open('settings'));
-    const rows = [
-      ['移动', '手机：左侧摇杆', '电脑：W A S D / 方向键'],
-      ['瞄准与射击', '手动：推右杆射击；自动：右杆只转向', '电脑：鼠标瞄准，手动按住左键'],
-      ['辅助 / 自动', '设置切换；自动只在当前射线命中时开火', '桌面无磁吸，可开启自动试玩'],
-      ['翻滚', '手机：点击「翻滚」', '电脑：空格，沿移动方向翻滚'],
-      ['交互与拾取', '手机：靠近后点击对应的交互或拾取按钮', '电脑：E 交互 / F 拾取 / T 布置陷阱'],
-      ['换弹', '手机：点击弹匣区域', '电脑：R 换弹，空弹匣自动换弹'],
-      ['视野', '朝瞄准方向看得更远', '墙体和高家具遮挡视线与子弹'],
-      ['目标', '在两层宿舍各找到一把钥匙并撤离', '每清理一个有敌人的区域，恢复 20 生命'],
-    ];
-    rows.forEach((r, i) => { const y = 477 - i * 45; this.text('help-a' + i, r[0], 146, y, 18, C.gold, this.modal, 200); this.text('help-b' + i, r[1], 350, y, 17, C.text, this.modal, 420); this.text('help-c' + i, r[2], 780, y, 16, C.muted, this.modal, 370); this.sline(this.modalArt, 145, y - 21, 1135, y - 21, C.line, 1, 100); });
+    CONTROL_GUIDE.forEach((r, i) => { const y = 477 - i * 45; this.text('help-a' + i, r[0], 146, y, 18, C.gold, this.modal, 200); this.text('help-b' + i, r[1], 350, y, 17, C.text, this.modal, 420); this.text('help-c' + i, r[2], 780, y, 16, C.muted, this.modal, 370); this.sline(this.modalArt, 145, y - 21, 1135, y - 21, C.line, 1, 100); });
     this.text('help-tip', '木门可被子弹打坏，锁住的铁门需要钥匙。宿管室门上的警报会引来丧尸。Esc / P 暂停。', 146, 123, 16, C.muted);
+  }
+  private loadSurvivalUi() {
+    const sheets = ['frame', 'bag', 'controls', 'landscapes'] as const;
+    let remaining = sheets.length;
+    for (const sheet of sheets) resources.load(`survival/survival-ui-${sheet}-v3/spriteFrame`, SpriteFrame, (err, frame) => {
+      if (!this.isValid) return;
+      if (err) console.warn('Survival interface artwork could not load:', sheet, err);
+      else {
+        frame.packable = false;
+        if (sheet === 'controls') {
+          SURVIVAL_UI_CONTROLS.forEach(([id, w, h], i) => {
+            const x = (i % 3) * 240 + (240 - w) / 2, y = Math.floor(i / 3) * 160 + (160 - h) / 2;
+            this.survivalUiFrames.set(id, this.cropUiFrame(frame, x, y, w, h));
+          });
+        } else if (sheet === 'landscapes') {
+          this.survivalUiFrames.set('port', this.cropUiFrame(frame, 0, 0, 1152, 648));
+          this.survivalUiFrames.set('base', this.cropUiFrame(frame, 0, 648, 1152, 648));
+        } else this.survivalUiFrames.set(sheet, frame);
+      }
+      if (--remaining === 0) {
+        if (this.mode === 'survival-resume' || this.mode === 'result' && this.battle.survival) this.open(this.mode);
+        else this.uiTick = 0;
+      }
+    });
+  }
+  private loadTimedSurvivalArt() {
+    if (this.timedSurvivalArtLoading || this.timedSurvivalFrames.size) return;
+    this.timedSurvivalArtLoading = true;
+    resources.load('survival/timed-survival-v1/spriteFrame', SpriteFrame, (err, source) => {
+      if (!this.isValid) return;
+      this.timedSurvivalArtLoading = false;
+      if (err) { console.warn('Timed survival artwork could not load:', err); return; }
+      for (const [id, x, y, w, h] of TIMED_SURVIVAL_ATLAS) this.timedSurvivalFrames.set(id, this.cropUiFrame(source, x, y, w, h));
+      const head = this.timedSurvivalFrames.get('headquarters')!;
+      this.streetFrames.set('survival-headquarters', head);
+      this.uiTick = 0;
+    });
+  }
+  private survivalUiSprite(parent: Node, id: string, x: number, y: number, w: number, h: number, fit = false) {
+    const frame = this.survivalUiFrames.get(id);
+    if (frame) return this.campaignSprite(parent, frame, x, y, w, h, fit);
+    return undefined;
+  }
+  private survivalDialog(bounds: Rect, backdrop: 'port' | 'base') {
+    const root = this.dialogArtwork = this.makeNode('Survival dialog', this.modal);
+    const { x, y, w, h } = bounds;
+    const cx = x + w / 2, cy = y + h / 2;
+    this.noticeTime = 0;
+    this.sbox(this.modalArt, 0, 0, W, H, '#08090b', 181);
+    const frame = this.survivalUiFrames.get('frame') ?? this.dialogFrame;
+    const clip = this.makeNode('Dialog illustration clip', root);
+    clip.setPosition(cx - W / 2, cy - H / 2);
+    const mask = clip.addComponent(Mask);
+    mask.type = Mask.Type.GRAPHICS_STENCIL;
+    const halfWidth = (w - 28) / 2, halfHeight = (h - 26) / 2, bevel = 35;
+    polygon(mask.subComp as Graphics, [
+      { x: -halfWidth + bevel, y: -halfHeight }, { x: halfWidth - bevel, y: -halfHeight },
+      { x: halfWidth, y: -halfHeight + bevel }, { x: halfWidth, y: halfHeight - bevel },
+      { x: halfWidth - bevel, y: halfHeight }, { x: -halfWidth + bevel, y: halfHeight },
+      { x: -halfWidth, y: halfHeight - bevel }, { x: -halfWidth, y: -halfHeight + bevel },
+    ], '#ffffff');
+    const art = this.survivalUiSprite(clip, backdrop, W / 2, H / 2, w - 28, h - 26);
+    const fallback = this.campaignFrames.get('departure-brief');
+    if (!art && fallback) this.campaignSprite(clip, fallback, W / 2, H / 2, w - 28, h - 26);
+    if (frame) this.campaignSprite(root, frame, cx, cy, w, h);
+    return root;
+  }
+  private survivalDialogButton(parent: Node, action: DialogAction, x: number, y: number, w: number, h: number, primary = false) {
+    const enabled = action.enabled !== false;
+    const skin = this.survivalUiFrames.get(primary ? 'primary' : 'secondary') ?? this.campaignFrames.get('departure-brief');
+    if (skin) {
+      const art = this.campaignSprite(parent, skin, x + w / 2, y + h / 2, w, h)!;
+      if (!enabled) art.color = color('#777777');
+    }
+    this.campaignLabel(parent, 'button-' + action.id, action.label, x + w / 2, y + h / 2 + 1,
+      25, w - 27, enabled ? primary ? '#ffe4a6' : '#f0eee9' : '#9c9b93', Label.HorizontalAlign.CENTER);
+    if (enabled) this.addButton(action.id, x, y, w, h, action.run, parent);
+  }
+  private survivalDialogClose(parent: Node, bounds: Rect, action: () => void) {
+    const x = bounds.x + bounds.w - 40, y = bounds.y + bounds.h - 37;
+    if (!this.survivalUiSprite(parent, 'close', x, y, 47, 47)) {
+      this.campaignLabel(parent, 'dialog-close', '×', x, y, 27, 44, C.gold, Label.HorizontalAlign.CENTER);
+    }
+    this.addButton('close', x - 22, y - 22, 44, 44, action, parent);
+  }
+  private survivalDialogPlate(parent: Node, x: number, y: number, w: number, h: number, tint = '#c4c2bd') {
+    const sprite = this.campaignSprite(parent, 'departure-brief', x, y, w, h);
+    if (sprite) sprite.color = color(tint);
+  }
+  private buildSurvivalSelection() {
+    this.loadHarborMapArt();
+    const root = this.chapterMap = this.makeNode('Survival map selection', this.modal);
+    root.setSiblingIndex(0);
+    const draft = this.campaignFrames.get('harbor-selection');
+    const backdrop = draft ?? this.harborOverviewFrame() ?? this.campaignFrames.get('satellite-map');
+    if (backdrop) this.campaignSprite(root, backdrop, W / 2, H / 2, W, W * backdrop.originalSize.height / backdrop.originalSize.width);
+    else this.sbox(this.graphics('Survival map backdrop', root), 0, 0, W, H, '#24302c');
+    const frame = this.campaignSprite(root, 'map-frame', W / 2, H / 2, W, H);
+    if (!this.campaignSprite(root, 'departure-brief', 292, 678, 511, 75)) {
+      this.missionPlate(this.graphics('Survival map header', root), 37, 640, 510, 75, '#1d2121', '#a48960', 15);
+    }
+    this.campaignLabel(root, 'survival-map-title', '生存地图', 65, 677, 31, 290);
+    if (!frame) this.campaignLabel(root, 'map-return', '返回首页', 1238, 674, 20, 180, C.text, Label.HorizontalAlign.RIGHT);
+    for (const [index, id] of SURVIVAL_MAP_IDS.entries()) {
+      const y = 531 - index * 112, save = this.profile.survivalMaps[id];
+      if (!this.campaignSprite(root, 'chapter-card', 1043, y, 380, 98)) {
+        this.missionPlate(this.graphics('Survival map card', root), 853, y - 49, 380, 98, '#212524', '#987c54', 12);
+      }
+      const overview = draft ?? this.harborOverviewFrame();
+      if (overview) this.campaignSprite(root, overview, 918, y, 93, 62);
+      this.campaignLabel(root, 'survival-name-' + id, SURVIVAL_MAPS[id].name, 981, y + 17, 25, 230, '#f4d297');
+      this.campaignLabel(root, 'survival-status-' + id, save ? '可继续 · 已存活 ' + this.time(save.elapsed) : '沿岸港口 · 搜刮与撤离',
+        981, y - 17, 17, 230);
+      if (this.mode === 'survival-entry') this.addButton('survival-map-' + id, 853, y - 49, 380, 98, () => {
+        this.selectedSurvivalMap = id;
+        this.survivalHero = HEROINE_ID;
+        this.open(this.profile.survivalMaps[id] ? 'survival-resume' : 'survival-hero');
+      });
+    }
+    if (this.mode === 'survival-entry') {
+      this.addButton('survival-back', 1052, 645, 219, 64, () => this.open('menu'));
+    } else if (this.mode === 'survival-hero') {
+      this.sbox(this.graphics('Dimmed survival map', root), 0, 0, W, H, '#000000', 147);
+      this.buildSortiePicker(root, true);
+    } else {
+      const id = this.selectedSurvivalMap, save = this.profile.survivalMaps[id];
+      if (!save) { this.open('survival-hero'); return; }
+      this.buildSurvivalResume(id, save);
+    }
+  }
+  private buildSurvivalResume(id: SurvivalMapId, save: SurvivalCheckpoint) {
+    const root = this.survivalDialog(SURVIVAL_RESUME_PANEL, 'port');
+    const center = Label.HorizontalAlign.CENTER;
+    this.survivalDialogClose(root, SURVIVAL_RESUME_PANEL, () => this.open('survival-entry'));
+    this.survivalUiSprite(root, 'harbor-mark', 513, 516, 82, 66, true);
+    this.campaignLabel(root, 'survival-dialog-title', SURVIVAL_MAPS[id].name, 558, 515, 46, 350, '#ffd37a');
+    this.survivalDialogPlate(root, 707, 429, 619, 61);
+    this.campaignLabel(root, 'survival-brief', '存活 ' + this.time(save.elapsed),
+      513, 430, 20, 152, '#fff0d4', center);
+    const portrait = this.trainingFrames.get(`${TRAINING_PROFILES[save.hero].key}-face`);
+    if (portrait) this.campaignSprite(root, portrait, 679, 430, 36, 36, true);
+    this.campaignLabel(root, 'survival-saved-hero', heroes[save.hero].name, 747, 430, 21, 86, '#f8ead2', center);
+    this.campaignLabel(root, 'survival-saved-status', '已保存', 906, 430, 22, 143, '#a6e78b', center);
+    for (const [i, x] of [607, 808].entries()) this.campaignLabel(root, 'survival-saved-divider-' + i, '│', x, 430, 28, 22, '#a78b59', center);
+    this.survivalDialogPlate(root, 724, 331, 584, 91);
+    this.campaignLabel(root, 'survival-save-warning', '提示', 455, 364, 19, 90, '#f8c664');
+    this.text('survival-save-note', '新局成功保存后，将替换本地图的旧存档。', 456, 328, 20, '#f1dfbd', root, 525);
+    this.survivalDialogButton(root, { id: 'survival-continue', label: '»  继续本局', run: () => this.loadSurvivalDeparture(id, save.hero, save) },
+      332, 181, 282, 69, true);
+    this.survivalDialogButton(root, { id: 'survival-restart', label: '↻  重新开始', run: () => this.open('survival-hero') },
+      662, 181, 282, 69);
+  }
+  private prepareSurvivalArt(point: { x: number; y: number }) {
+    this.loadHarborMapArt();
+    this.loadSurvivalGearArt();
+    this.loadTimedSurvivalArt();
+    for (const [name, parts] of OPERATION_ART) {
+      if (name !== 'aircraft' && name !== 'littlebird-black' || parts.every(([key]) => this.streetFrames.has(key))) continue;
+      resources.load('chapter4/' + name + '/spriteFrame', SpriteFrame, (err, frame) => {
+        if (this.isValid && !err) for (const [key, x, y, w, h] of parts) {
+          if (!this.streetFrames.has(key)) this.streetFrames.set(key, this.cropUiFrame(frame, x, y, w, h));
+        }
+      });
+    }
+    if (!this.survivalCrateFrames.size) resources.load('survival/gear-crates/spriteFrame', SpriteFrame, (err, source) => {
+      if (err || !this.isValid || this.survivalCrateFrames.size) return;
+      const crops = [[69, 147, 466, 347], [675, 144, 505, 350], [72, 743, 464, 312], [631, 649, 570, 454]] as const;
+      (['medical', 'armory', 'engineering', 'airdrop'] as const).forEach((kind, i) => {
+        const [x, y, w, h] = crops[i];
+        this.survivalCrateFrames.set(kind, this.cropUiFrame(source, x, y, w, h));
+      });
+      this.survivalCrateFrames.set('dropped', this.survivalCrateFrames.get('engineering')!);
+    });
+    this.streamHarbor(point, true);
+    for (const atlas of ['harbor-floors', 'harbor-furniture', 'interior-furniture'] as const) this.loadSurvivalBuildingArt(atlas);
+  }
+  private loadSurvivalGearArt() {
+    if (this.survivalGearArtPending || this.survivalGearArtReady) return;
+    this.survivalGearArtPending = true;
+    let left = 7;
+    const load = (name: string, mount: (frame: SpriteFrame) => void) => {
+      resources.load('survival/' + name + '/spriteFrame', SpriteFrame, (error, frame) => {
+        if (!this.isValid) return;
+        if (error) console.warn('Survival asset unavailable:', name, error);
+        else mount(frame);
+        if (--left === 0) { this.survivalGearArtPending = false; this.survivalGearArtReady = true; }
+      });
+    };
+    load('gear-ui-v2', frame => {
+      const crops = [[15, 172, 646, 378], [754, 135, 438, 441], [13, 839, 603, 208], [643, 777, 596, 305]] as const;
+      (['panel', 'slot', 'button', 'tooltip'] as const).forEach((key, i) => {
+        const [x, y, w, h] = crops[i];
+        const f = this.cropUiFrame(frame, x, y, w, h);
+        if (key === 'panel' || key === 'tooltip') {
+          f.insetLeft = f.insetRight = 45;
+          f.insetTop = f.insetBottom = 43;
+        }
+        this.survivalSkin.set(key, f);
+      });
+    });
+    load('gear-parts-v2', frame => {
+      const pieces = [
+        ['sentry-bracket', 568, 20, 120, 382], ['sentry-base', 891, 99, 310, 224],
+        ['mine', 487, 481, 280, 288], ['shock-mine', 904, 481, 282, 290], ['medical-stock', 39, 924, 342, 248],
+        ['tactical-stock', 453, 911, 346, 274], ['tactical-module', 897, 898, 298, 290],
+      ] as const;
+      for (const [kind, x, y, w, h] of pieces) this.survivalGearFrames.set(kind, this.cropUiFrame(frame, x, y, w, h));
+    });
+    load('fort-workbench', frame => {
+      this.artFrames.set('survival-craft-bench', this.cropUiFrame(frame, 92, 51, 1595, 796));
+    });
+    load('gear-scanner', frame => this.survivalGearFrames.set('scanner', this.cropUiFrame(frame, 174, 36, 672, 1415)));
+    load('gear-sentry-overhead', frame => {
+      this.survivalGearFrames.set('sentry-barrel', this.cropUiFrame(frame, 77, 273, 936, 210));
+      this.survivalGearFrames.set('sentry', this.cropUiFrame(frame, 1204, 38, 901, 630));
+    });
+    load('door-leaves', frame => {
+      const crops = [[72, 92, 2033, 94], [73, 257, 2031, 100], [72, 424, 2033, 97], [72, 586, 2033, 97]] as const;
+      SURVIVAL_DOOR_KINDS.forEach((kind, i) => {
+        const [x, y, w, h] = crops[i];
+        this.survivalDoorFrames.set(kind, this.cropUiFrame(frame, x, y, w, h));
+      });
+    });
+    load('door-materials', frame => {
+      this.survivalGearFrames.set('door-wood', this.cropUiFrame(frame, 41, 149, 558, 391));
+      this.survivalGearFrames.set('door-metal', this.cropUiFrame(frame, 666, 111, 528, 446));
+      this.survivalGearFrames.set('door-brace', this.cropUiFrame(frame, 38, 708, 548, 474));
+    });
+  }
+  private drawSurvivalDoorSurfaces(g: Graphics, doors: Door[]) {
+    let sprites = this.survivalDoorSprites.get(g);
+    if (!sprites) { sprites = []; this.survivalDoorSprites.set(g, sprites); }
+    let count = 0;
+    for (const door of doors) {
+      const frame = door.fortification && this.survivalDoorFrames.get(door.fortification);
+      if (!frame || door.destroyed) continue;
+      const sprite = sprites[count] ??= this.setupSprite(this.makeNode('Fitted survival door leaf', g.node), frame, door.length, door.thickness);
+      count++;
+      if (sprite.spriteFrame !== frame) sprite.spriteFrame = frame;
+      sprite.node.getComponent(UITransform)!.setContentSize(door.length, door.thickness);
+      sprite.node.setPosition(door.x + Math.cos(door.angle) * door.length / 2, door.y + Math.sin(door.angle) * door.length / 2);
+      sprite.node.angle = door.angle * 180 / Math.PI;
+      sprite.color = color(door.hit > 0 ? '#ffddb0' : door.hp < door.maxHp * .35 ? '#b29b84' : '#ffffff');
+      sprite.node.active = true;
+    }
+    for (let i = count; i < sprites.length; i++) sprites[i].node.active = false;
+    drawDoors(g, doors, this.battle.alarmTime, door => !!door.fortification && this.survivalDoorFrames.has(door.fortification));
+  }
+  private loadSurvivalDeparture(mapId: SurvivalMapId, id: HeroId, save?: SurvivalCheckpoint, seed = save?.seed ?? Math.floor(Math.random() * 0x100000000)) {
+    if (!this.profile.owned[id]) return;
+    const level = SURVIVAL_MAPS[mapId].createLevel(seed);
+    const point = this.survivalEntryPoint(level, save);
+    const returnTo = this.mode;
+    const load = this.beginDeparture({
+      title: SURVIVAL_MAPS[mapId].name, area: save ? '港区 · 已存活 ' + this.time(save.elapsed) : '沿岸港口',
+      heading: '港区工事 · 联络员',
+      point: { x: point.x / (HARBOR_SCALE * HARBOR_ART_WIDTH), y: point.y / (HARBOR_SCALE * HARBOR_ART_HEIGHT) },
+      lines: ['搜集补给和撤离部件。', '黑鹰、快艇或装甲车队都能撤离。'],
+      map: () => this.harborOverviewFrame(),
+      avatar: () => this.campaignFrames.get('liaison'),
+      inset: () => this.harborOverviewFrame(), repeated: !!save, returnTo, focusZoom: 2.72,
+    }, () => this.loadSurvivalDeparture(mapId, id, save, seed), () => this.launchSurvival(mapId, id, save, level));
+    this.prepareSurvivalArt(point);
+    load.progress = () => this.survivalLoadProgress(id, point);
+  }
+  private survivalLoadProgress(id: HeroId, point: { x: number; y: number }) {
+    this.pumpHarborStream();
+    const art = id === HEROINE_ID ? 'heroine' : 'operator';
+    const nearbyReady = HARBOR_CHUNKS.every(bounds => {
+      const [dx, dy] = harborDistanceToChunk(point, bounds);
+      return dx > W / 2 + 24 || dy > H / 2 + 24 || !!this.harborGround.get(bounds.kind)?.frame;
+    });
+    const groups = [this.presentationReady && this.artFrames.has(art) && this.artFrames.has('walker'),
+      this.harborArtReady, this.survivalGearArtReady, nearbyReady, this.artFrames.has('harbor-floor-house'),
+      this.artFrames.has('survival-radio-harbor'), this.artFrames.has('survival-couch'),
+      this.timedSurvivalFrames.has('carrier') && this.streetFrames.has('op-blackhawk') && this.streetFrames.has('op-littlebird')];
+    return groups.filter(Boolean).length / groups.length;
+  }
+  private launchSurvival(mapId: SurvivalMapId, id: HeroId, save?: SurvivalCheckpoint,
+    level = SURVIVAL_MAPS[mapId].createLevel(save?.seed ?? Math.floor(Math.random() * 0x100000000))) {
+    const battle = new Battle(id, this.profile.levels[id], level, profileGrowth(this.profile, id), this.profile.armory);
+    battle.survivalActiveLimit = sys.isMobile ? 54 : 86;
+    if (save) battle.restoreSurvival(save);
+    else if (!this.saveSurvivalCheckpoint(battle)) return false;
+    this.battle = battle;
+    this.convoyTurretAngles.clear();
+    this.fallTime = 0; this.suppliesOpen = false; this.replayTutorial = false;
+    this.enterBattleScene(1);
+    if (save && save.layout !== SURVIVAL_LAYOUT) {
+      if (this.saveSurvivalCheckpoint()) this.toast('已转入港区工事 · 保留奖励和背包', 5);
+    }
+    return true;
+  }
+  private survivalEntryPoint(level: LevelDefinition, save?: SurvivalCheckpoint) {
+    if (!save || save.layout !== SURVIVAL_LAYOUT) return level.spawn;
+    const { x, y } = save.position;
+    if (x >= 0 && x <= HARBOR_ART_WIDTH * HARBOR_SCALE && y >= 0 && y <= HARBOR_ART_HEIGHT * HARBOR_SCALE) return { x, y };
+    const upper = level.survival?.stairs.find(stair => roomAt(save.position, [level.rooms[stair.upperRoom]]) >= 0);
+    return upper ? { x: x - upper.offsetX, y } : level.spawn;
+  }
+  private saveSurvivalCheckpoint(battle = this.battle) {
+    const checkpoint = battle.survivalCheckpoint(), id = battle.stage.survival?.mapId;
+    if (!checkpoint || !id) return false;
+    const next = { ...this.profile, survivalMaps: { ...this.profile.survivalMaps, [id]: checkpoint } };
+    if (!this.persist(next)) {
+      if (this.mode !== 'street-loading') this.toast('本机存档写入失败，请重试');
+      return false;
+    }
+    this.profile = next;
+    return true;
+  }
+  private buildSurvivalRadio() {
+    const b = this.battle, run = b.survival!;
+    const close = () => this.open('playing');
+    this.dialog('工事电台', [
+      { id: 'survival-evac-map', label: '打开港区地图', run: () => this.open('survival-map') },
+      { id: 'survival-save-exit', label: '暂停本局', run: () => {
+        if (b.survivalAtRadio && this.saveSurvivalCheckpoint()) this.open('menu');
+      } },
+    ], close);
+    this.dialogText('survival-pool', `当前奖励池　金币 ${run.pool.coins}　材料 ${run.pool.materials}`, W / 2, 443, 23, 690, '#ffd282');
+    this.dialogText('survival-extract-payout', '撤离路线 · 工事黑鹰 / 港口快艇 / 装甲车队', W / 2, 405, 20, 680);
+    b.doors.slice(0, 2).forEach((door, i) => this.dialogText('survival-gate-' + i,
+      `${door.name}　${SURVIVAL_DOORS[door.fortification ?? 'wood'].title}　${door.destroyed ? '已破坏' : Math.ceil(door.hp) + ' / ' + door.maxHp}`,
+      W / 2, 370 - i * 27, 18, 680, door.destroyed ? '#ef987f' : '#ecd4ae'));
+    this.button('survival-deposit', run.salvage ? `存入战利品 · +${run.salvage} 金币` : '存入战利品', 522, 281, 236, () => {
+      if (b.depositSurvivalSalvage()) { this.saveSurvivalCheckpoint(); this.open('survival-radio'); }
+    }, false, run.salvage > 0, 42, '背包里没有可存入的战利品');
   }
   private buildPause() {
     const resume = () => this.open('playing');
+    if (this.battle.survival) {
+      this.dialog('生存行动暂停', [
+        { id: 'resume', label: '继续行动', run: resume },
+        { id: 'survival-console', label: '工事电台', enabled: this.battle.survivalAtRadio, run: () => this.open('survival-radio') },
+      ], resume);
+      this.dialogText('pause-tip', '回到工事电台可撤离或保存后离开。', W / 2, 391, 22, 660);
+      return;
+    }
     this.dialog('行动暂停', [
       { id: 'resume', label: '继续行动', run: resume },
       { id: 'abandon', label: '结束本次行动', run: () => { if (this.battle.tutorial) { this.open('menu'); return; } this.battle.status = 'lost'; this.finishBattle(); } },
@@ -3247,7 +4595,71 @@ export class Blackout extends Component {
       this.button('tutorial-exit', '保存教学步骤并返回首页（本场不结算）', 380, 270, 520, () => this.open('menu'), false, true, 42);
     }
   }
+  private harborOverviewFrame() {
+    if (!this.harborMapFrame) {
+      const overview = this.artFrames.get('harbor-hd-overview');
+      if (!overview) return;
+      const margin = HARBOR_OVERVIEW_MARGIN;
+      this.harborMapFrame = this.cropUiFrame(overview, margin, margin, HARBOR_ART_WIDTH, HARBOR_ART_HEIGHT);
+    }
+    return this.harborMapFrame;
+  }
+  private harborMapSprite(parent: Node, x: number, y: number, w: number, h: number) {
+    const frame = this.harborOverviewFrame();
+    if (!frame) return;
+    const node = this.makeNode('Harbor district overview', parent);
+    node.setPosition(x + w / 2 - W / 2, y + h / 2 - H / 2);
+    return this.setupSprite(node, frame, w, h);
+  }
+  private buildSurvivalMap() {
+    this.panel('港区地图', '北 ↑', () => this.open('playing'));
+    const layer = this.harborMapLayer = this.makeNode('Harbor map', this.modal);
+    const x = 132, y = 104, w = 648, h = 432;
+    const project = (east: number, south: number) => ({
+      x: x + east * w / HARBOR_ART_WIDTH,
+      y: y + h - south * h / HARBOR_ART_HEIGHT,
+    });
+    this.harborMapSprite(layer, x, y, w, h);
+    const markers = this.graphics('Harbor map markers', layer);
+    this.soutline(markers, x, y, w, h, C.line);
+    for (const [name, east, south] of HARBOR_MAP_REGIONS) {
+      const q = project(east, south);
+      const supplied = this.battle.survivalRestock?.zones.includes(HARBOR_MAP_REGIONS.findIndex(region => region[0] === name));
+      disc(markers, q.x - W / 2, q.y - H / 2, supplied ? 4 : 3, supplied ? C.jade : C.gold);
+      this.dialogText('harbor-region-' + name, supplied ? name + ' · 补给' : name, q.x, q.y + 14, 16, 125, supplied ? '#b9ebdb' : '#ffdda0', true);
+    }
+    const b = this.battle, p = b.player;
+    const drops = b.survivalCrates.filter(crate => crate.kind === 'airdrop' && crate.goods.length);
+    if (b.survival?.timed) {
+      const pins = [{ ...EVAC_VEHICLES.helicopter.access, name: '黑鹰' }, { ...EVAC_VEHICLES.boat.access, name: '快艇' },
+        { ...CONVOY_BOARD, name: '车队' }];
+      for (const pin of pins) {
+        const q = project(pin.x / HARBOR_SCALE, HARBOR_ART_HEIGHT - pin.y / HARBOR_SCALE);
+        disc(markers, q.x - W / 2, q.y - H / 2, 4, '#ffc98a');
+        this.dialogText('harbor-evac-' + pin.name, pin.name, q.x + 25, q.y + 8, 13, 60, '#ffc98a', true);
+      }
+      for (const part of b.survivalField.filter(item => item.id.startsWith('evac-') || item.kind === 'evac-fuel')) {
+        const q = project(part.x / HARBOR_SCALE, HARBOR_ART_HEIGHT - part.y / HARBOR_SCALE);
+        this.sbox(markers, q.x - 3, q.y - 3, 6, 6, '#f5ad75');
+      }
+      this.text('harbor-parts-legend', '■ 撤离部件与燃油', 817, 469, 15, '#f5ad75');
+    }
+    for (const [i, point] of drops.entries()) {
+      const q = project(point.x / HARBOR_SCALE, HARBOR_ART_HEIGHT - point.y / HARBOR_SCALE);
+      this.sbox(markers, q.x - 3, q.y - 3, 6, 6, '#f6a967');
+      this.dialogText('harbor-airdrop-' + i, '空投', q.x, q.y - 14, 13, 110, '#ffc182', true);
+    }
+    const q = project((p.x - (b.survivalUpperFloor?.offsetX ?? 0)) / HARBOR_SCALE, HARBOR_ART_HEIGHT - p.y / HARBOR_SCALE);
+    disc(markers, q.x - W / 2, q.y - H / 2, 7, '#122022');
+    disc(markers, q.x - W / 2, q.y - H / 2, 4, C.jade);
+    this.text('harbor-position-key', '● 你的位置', 817, 503, 18, C.jade);
+    this.text('harbor-loot-title', '商业街与住宅', 817, 443, 23, C.gold);
+    this.text('harbor-loot-route', '从工事南门沿主路向下。\n经过诊所后，两侧是商铺；\n再向南可进入住宅街。', 817, 383, 19, C.text, this.modal, 320).node.getComponent(UITransform)!.height = 92;
+    this.text('harbor-docks-title', '港区码头', 817, 302, 23, C.gold);
+    this.text('harbor-docks-route', '沿南侧环路向西过公路桥。\n出桥左转，沿路向南\n到仓库和栈桥。', 817, 242, 19, C.text, this.modal, 320).node.getComponent(UITransform)!.height = 92;
+  }
   private buildResult() {
+    if (this.battle.survival) { this.buildSurvivalResult(); return; }
     const won = this.battle.status === 'won';
     const street = !!this.battle.stage.street;
     const operation = !!this.battle.stage.operation;
@@ -3267,7 +4679,45 @@ export class Blackout extends Component {
     if (nextChapter) this.dialogText('next-chapter', `「${nextChapter}」已解锁，可在探索地图选择。`, W / 2, 269, 17, 650, '#ffd282');
     if (this.unlockedEngineer) this.dialogText('engineer-unlocked', '维川已加入，可在角色培养中提升属性。', W / 2, 243, 17, 650, '#ffd282');
     if (operation && this.profile.operationArchive) this.dialogText('operation-debrief',
-      '剧情档案 · 核打击未消灭丧尸王；样本已扩散，地面小队无信号。', W / 2, 215, 16, 700, '#d7c8b2');
+      '剧情档案 · 接应队已撤离。里姆雷特在空袭后仍然存活，样本已扩散。', W / 2, 215, 16, 700, '#d7c8b2');
+  }
+  private buildSurvivalResult() {
+    const b = this.battle, run = b.survival!, outcome = run.outcome ?? 'fallen', saved = b.rewardClaimed;
+    const root = this.survivalDialog(SURVIVAL_RESULT_PANEL, 'base');
+    const center = Label.HorizontalAlign.CENTER;
+    const caption = (id: string, value: string, x: number, y: number, size: number, width: number, tint = '#f6e6d2') =>
+      this.campaignLabel(root, id, value, x, y, size, width, tint, center);
+    const back = () => {
+      if (!b.rewardClaimed) { this.finishBattle(); return; }
+      this.battle = this.makeBattle();
+      this.open('menu');
+    };
+    const ending = {
+      extracted: { title: '安全撤离', rate: '撤离奖励  ·  100%', message: '已安全撤离至基地。', tone: '#ffda89' },
+      fallen: { title: '行动员阵亡', rate: '阵亡结算  ·  50%', message: '本次行动结束。', tone: '#ecc1a1' },
+    }[outcome];
+    if (saved) this.survivalDialogClose(root, SURVIVAL_RESULT_PANEL, back);
+    const crestWidth = outcome === 'extracted' ? 377 : 138;
+    this.survivalUiSprite(root, outcome, 640, 557, crestWidth, 146);
+    caption('survival-result-title', ending.title, 640, 539, 57, 610, ending.tone);
+    this.survivalDialogPlate(root, 640, 445, 963, 64);
+    const route = run.timed?.route;
+    caption('survival-result-stat', route ? EVAC_ROUTE_NAME[route] : '撤离失败', 390, 445, 26, 263);
+    caption('survival-result-kills', '击败 ' + b.kills, 640, 445, 26, 192);
+    caption('survival-result-time', '用时 ' + this.time(b.elapsed), 895, 445, 26, 245);
+    for (const [i, x] of [516, 767].entries()) caption('survival-stat-divider-' + i, '│', x, 445, 31, 35, '#b19a76');
+    this.survivalDialogPlate(root, 640, 367, 401, 55, '#f6be70');
+    caption('survival-result-rate', ending.rate, 640, 366, 27, 390, '#ffdb85');
+    const tickets = this.reward.tickets > 0;
+    const coinX = tickets ? 375 : 493, materialX = tickets ? 624 : 800;
+    this.survivalUiSprite(root, 'coin', coinX - 102, 290, 44, 44, true);
+    this.survivalUiSprite(root, 'material', materialX - 102, 290, 43, 43, true);
+    caption('result-reward', '金币 +' + this.reward.coins, coinX, 290, 29, 174);
+    caption('survival-material-reward', '材料 +' + this.reward.materials, materialX, 290, 29, 174);
+    if (tickets) caption('survival-ticket-reward', '招募券 +' + this.reward.tickets, 874, 290, 29, 210);
+    caption('saved', saved ? ending.message : '存档写入失败，请重试保存。', 640, 216, 22, 640, saved ? '#ddcdb2' : '#f0a989');
+    this.survivalDialogButton(root, { id: 'survival-result-main', label: saved ? '返回基地' : '重试保存', run: back }, 225, 92, 368, 80, true);
+    this.survivalDialogButton(root, { id: 'survival-result-extra', label: '继续挑战', enabled: saved, run: () => this.open('survival-entry') }, 687, 92, 368, 80);
   }
   private buildRevive() {
     this.dialog('角色倒地', [
@@ -3286,38 +4736,202 @@ export class Blackout extends Component {
     if (this.unlockAllChapters) return true;
     return chapter === 1 || (chapter === 2 ? this.profile.streetUnlocked : chapter === 3 ? this.profile.apartmentUnlocked : this.profile.owned[ENGINEER_ID]);
   }
-  private loadChapterArt(chapter: 2 | 3 | 4, returnTo: Mode) {
-    const art = chapter === 2 ? STREET_ART : chapter === 3 ? APARTMENT_ART : OPERATION_ART;
-    const request: NonNullable<Blackout['chapterLoad']> = { chapter, returnTo, time: 0, done: 0, total: art.length, failed: false };
-    this.chapterLoad = request;
-    this.open('street-loading');
-    this.noticeTime = 0;
-    this.drawLoading(CHAPTERS[chapter].name, 0);
-    for (const [atlas, parts] of art) {
-      if (parts.every(([id]) => this.streetFrames.has(id))) { request.done++; continue; }
+  private loadChapterArt(chapter: Chapter, returnTo: Mode) {
+    const neighbors = chapter === 1 ? [] : chapter === 2 ? STREET_ART : chapter === 3 ? APARTMENT_ART : OPERATION_ART;
+    const info = CHAPTERS[chapter];
+    const avatar = () => chapter === 4 ? this.streetFrames.get('op-portrait-rimelet') ?? this.campaignFrames.get('liaison') :
+      chapter === 3 ? this.trainingFrames.get('weichuan-face') : this.trainingFrames.get('lin-face');
+    const load = this.beginDeparture({
+      title: info.name, area: info.location, point: CAMPAIGN_LOCATIONS[chapter], lines: info.lines,
+      heading: chapter === 4 ? '任务目标 · ' + OPERATION_BOSS_NAME : undefined,
+      map: () => this.campaignFrames.get('satellite-map'),
+      avatar: () => avatar() ?? this.campaignFrames.get(`chapter-${chapter}`),
+      inset: chapter < 3 ? () => this.campaignFrames.get(`chapter-${chapter}`) : undefined,
+      repeated: chapter === this.lastLaunchedChapter, returnTo,
+    }, () => this.loadChapterArt(chapter, returnTo), () => {
+      this.lastLaunchedChapter = chapter;
+      this.launchChapter(chapter);
+      return true;
+    });
+    let done = 0;
+    load.progress = () => (done + Number(this.chapterBaseArtReady(chapter))) / (neighbors.length + 1);
+    for (const [atlas, parts] of neighbors) {
+      if (parts.every(([id]) => this.streetFrames.has(id))) { done++; continue; }
       resources.load((chapter === 4 ? 'chapter4/' : 'common/environment/') + atlas + '/spriteFrame', SpriteFrame, (err, source) => {
-        if (!this.isValid || this.chapterLoad !== request) return;
-        if (err) { request.failed = true; return; }
+        if (!this.isValid || this.departure !== load) return;
+        if (err) { load.failed = '场景素材加载失败'; return; }
         source.packable = false;
         for (const [id, x, y, w, h] of parts) this.streetFrames.set(id, this.cropUiFrame(source, x, y, w, h));
-        request.done++;
+        done++;
       });
     }
+    this.renderDeparture(load, load.progress());
   }
-  private updateChapterLoad(dt: number) {
-    const load = this.chapterLoad;
+  private beginDeparture(brief: DepartureBrief, retry: () => void, launch: () => boolean) {
+    this.open('street-loading');
+    this.homeBackdrop.active = false;
+    this.noticeTime = 0;
+    const root = this.chapterMap = this.makeNode('Satellite departure', this.modal);
+    root.setSiblingIndex(0);
+    root.addComponent(Mask).type = Mask.Type.GRAPHICS_RECT;
+    this.sbox(this.graphics('Satellite backdrop', root), 0, 0, W, H, '#24302c');
+    const overlay = this.graphics('Satellite tracking', root);
+    const briefRoot = this.makeNode('Satellite mission brief', root);
+    briefRoot.addComponent(UIOpacity).opacity = 0;
+    briefRoot.active = false;
+    const fade = this.graphics('Satellite blackout', root);
+    const load: Departure = { brief, time: 0, typed: 0, waiting: 0, progress: () => 0, retry, launch, briefRoot, overlay, fade };
+    this.departure = load;
+    return load;
+  }
+  private backFromDeparture() {
+    const load = this.departure;
+    if (load && load.fadeTime === undefined) this.open(load.brief.returnTo);
+  }
+  private departureScansIn(load: Departure) { return load.brief.repeated ? .34 : .94; }
+  private departureTextTime(load: Departure) {
+    return (load.brief.lines[0].length + load.brief.lines[1].length) * BRIEF_CHAR_SECONDS;
+  }
+  private updateDeparture(dt: number) {
+    const load = this.departure;
     if (!load) return;
-    if (load.failed && this.buttons.some(button => button.node.name === 'Button-reload-chapter')) return;
-    load.time += dt;
-    const progress = load.done / load.total;
-    this.modalArt.clear();
-    this.drawLoading(CHAPTERS[load.chapter].name, progress, load.failed);
-    if (load.failed) {
-      this.button('reload-chapter', '重新加载', 465, 247, 164, () => this.loadChapterArt(load.chapter, load.returnTo), true);
-      this.button('back-chapter', '返回', 651, 247, 164, () => { this.chapterLoad = undefined; this.open(load.returnTo); });
-    } else if (!load.failed && progress === 1 && load.time >= 0.35) {
-      this.chapterLoad = undefined;
-      this.startBattle(load.chapter);
+    const progress = load.failed ? 0 : load.progress();
+    const revealEnd = this.departureScansIn(load) + FOCUS_SECONDS + REVEAL_SECONDS;
+    if (!load.failed) {
+      if (load.brief.map()) {
+        load.time += dt;
+        if (load.time >= revealEnd + BRIEF_OPEN_SECONDS) load.typed = Math.min(this.departureTextTime(load), load.typed + dt);
+      }
+      if (progress < 1 || !load.brief.map()) load.waiting += dt;
+      if (load.waiting >= 30) load.failed = '场景素材加载超时';
+    }
+    if (load.fadeTime !== undefined) {
+      load.fadeTime = Math.min(DEPARTURE_FADE_SECONDS, load.fadeTime + dt);
+      if (load.fadeTime === DEPARTURE_FADE_SECONDS) {
+        if (load.launch()) return;
+        load.fadeTime = undefined;
+        load.failed = '存档写入失败，原存档已保留';
+      }
+    }
+    if (load.failed && !this.buttons.some(button => button.node.name === 'Button-reload-chapter')) {
+      this.button('reload-chapter', '重试', 278, 58, 108, load.retry, true, true, 30);
+    }
+    this.renderDeparture(load, progress);
+  }
+  private confirmDeparture() {
+    const load = this.departure;
+    if (!load || load.failed || load.fadeTime !== undefined) return;
+    if (load.time < this.departureScansIn(load) + FOCUS_SECONDS + REVEAL_SECONDS) return;
+    const textTime = this.departureTextTime(load);
+    if (load.typed < textTime) { load.typed = textTime; return; }
+    if (load.progress() < 1) return;
+    load.fadeTime = 0;
+    this.resetInput();
+  }
+  private renderDeparture(load: Departure, progress: number) {
+    const { brief, overlay: g } = load, root = g.node.parent!;
+    const smooth = (n: number) => { const t = clamp(n, 0, 1); return t * t * (3 - 2 * t); };
+    const scan = this.departureScansIn(load), focus = smooth((load.time - scan) / FOCUS_SECONDS);
+    const pan = smooth(load.time / scan);
+    const reveal = clamp((load.time - scan - FOCUS_SECONDS) / REVEAL_SECONDS, 0, 1);
+    const blur = focus * .0062;
+    const point = brief.point, frame = brief.map();
+    const map = satelliteFraming(W, H, .5 + (point.x - .5) * pan, .5 + (point.y - .5) * pan,
+      (brief.repeated ? 1.58 : 1) + (brief.repeated ? .42 : 1) * pan + ((brief.focusZoom ?? 3.35) - 2) * focus,
+      frame ? frame.originalSize.width / frame.originalSize.height : W / H);
+    if (frame && !load.terrain) {
+      load.terrain = this.campaignSprite(root, frame, W / 2, H / 2, W, H);
+      load.terrain?.node.setSiblingIndex(1);
+    }
+    if (load.terrain) {
+      load.terrain.node.setPosition(map.left + (map.w - W) / 2, map.bottom + (map.h - H) / 2);
+      load.terrain.node.setScale(map.w / W, map.h / H, 1);
+      if (this.satelliteMaterial) {
+        if (load.terrain.customMaterial !== this.satelliteMaterial) load.terrain.customMaterial = this.satelliteMaterial;
+        const texture = frame?.texture, rect = frame?.rect;
+        const u = texture?.width && rect?.width ? rect.width / texture.width : 1;
+        const v = texture?.height && rect?.height ? rect.height / texture.height : 1;
+        const originX = texture?.width && rect ? rect.x / texture.width : 0;
+        const originY = texture?.height && rect ? rect.y / texture.height : 0;
+        this.satelliteMaterial.setProperty('blurStep', new Vec4(blur * u, blur * v * map.w / map.h, map.w / (W * u), map.h / (H * v)));
+        this.satelliteMaterial.setProperty('tileReveal', new Vec4(originX + point.x * u, originY + (1 - point.y) * v, reveal, 0));
+      }
+    }
+    const x = map.left + point.x * map.w, y = map.bottom + point.y * map.h;
+    const lock = smooth((pan - .6) / .4), tint = lock > .99 ? '#f8d18b' : '#c8c4a8', span = 24 + 27 * (1 - lock);
+    g.clear();
+    this.sbox(g, 0, 0, W, H, '#111a18', 32);
+    if (frame) {
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+        const cx = x + sx * span, cy = y + sy * span;
+        this.sline(g, cx, cy, cx - sx * 14, cy, tint, 2);
+        this.sline(g, cx, cy, cx, cy - sy * 14, tint, 2);
+      }
+      disc(g, x - W / 2, y - H / 2, 3.5, tint);
+    }
+    const ready = progress === 1 && reveal === 1 && load.typed >= this.departureTextTime(load) && !load.failed;
+    if (!load.info) {
+      const shell = this.timedSurvivalFrames.get('load-card') ?? this.campaignFrames.get('departure-brief');
+      if (shell) {
+        load.info = this.campaignSprite(root, shell, 224, 85, 372, 132);
+        load.info?.node.setSiblingIndex(g.node.getSiblingIndex());
+      }
+    }
+    if (!load.info) this.sbox(g, 43, 23, 362, 123, '#101819', 233);
+    this.text('satellite-location', brief.area, 62, 124, 15, '#dccaad', root, 325);
+    this.text('satellite-title', brief.title, 62, 98, 24, '#f7e4c3', root, 325).isBold = true;
+    const status = load.failed ?? (progress < 1 ? `加载场景  ${Math.floor(progress * 100)}%` : reveal === 1 ? '落点已锁定' : '正在定位');
+    this.text('floor-progress', status, 62, 70, 15, '#d9c3a5', root, 328);
+    this.sbox(g, 62, 54, 324, 3, '#393c35');
+    if (!load.failed && progress > 0) this.sbox(g, 62, 54, 324 * progress, 3, '#b38856');
+    if (ready) {
+      const prompt = this.text('satellite-ready', '点击屏幕开始', 62, 36, 19, '#ffe2a4', root, 320);
+      prompt.isBold = true;
+      const pulse = prompt.node.getComponent(UIOpacity) ?? prompt.node.addComponent(UIOpacity);
+      pulse.opacity = Math.round(182 + 73 * Math.cos(this.presentationTime * 4.8));
+    } else if (this.labels.has('satellite-ready')) this.labels.get('satellite-ready')!.string = '';
+    if (reveal === 1) this.renderDepartureBrief(load, x, y, smooth((load.time - scan - FOCUS_SECONDS - REVEAL_SECONDS) / BRIEF_OPEN_SECONDS));
+    load.fade.node.setSiblingIndex(9999);
+    this.blackFade(load.fade, smooth((load.fadeTime ?? 0) / DEPARTURE_FADE_SECONDS));
+  }
+  private renderDepartureBrief(load: Departure, x: number, y: number, reveal: number) {
+    const { brief, briefRoot: root, overlay } = load;
+    const width = brief.inset ? 546 : 480, height = 118;
+    const right = W - x >= width + 72;
+    const bx = clamp(right ? x + 56 : x - 56 - width, 30, W - width - 30);
+    const by = clamp(y + 38, 168, H - height - 34);
+    root.active = true;
+    root.setPosition(bx + width / 2 - W / 2, by + height / 2 - H / 2 + (1 - reveal) * -9);
+    root.getComponent(UIOpacity)!.opacity = Math.round(reveal * 255);
+    this.sline(overlay, x, y, x + (right ? 22 : -22), y + 22, '#c99e5f', 1.5, Math.round(220 * reveal));
+    this.sline(overlay, x + (right ? 22 : -22), y + 22, right ? bx : bx + width, by + 25, '#c99e5f', 1.5, Math.round(220 * reveal));
+    if (!root.getChildByName('Brief base')) {
+      const background = this.graphics('Brief base', root);
+      const art = this.campaignSprite(root, 'departure-brief', W / 2, H / 2, width, height);
+      if (!art) this.missionPlate(background, (W - width) / 2, (H - height) / 2, width, height, '#1c2222', '#a88c63', 12);
+    }
+    const avatar = brief.avatar(), inset = brief.inset?.();
+    const currentPortrait = root.getChildByName('Brief portrait')?.getComponent(Sprite);
+    if (avatar && currentPortrait?.spriteFrame !== avatar) {
+      if (currentPortrait) {
+        currentPortrait.spriteFrame = avatar;
+        const { width: w, height: h } = avatar.originalSize, fit = 76 / Math.max(w, h);
+        currentPortrait.node.getComponent(UITransform)!.setContentSize(w * fit, h * fit);
+      } else {
+        const portrait = this.campaignSprite(root, avatar, (W - width) / 2 + 55, H / 2, 76, 76, true)!;
+        portrait.node.name = 'Brief portrait';
+      }
+    }
+    if (inset && !root.getChildByName('Brief location')) {
+      const icon = this.campaignSprite(root, inset, (W + width) / 2 - 59, H / 2, 83, 66, true)!;
+      icon.node.name = 'Brief location';
+    }
+    const textX = (W - width) / 2 + 104, available = width - (brief.inset ? 218 : 120);
+    this.campaignLabel(root, 'satellite-brief-heading', brief.heading ?? brief.area, textX, H / 2 + 32, 19, available, '#f5d29a');
+    let count = Math.floor(load.typed / BRIEF_CHAR_SECONDS + .0001);
+    for (const [i, line] of brief.lines.entries()) {
+      this.text('satellite-brief-' + i, line.slice(0, Math.max(0, count)), textX, H / 2 + 3 - i * 24, 17, '#f1e7d1', root, available);
+      count -= line.length;
     }
   }
   private drawLoading(title: string, progress: number, failed = false, background = true) {
@@ -3329,15 +4943,16 @@ export class Blackout extends Component {
   }
   private startBattle(chapter: Chapter = 1) {
     if (!this.chapterUnlocked(chapter) || !this.sortieAllowed(this.sortieHero, chapter)) return;
+    this.loadChapterArt(chapter, this.mode);
+  }
+  private chapterBaseArtReady(chapter: Chapter) {
     const requiredArt = chapter === 4 ? ['operator', 'walker'] :
       ['heroine', 'heroineRoll-0', 'heroineRoll-1', 'heroineRoll-2', 'dormKit', 'lobby-desk', 'corridor', 'bedroom'];
     if (chapter === 2) requiredArt.push('operator');
     const fallArt = this.fallFrames.has(chapter === 4 ? 'operator' : 'lin');
-    if (!this.presentationReady || !fallArt || !requiredArt.every(id => this.artFrames.has(id))) { this.toast('正在加载战斗素材，请稍候再开始'); return; }
-    if (chapter !== 1) {
-      const art = chapter === 2 ? STREET_ART : chapter === 3 ? APARTMENT_ART : OPERATION_ART;
-      if (!art.every(([, parts]) => parts.every(([id]) => this.streetFrames.has(id)))) { this.loadChapterArt(chapter, this.mode); return; }
-    }
+    return this.presentationReady && fallArt && requiredArt.every(id => this.artFrames.has(id));
+  }
+  private launchChapter(chapter: Chapter) {
     this.battle = this.makeBattle(this.sortieHero, chapter); this.fallTime = 0;
     this.objectiveNotice = undefined;
     if (chapter === 4) {
@@ -3356,25 +4971,34 @@ export class Blackout extends Component {
       this.profile.tutorial === 'done' ? 'replay' : this.profile.tutorialSeen ? 'resume' : 'first' : null;
     this.enterBattleScene(chapter, prompt);
   }
-  private enterBattleScene(chapter: Chapter, prompt: NonNullable<Blackout['transition']>['prompt'] = null) {
+  private enterBattleScene(chapter: Chapter, prompt: NonNullable<Blackout['transition']>['prompt'] = null, fromLanding = false) {
     this.clearOperationDialogue();
-    this.clearOperationStoryLock();
+    this.clearOperationEscape();
     this.tutorialPrompt = null;
     this.feedback.reset(); this.motion.reset(this.battle.player); this.weaponEffects.clear();
     this.motionBattle = undefined;
     this.objectiveNotice = undefined;
-    this.rebuildLevel();
+    if (!fromLanding) this.rebuildLevel();
     this.lastFacing = this.battle.player.angle; this.sightTick = 0; this.lastGeometry = -1;
     if (this.battle.stage.apartment?.outdoor) { this.mx = W / 2; this.my = H / 2 - 240; }
-    this.transition = { kind: 'enter', time: 0, chapter, prompt };
-    this.open('playing'); this.noticeTime = 0; this.applyTransitionVisuals(0, 1);
+    this.transition = fromLanding ? undefined : { kind: 'enter', time: 0, chapter, prompt };
+    this.open('playing');
+    this.noticeTime = 0;
+    this.operationGuideHeading = undefined;
+    this.applyTransitionVisuals(fromLanding ? 1 : 0, fromLanding ? 0 : 1);
+    if (fromLanding) this.transitionShade.node.active = false;
   }
   private beginOperationCinematic(part: 'flight' | 'mutate' | 'strike') {
     this.open('operation-cinematic');
     this.homeBackdrop.active = false;
     const root = this.makeNode('Operation ' + part, this.modal);
     this.sbox(this.graphics('Cinematic backdrop', root), 0, 0, W, H, '#080c0d');
-    const picture = this.makeNode('Operation scene', root);
+    const viewport = part !== 'mutate' ? this.makeNode('Flight viewport', root) : root;
+    if (part !== 'mutate') {
+      viewport.getComponent(UITransform)!.setContentSize(W, H);
+      viewport.addComponent(Mask).type = Mask.Type.GRAPHICS_RECT;
+    }
+    const picture = this.makeNode('Operation scene', viewport);
     const asset = (id: string, x: number, y: number, w: number, h: number) =>
       this.campaignSprite(picture, this.streetFrames.get('op-' + id)!, x, y, w, h)!;
     const place = (sprite: Sprite, x: number, y: number) => sprite.node.setPosition(x - W / 2, y - H / 2);
@@ -3382,92 +5006,156 @@ export class Blackout extends Component {
     let draw: (time: number) => boolean;
     let finish: () => void;
     if (part === 'flight') {
-      const coast = [asset('coast', 640, 360, W, H + 1), asset('coast', 640, 1080, W, H + 1)];
-      const field = asset('field', 640, 360, W, H);
-      const positions = [[250, 500], [492, 455], [735, 500], [940, 540], [385, 255], [640, 226], [889, 270]];
-      const aircraft = positions.map(([x, y], index) => {
-        const heavy = index < 3, w = heavy ? 86 : 49, h = heavy ? 182 : 116;
-        const dust = asset('smoke', x, y, 195, 145);
-        const body = asset(heavy ? 'blackhawk' : 'littlebird', x, y, w, h);
-        const rotor = asset('rotor', x, y, heavy ? 167 : 114, heavy ? 167 : 114);
-        return { x, y, h, heavy, dust, body, rotor };
+      this.rebuildLevel();
+      this.environmentCamera.enabled = true;
+      const coastSpan = H + 44;
+      const coast = Array.from({ length: 3 }, () => asset('coast', W / 2, H / 2, W + 56, coastSpan + 1));
+      const field = this.campaignSprite(picture, this.outputFrame, W / 2, H / 2, W, H)!;
+      const haze = asset('landing-dust', W / 2, H / 2, W * 1.45, H * 1.45);
+      const landingPad = OPERATION_AIRCRAFT;
+      const dust = asset('landing-dust', 0, 0, 400, 280);
+      const makeAircraft = (craft: 'blackhawk' | 'littlebird', opacity = 255) => {
+        const heavy = craft === 'blackhawk', w = heavy ? 133 : 99, h = heavy ? 297 : 238;
+        const body = asset(craft, 0, 0, w, h), diameter = heavy ? 274 : 214;
+        const rotor = asset('rotor', 0, 0, diameter, diameter);
+        const stem = heavy ? h * 0.145 : OPERATION_LITTLEBIRD_ART.rotorForward * h / OPERATION_LITTLEBIRD_ART.height;
+        if (!heavy) this.attachLittlebirdPods(body, w, h);
+        return { body, rotor, stem, opacity, extent: Math.max(Math.hypot(w, h) / 2, diameter / Math.SQRT2 + stem) };
+      };
+      const wings = Array.from({ length: 4 }, () => makeAircraft('blackhawk', 238));
+      const soldiers = [this.battle.player, ...this.battle.stage.operation!.allies].map((destination, index) => {
+        const ghost = index === 0;
+        const frame = ghost ? this.artFrames.get('operator')! : this.streetFrames.get('op-soldier')!;
+        const size = ghost ? { width: OPERATION_GHOST_SIZE, height: OPERATION_GHOST_SIZE } : OPERATION_SOLDIER_SIZE;
+        const actor = this.campaignSprite(picture, frame, 0, 0, size.width, size.height)!;
+        actor.node.getComponent(UITransform)!.setAnchorPoint(ghost ? 0.36 : 0.5, ghost ? 0.5 : 0.32);
+        return { destination, index, actor, ghost };
       });
-      const soldiers = aircraft.flatMap(({ x, y, heavy }, ship) =>
-        Array.from({ length: heavy ? 5 : 4 }, (_, index) => ({
-          x, y, ship, index, actor: asset('soldier', x, y, 26, 38),
-        })));
+      // Created after the squad, so the fuselage naturally covers the cabin door.
+      const playerAircraft = makeAircraft('blackhawk');
+      const flyovers = OPERATION_FLYOVERS.map(cue => ({ ...cue, aircraft: makeAircraft(cue.craft, 222) }));
+      const jets = OPERATION_JETS.map(cue => ({ cue, sprite: asset('f15', 0, 0, 246 * cue.size, 332 * cue.size), heard: false }));
+      const poseAircraft = (aircraft: ReturnType<typeof makeAircraft>, x: number, y: number, scale: number, time: number, bank = 0) => {
+        const { body, rotor, stem, opacity, extent } = aircraft;
+        const showing = x + extent * scale >= 0 && x - extent * scale <= W &&
+          y + extent * scale >= 0 && y - extent * scale <= H;
+        body.node.active = rotor.node.active = showing;
+        body.node.setScale(scale, scale, 1);
+        rotor.node.setScale(scale, scale, 1);
+        const angle = bank * Math.PI / 180, rotorOffset = stem * scale;
+        place(body, x, y); place(rotor, x - Math.sin(angle) * rotorOffset, y + Math.cos(angle) * rotorOffset);
+        body.node.angle = bank;
+        body.color = color('#ffffff', opacity);
+        rotor.node.angle = bank + time * 830 % 360;
+        rotor.color = color('#ffffff', Math.round(opacity * 0.64));
+        return showing;
+      };
       this.speakOperation([
-        ['黑鹰领队', '幽灵，全队已进入北非沿岸。无线电保持畅通。'],
-        ['幽灵一组', '收到。我们要活捉「阀」的首领，优先控制指挥部。'],
-        ['小鸟二号', '街口有武装人员和重机枪。我会留在上空，等你们呼叫。'],
-        ['幽灵二组', '我们守住登陆区和返回路线。要撤就原路回来。'],
-        ['黑鹰领队', '前方空地可以降落。各机按顺序接地。'],
+        ['lead', '沿岸分开。幽灵，准备落地。'],
+        ['littlebird', '海滩上没动静，可以下。'],
+        ['ghost', '收到。落地后跟我走。'],
       ], true);
-      let landingAt: number | undefined, marchRadio = false;
+      let landingAt: number | undefined;
       draw = t => {
-        if (landingAt === undefined && !this.operationDialogue) landingAt = t;
-        const landing = landingAt === undefined ? -1 : t - landingAt;
-        const offset = t * 112 % H;
-        const page = Math.floor(t * 112 / H);
+        if (landingAt === undefined && t >= OPERATION_FORMATION_SECONDS && !this.operationDialogue) landingAt = t;
+        const approach = landingAt === undefined ? -1 : t - landingAt;
+        const landing = approach - OPERATION_APPROACH_SECONDS;
+        const flightTime = landingAt === undefined ? t : landingAt + 2.5 * (1 - Math.exp(-approach / 2.5));
+        const offset = flightTime * 112 % coastSpan, page = Math.floor(flightTime * 112 / coastSpan);
         coast.forEach((sprite, i) => {
-          place(sprite, 640, H / 2 - offset + i * H);
+          place(sprite, W / 2, H / 2 - offset + (i - 1) * coastSpan);
           sprite.node.setScale(1, (page + i) % 2 ? -1 : 1, 1);
         });
-        field.node.active = landing >= 0;
-        field.color = color('#ffffff', Math.round(255 * smooth(landing / 1.15)));
-        aircraft.forEach(({ x, y, h, heavy, dust, body, rotor }, i) => {
-          const descent = smooth((landing - i * 0.17) / 2.4);
-          const blend = smooth(landing / 2.5);
-          const airX = 640 + (x - 635) * 0.8 + Math.sin(t * 1.9 + i) * 5;
-          const airY = 460 + (y - 370) * 0.73 + Math.cos(t * 1.4 + i) * 7;
-          const escort = i === 6 ? smooth((landing - 5.8) / 2.4) : 0;
-          const px = airX + (x - airX) * blend + 460 * escort, py = airY + (y - airY) * blend + 560 * escort;
-          const scale = 1.12 - descent * 0.33 + escort * 0.26;
-          for (const sprite of [body, rotor, dust]) sprite.node.setScale(scale, scale, 1);
-          dust.node.active = landing > .35;
-          dust.color = color('#d4ab79', Math.round(155 * descent * (1 - smooth((landing - 3.0) / 2.6))));
-          place(dust, px, py - 13);
-          place(body, px, py);
-          place(rotor, px, py + h * (heavy ? 0.145 : 0.1) * scale);
-          rotor.node.angle = (t * 815 - landing * 65 * descent + i * 31) % 360;
-          rotor.color = color('#ffffff', 165);
-        });
-        for (const { x, y, ship, index, actor } of soldiers) {
-          const leave = landing - 2.7 - ship * .15 - index * .19;
-          const disembark = smooth(leave / .85);
-          const assemble = smooth((leave - .65) / 1.55);
-          const advance = smooth((leave - 2.1) / 3.6);
+        const formation = operationFormationAt(t);
+        for (const [i, wing] of wings.entries()) {
+          const position = formation[i + 1];
+          poseAircraft(wing, position.x, position.y, position.scale, t + i * 0.03, position.bank);
+        }
+        for (const cue of flyovers) {
+          const fraction = ((cue.landing ? approach : t) - cue.start) / cue.duration;
+          const y = -250 + fraction * (H + 500);
+          const x = cue.x + (cue.toX - cue.x) * fraction;
+          poseAircraft(cue.aircraft, x, y, cue.scale, t, -(cue.toX - cue.x) * 0.038);
+        }
+        const descent = operationDescentAt(approach), progress = descent.touchdown;
+        const handoff = smooth((landing - 2.8) / (OPERATION_HANDOFF_SECONDS - 2.8));
+        const zoom = 0.69 + 0.12 * progress + 0.19 * handoff;
+        const player = this.battle.player;
+        const focusX = player.x - 86 * (1 - progress);
+        const focusY = player.y + 147 * (1 - progress) - 40 * progress * (1 - handoff);
+        const screenX = (x: number) => W / 2 + (x - focusX) * zoom;
+        const screenY = (y: number) => H / 2 + (y - focusY) * zoom;
+        this.environment.setScale(zoom, zoom, 1);
+        this.environment.setPosition(-focusX * zoom, -focusY * zoom);
+        const landVisible = descent.near;
+        field.color = color('#ffffff', Math.round(255 * landVisible));
+        haze.color = color('#f5dfbc', Math.round(120 * Math.sin(Math.PI * landVisible)));
+
+        const takeoff = operationTakeoffAt(landing);
+        const padX = screenX(landingPad.x), padY = screenY(landingPad.y);
+        const farX = formation[0].x + (OPERATION_COAST_LZ.x - formation[0].x) * descent.distance;
+        const farY = formation[0].y + (OPERATION_COAST_LZ.y - formation[0].y) * descent.distance;
+        const approachX = farX + (padX - farX) * landVisible;
+        const approachY = farY + (padY + 58 * (1 - progress) - farY) * landVisible;
+        const scale = (descent.airborneScale + (zoom - descent.airborneScale) * progress) * takeoff.scale;
+        poseAircraft(playerAircraft, approachX + takeoff.x, approachY + takeoff.y, scale, t, takeoff.bank);
+        dust.node.active = landing > 1.2 && landing < 5.5;
+        dust.node.setScale(zoom, zoom, 1); place(dust, padX, padY);
+        dust.color = color('#d7b789', Math.round(168 * progress * (1 - smooth((landing - 2.8) / 2.6))));
+
+        let shakeX = 0, shakeY = 0;
+        for (const jet of jets) {
+          const frame = operationJetFrame(approach, jet.cue);
+          jet.sprite.node.active = frame.flying;
+          jet.sprite.node.angle = frame.angle;
+          place(jet.sprite, frame.jet.x, frame.jet.y);
+          shakeX += frame.shakeX; shakeY += frame.shakeY;
+          if (frame.pulse && !jet.heard) {
+            jet.heard = true;
+            this.playOperationJet(0.53);
+          }
+        }
+        picture.setPosition(shakeX, shakeY);
+        picture.setScale(1 + 2 * Math.abs(shakeX) / W, 1 + 2 * Math.abs(shakeY) / H, 1);
+
+        const door = { x: landingPad.x + 80, y: landingPad.y + 16 };
+        for (const { destination, index, actor, ghost } of soldiers) {
+          const leave = landing - 2.55 - index * 0.62;
+          const disembark = smooth(leave / 0.52);
+          const walk = smooth((leave - 0.43) / 1.13);
           actor.node.active = leave >= 0;
-          const file = (ship + index) % 5;
-          const drift = Math.sin(leave * 21 + index) * 2.3 * (advance > 0 && advance < 1 ? 1 : 0.35);
-          place(actor, x + (40 + index * 12) * disembark + (1020 - x + file * 69) * advance,
-            y + (395 - y + file * 16 + ship * 4) * assemble + drift);
-          actor.node.angle = -90 + (index % 2 ? 15 : -15) * (1 - advance);
+          actor.node.setScale(zoom, zoom, 1);
+          place(actor, screenX(landingPad.x + (door.x - landingPad.x) * disembark + (destination.x - door.x) * walk),
+            screenY(landingPad.y + (door.y - landingPad.y) * disembark + (destination.y - door.y) * walk));
+          const angle = leave < 0.46 ? 0 : Math.atan2(destination.y - door.y, destination.x - door.x);
+          const facing = smooth((leave - 1.36) / 0.35);
+          actor.node.angle = (angle * (1 - facing) + player.angle * facing) * 180 / Math.PI - (ghost ? 0 : 90);
         }
-        if (landing > 4 && !marchRadio) {
-          marchRadio = true;
-          this.speakOperation([['幽灵一组', '人员到齐。各小队沿路进城，第一组跟我走。']], true);
-        }
-        return landing >= 9.2 && !this.operationDialogue;
+        return landing >= OPERATION_HANDOFF_SECONDS;
       };
-      finish = () => this.enterBattleScene(4);
+      finish = () => {
+        this.environment.setScale(1, 1, 1);
+        this.enterBattleScene(4, null, true);
+        this.operationArrival = { battle: this.battle, time: OPERATION_HANDOFF_SECONDS };
+        this.speakOperation([['four', '人齐了，走吧。']]);
+      };
     } else if (part === 'mutate') {
       asset('compound', 640, 360, W, H);
       asset('console', 967, 515, 260, 133);
       asset('wall', 640, 661, 1180, 64);
-      const leader = asset('leader', 817, 357, 116, 94);
+      const leader = asset('rimelet-human', 817, 357, 96, 120);
       leader.node.angle = 90;
-      const injection = asset('inject', 810, 357, 132, 122);
+      const injection = asset('rimelet-injection', 817, 357, 96, 120);
       injection.node.angle = 90;
       const soldiers = [[485, 305], [440, 415], [370, 355], [520, 430], [340, 240]]
         .slice(0, 1 + this.battle.allies.filter(ally => ally.hp > 0).length)
         .map(([x, y]) => ({ x, y, sprite: asset('soldier', x, y, 55, 81) }));
-      const king = asset('king', 704, 376, 235, 201);
+      const king = asset('rimelet-mutated', 817, 357, 96, 120);
       const flash = asset('impact', 478, 371, 500, 440);
       this.speakOperation([
-        ['幽灵一组', '这里是一组，已控制指挥室。首领，放下你手里的东西。'],
-        ['「阀」首领', '你们来迟了。样本已经送往各地，你们留不住我。'],
-        ['幽灵一组', '他手里是注射器！离他远点！'],
+        ['ghost', '把手里的东西放下。'],
+        ['rimelet', '来晚了。样本已经送走了。'],
+        ['two', '他在扎针！往后退！'],
       ], true);
       let changeAt: number | undefined, aftermath = false;
       draw = t => {
@@ -3491,8 +5179,8 @@ export class Blackout extends Component {
           aftermath = true;
           this.play('grenade-blast');
           this.speakOperation([
-            ['指挥部', '幽灵一组，回话！二组，街道上发生了什么？'],
-            ['幽灵二组', '一组的信号全断了。街上的人开始撕咬彼此。我们正往登陆区撤！'],
+            ['command', '喂？有人听见吗？'],
+            ['three', '街上乱了，先回海滩。'],
           ], true);
         }
         return aftermath && !this.operationDialogue;
@@ -3501,88 +5189,71 @@ export class Blackout extends Component {
         if (this.battle.advanceOperation(operationLevel('defense'))) this.enterBattleScene(4);
       };
     } else {
-      const view = asset('city', 640, 360, W * 1.11, H * 1.11);
-      const ruin = asset('aftermath', 640, 360, W * 2.0, H * 1.09);
-      const bomb = asset('bomb', 750, 430, 37, 106);
-      const frames = ['ignition', 'fireball', 'mushroom', 'embers'].map(id => asset(id, 670, 375, 200, 200));
-      const rings = [asset('shockwave', 670, 375, 410, 370), asset('shockwave', 670, 375, 410, 370)];
-      const dust = [-1, 0, 1].map(i => asset('smoke', 670 + i * 160, 375, 475, 430));
-      const king = asset('king', 590, 376, 175, 150);
-      const infected = Array.from({ length: 13 }, (_, i) => {
-        const x = 246 + i * 51, y = 317 + (i * 61) % 160;
-        return { x, y, sprite: asset('infected', x, y, 24, 25) };
-      });
-      const glare = this.graphics('Shockwave glare', picture);
-      this.sbox(glare, -55, -55, W + 110, H + 110, '#fff4dd');
-      const glareOpacity = glare.node.addComponent(UIOpacity);
-      const timeCard = this.campaignLabel(root, 'operation-time-jump', '一小时后', W / 2, H / 2, 27, 440, '#f2e1b8', Label.HorizontalAlign.CENTER);
-      this.speakOperation([
-        ['幽灵二组', '尸群截断了撤离路线。接应编队，听到请回答！'],
-        ['指挥部', '接应编队失联。所有单位立即撤出，核打击将在一小时后实施。'],
-      ], true);
-      let strikeAt: number | undefined, aftermath = false, detonated = false;
+      asset('coast', 640, 360, W * 1.085, H * 1.14);
+      const beach = this.campaignSprite(picture, this.outputFrame, W / 2, H / 2, W, H)!;
+      const target = OPERATION_COAST_LZ;
+      const strikes = OPERATION_STRIKE_GROUPS.map((group, wave) => ({
+        delay: group.delay, shake: group.shake, heard: false,
+        spots: group.spots.map((spot, index) => ({
+          delay: spot.delay, x: target.x + spot.x, y: target.y + spot.y,
+          frames: OPERATION_STRIKE_FRAMES.map(frame => {
+            const id = (index + wave) % 2 === 0 ? frame.id : frame.id + '-variant';
+            const sprite = asset(id, target.x + spot.x, target.y + spot.y, spot.size, spot.size);
+            sprite.node.name = frame.id;
+            sprite.node.angle = (spot.x * 7 + index * 53) % 360;
+            return { frame, sprite };
+          }),
+        })),
+      }));
+      const retreat = asset('blackhawk', 0, 0, 133, 297), rotor = asset('rotor', 0, 0, 274, 274);
+      const jets = OPERATION_RETURN_JETS.map(cue => ({ cue, sprite: asset('f15', 0, 0, 241 * cue.size, 324 * cue.size), heard: false }));
       draw = t => {
-        if (strikeAt === undefined && !this.operationDialogue) strikeAt = t;
-        const seconds = strikeAt === undefined ? -1 : t - strikeAt;
-        const sinceImpact = seconds - 3.35;
-        timeCard.node.active = seconds >= .5 && seconds < 1.75;
-        view.color = color('#edcda9', Math.round(255 * (seconds < .45 ? 1 : seconds < 1.75 ? .15 : smooth((seconds - 1.75) / .45))));
-        bomb.node.active = seconds > 1.92 && sinceImpact < 0;
-        const fall = clamp((seconds - 1.92) / 1.43, 0, 1);
-        place(bomb, 795 - 125 * fall, 655 - 280 * fall);
-        bomb.node.angle = -24;
-        bomb.node.setScale(1.29 - fall * 1.08, 1.29 - fall * 1.08, 1);
-        if (sinceImpact >= 0 && !detonated) { detonated = true; this.play('grenade-blast'); }
-        ruin.node.active = sinceImpact >= 1.38;
-        ruin.color = color('#c6b09f', Math.round(255 * smooth((sinceImpact - 1.38) / 1.95)));
-        const timings = [0, .18, .52, 1.28, 3.6], sizes = [.28, .69, 1.45, 1.95, 3.7];
-        frames.forEach((sprite, i) => {
-          const age = sinceImpact - timings[i];
-          sprite.node.active = age >= 0 && sinceImpact < timings[i + 1] + .36;
-          const progress = clamp(age / (timings[i + 1] - timings[i]), 0, 1);
-          const size = sizes[i] + (sizes[i + 1] - sizes[i]) * progress;
-          sprite.node.setScale(size, size, 1);
-          sprite.color = color('#ffffff', Math.round(255 * (1 - smooth((sinceImpact - timings[i + 1]) / .36))));
-        });
-        rings.forEach((sprite, i) => {
-          const age = sinceImpact - 0.29 - i * .15;
-          sprite.node.active = age > 0 && age < 1.7;
-          const scale = .27 + age * 2.1 + age * age * .65;
-          sprite.node.setScale(Math.max(.01, scale), Math.max(.01, scale * (1 + age * .22)), 1);
-          sprite.color = color('#f1d6b0', Math.round(195 * (1 - smooth((age - .64) / 1.06))));
-        });
-        dust.forEach((sprite, i) => {
-          const age = sinceImpact - .57 - i * .13;
-          sprite.node.active = age > 0 && age < 6;
-          const size = 0.7 + Math.max(0, age) * .68;
-          sprite.node.setScale(size, size, 1);
-          place(sprite, 666 + (i - 1) * (161 + age * 150), 353 + Math.sin(i) * age * 96);
-          sprite.color = color('#cfad87', Math.round(175 * smooth(age / .4) * (1 - smooth((age - 1.7) / 4.3))));
-        });
-        const shake = sinceImpact < 0 ? 0 : 24 * (1 - smooth(sinceImpact / 2.7));
-        picture.setPosition(shake * Math.sin(sinceImpact * 73), shake * .68 * Math.cos(sinceImpact * 91));
-        const zoom = 1 + smooth((sinceImpact - .17) / .71) * .19 - smooth((sinceImpact - 1.4) / 1.35) * .19;
-        picture.setScale(zoom, zoom, 1);
-        glareOpacity.opacity = sinceImpact < 0 ? 0 : Math.round(222 * (1 - smooth(sinceImpact / .58)));
-        const escape = Math.max(0, sinceImpact - 4.45);
-        king.node.active = escape > 0;
-        king.node.angle = -35;
-        const advance = Math.min(escape, 7);
-        place(king, 498 + advance * 58, 344 + advance * 22);
-        king.node.setScale(1 + Math.sin(escape * 6.7) * 0.105, 1, 1);
-        infected.forEach(({ x, y, sprite }, i) => {
-          sprite.node.active = escape > .31 + i * .085;
-          sprite.node.angle = -49;
-          place(sprite, x + advance * (18 + i % 3 * 5), y + advance * 12);
-        });
-        if (sinceImpact > 5.2 && !aftermath) {
-          aftermath = true;
-          this.speakOperation([
-            ['侦察机', '打击结束。没有收到任何地面小队的信号。等一下，烟里飞出来的……是刚才逃走的那只丧尸王！'],
-            ['指挥部', '它没有被消灭，尸群还跟着它。继续跟踪，其他地区也开始报告感染。'],
-          ], true);
+        const cut = smooth(t / 0.92);
+        beach.node.active = cut < 1;
+        beach.color = color('#ffffff', Math.round(255 * (1 - cut)));
+        beach.node.setScale(1 + cut * 0.095, 1 + cut * 0.095, 1);
+        const p = clamp((t - 0.32) / 4.45, 0, 1);
+        const travel = p * (0.30 + p * 0.70);
+        const x = 619 + 77 * travel, y = 488 - 686 * travel;
+        const scale = 0.60 - 0.16 * travel, opacity = Math.round(255 * smooth((t - 0.16) / 0.65));
+        retreat.node.active = rotor.node.active = p < 1;
+        retreat.node.angle = 180 + 4 * Math.sin(p * Math.PI);
+        rotor.node.angle = t * 830 % 360;
+        place(retreat, x, y); place(rotor, x + 2, y - 43 * scale);
+        retreat.node.setScale(scale, scale, 1); rotor.node.setScale(scale, scale, 1);
+        retreat.color = color('#ffffff', opacity); rotor.color = color('#ffffff', Math.round(opacity * 0.64));
+        let shakeX = 0, shakeY = 0;
+        for (const jet of jets) {
+          const frame = operationJetFrame(t, jet.cue, true);
+          jet.sprite.node.active = frame.flying;
+          jet.sprite.node.angle = frame.angle;
+          place(jet.sprite, frame.jet.x, frame.jet.y);
+          shakeX += frame.shakeX; shakeY += frame.shakeY;
+          if (frame.pulse && !jet.heard) { jet.heard = true; this.playOperationJet(0.47); }
         }
-        return aftermath && !this.operationDialogue;
+        const impact = t - OPERATION_IMPACT_SECONDS;
+        for (const group of strikes) {
+          const elapsed = impact - group.delay;
+          if (elapsed >= 0 && elapsed < 0.60) {
+            if (!group.heard) { group.heard = true; this.play('grenade-blast'); }
+            const shake = group.shake * (1 - elapsed / 0.60) ** 1.65;
+            shakeX += shake * Math.cos(elapsed * 66);
+            shakeY += shake * .64 * Math.cos(elapsed * 81 + .7);
+          }
+          for (const spot of group.spots) {
+            const age = elapsed - spot.delay;
+            for (const { frame, sprite } of spot.frames) {
+              const visual = operationStrikeFrame(age, frame);
+              sprite.node.active = visual.alpha > .006;
+              if (!sprite.node.active) continue;
+              sprite.node.setScale(visual.scale, visual.scale, 1);
+              if (frame.id === 'strike-smoke') place(sprite, spot.x + (age - frame.delay) * 14, spot.y + (age - frame.delay) * 8);
+              sprite.color = color('#ffffff', Math.round(255 * visual.alpha));
+            }
+          }
+        }
+        picture.setPosition(clamp(shakeX, -26, 26), clamp(shakeY, -21, 21));
+        return impact >= OPERATION_STRIKE_END_SECONDS;
       };
       finish = () => {
         this.battle.status = 'won';
@@ -3590,17 +5261,14 @@ export class Blackout extends Component {
         this.profile.operationArchive = true;
         this.save();
         this.finishBattle();
-        this.transitionShade.node.active = true;
-        this.transitionShade.node.setSiblingIndex(this.modal.getSiblingIndex());
-        this.transitionShade.node.getComponent(UIOpacity)!.opacity = 255;
       };
     }
     const shade = this.graphics('Cinematic fade', root);
-    this.sbox(shade, 0, 0, W, H, '#000000');
-    const opacity = shade.node.addComponent(UIOpacity);
     const render = (t: number) => {
       const done = draw(t);
-      opacity.opacity = Math.round(255 * (1 - smooth(t / .56)));
+      const fade = (t - OPERATION_IMPACT_SECONDS - OPERATION_STRIKE_FADE_SECONDS) /
+        (OPERATION_STRIKE_END_SECONDS - OPERATION_STRIKE_FADE_SECONDS);
+      this.blackFade(shade, part === 'strike' ? smooth(fade) : 1 - smooth(t / .56));
       return done;
     };
     this.operationCinema = { root, time: 0, draw: render, finish };
@@ -3612,7 +5280,7 @@ export class Blackout extends Component {
     for (const node of nodes) if (node) (node.getComponent(UIOpacity) || node.addComponent(UIOpacity)).opacity = opacity;
     this.transitionShade.node.active = true;
     this.transitionShade.node.setSiblingIndex(9999);
-    this.transitionShade.node.getComponent(UIOpacity)!.opacity = Math.round(clamp(blackAlpha, 0, 1) * 255);
+    this.blackFade(this.transitionShade, blackAlpha);
   }
   private stepTransition(dt: number) {
     const t = this.transition;
@@ -3627,16 +5295,13 @@ export class Blackout extends Component {
       else if (t.chapter === 4) {
         const part = this.battle.stage.operation?.part;
         if (part === 'city') this.speakOperation([
-          ['幽灵一组', '各组准备。穿过前面的街口，夺下沙袋阵地。'],
-          ['小鸟二号', '我在上空待命。指给我火力点，我能支援一次。'],
+          ['ghost', '沿街屋走，别惊动岗哨。'],
         ]);
         else if (part === 'compound') this.speakOperation([
-          ['幽灵一组', '正门已拿下。两边都能通向内院，见到首领先留活口。'],
-          ['指挥部', '收到。守军还在建筑里，进房前先确认角落。'],
-        ]);
+          ['ghost', '找里姆雷特。要活的。'],
+                  ]);
         else this.speakOperation([
-          ['幽灵二组', '街区已失守！穿过市集，回登陆区等接应。'],
-          ['指挥部', '二组，保持无线电畅通。我们会尽快联系接应编队。'],
+          ['three', '快走，后面还有东西。'],
         ]);
       }
     } else {
@@ -3695,6 +5360,24 @@ export class Blackout extends Component {
     }
   }
   private finishBattle() {
+    const run = this.battle.survival;
+    if (run) {
+      if (this.battle.rewardClaimed || this.battle.status === 'playing') return;
+      run.outcome ??= 'fallen';
+      this.reward = survivalPayout(run.pool, run.outcome);
+      const survivalMaps = { ...this.profile.survivalMaps };
+      delete survivalMaps[this.battle.stage.survival!.mapId];
+      const next = { ...this.profile, survivalMaps, achievementProgress: { ...this.profile.achievementProgress },
+        materials: this.profile.materials + this.reward.materials, coins: this.profile.coins + this.reward.coins,
+        tickets: this.profile.tickets + this.reward.tickets };
+      recordAchievementKills(next, this.battle.kills);
+      if (this.persist(next)) {
+        this.profile = next; this.battle.rewardClaimed = true;
+        this.play(run.outcome === 'fallen' ? 'hurt' : 'win');
+      }
+      this.open('result');
+      return;
+    }
     const engineerOwned = this.profile.owned[ENGINEER_ID];
     this.reward = this.battle.claimReward(this.profile) || { materials: 0, tickets: 0, coins: 0, keys: 0 };
     this.unlockedEngineer = !engineerOwned && this.profile.owned[ENGINEER_ID];
@@ -3761,15 +5444,75 @@ export class Blackout extends Component {
     hud.opacity.opacity = Math.round(255 * reveal);
     hud.label.string = description;
   }
+  private battleHudSprite(name: HudFrame, parent: Node, x: number, y: number, w: number, h: number, sliced = false) {
+    const node = this.makeNode(name, parent);
+    node.setPosition(x, y);
+    const scale = sliced ? PANEL_SCALE : 1;
+    const sprite = this.setupSprite(node, this.battleHudFrames.get(name)!, w / scale, h / scale);
+    if (sliced) {
+      sprite.type = Sprite.Type.SLICED;
+      node.setScale(scale, scale, 1);
+    }
+    return sprite;
+  }
+  private buildBattleStatus(parent: Node) {
+    const frames = this.battleHudFrames;
+    if (!(['status', 'portrait-rim', 'socket', 'glass', 'gloss'] as const).every(id => frames.has(id))) {
+      this.battleSprite('player_status', HUD.status);
+      return;
+    }
+    const { x, w } = HUD.status;
+    this.battleHudSprite('status', parent, x + w / 2 - W / 2, 674 - H / 2, w, 76);
+    const portraitMask = this.makeNode('Player portrait clip', parent);
+    portraitMask.setPosition(57 - W / 2, 674 - H / 2);
+    portraitMask.getComponent(UITransform)!.setContentSize(59, 59);
+    portraitMask.addComponent(Mask).type = Mask.Type.GRAPHICS_RECT;
+    const portrait = this.makeNode('Player portrait art', portraitMask);
+    this.battleHudSprite('portrait-rim', parent, 57 - W / 2, 674 - H / 2, 70, 70);
+    this.battleHudSprite('socket', parent, HEALTH_X + HEALTH_W / 2 - W / 2, HEALTH_Y - H / 2, HEALTH_W + 10, 15);
+    const makeGlass = (name: string) => {
+      const sprite = this.battleHudSprite('glass', parent, HEALTH_X - W / 2, HEALTH_Y - H / 2, HEALTH_W, 9);
+      sprite.node.name = name;
+      sprite.node.getComponent(UITransform)!.setAnchorPoint(0, 0.5);
+      return sprite;
+    };
+    const trail = makeGlass('Damage trail'), fill = makeGlass('Current health glass');
+    trail.color = color('#943b37');
+    const gloss = this.battleHudSprite('gloss', parent, HEALTH_X + HEALTH_W / 2 - W / 2, HEALTH_Y + 4 - H / 2, HEALTH_W, 2);
+    gloss.node.addComponent(UIOpacity).opacity = 140;
+    this.playerStatus = { portrait, fill, trail };
+    const p = this.battle.player;
+    this.playerHealth.reset(p.hp / p.maxHp);
+  }
+  private buildBattleMessages(parent: Node) {
+    const frames = this.battleHudFrames;
+    if (frames.has('notice') && frames.has('inspect')) {
+      const root = this.makeNode('Battle notice', parent);
+      const plate = this.battleHudSprite('notice', root, 0, 0, 280, 42, true);
+      const icon = this.battleHudSprite('inspect', root, 0, 0, 18, 18);
+      this.noticeHud = { root, plate, icon, opacity: root.addComponent(UIOpacity) };
+      root.active = false;
+    }
+    if (frames.has('context') && frames.has('keycap') && frames.has('interact')) {
+      const root = this.makeNode('Battle interaction prompt', parent);
+      root.setPosition(PROMPT_CENTER - W / 2, PROMPT_Y - H / 2);
+      const plate = this.battleHudSprite('context', root, 0, 0, 440, 43, true);
+      const badge = this.battleHudSprite('keycap', root, 0, 0, 70, 26);
+      const icon = this.battleHudSprite('interact', root, 0, 0, 20, 20);
+      this.promptHud = { root, plate, badge, icon };
+      root.active = false;
+    }
+  }
   private buildHud() {
     this.battleArtwork = this.makeNode('Battle artwork', this.canvas);
     // Artwork sits below dynamic graphics/text and never participates in hit testing.
     this.battleArtwork.setSiblingIndex(this.hud.node.getSiblingIndex());
     this.buildObjectiveHud(this.battleArtwork);
     for (const [id, rect] of [
-      ['player_status', HUD.status], ['area_banner', HUD.area], ['mission_status', HUD.mission], ['minimap_panel', HUD.map],
+      ['area_banner', HUD.area], ['mission_status', HUD.mission], ['minimap_panel', HUD.map],
       ['button_settings', HUD.settings], ['button_pause', HUD.pause],
     ] as Array<[BattleImage, typeof HUD.status]>) this.battleSprite(id, rect);
+    this.buildBattleStatus(this.battleArtwork);
     const ammoFrame = this.battleFrames.get('weapon_ammo');
     if (ammoFrame) {
       // Crop the icon-free right side, then mirror it to preserve the full frame.
@@ -3783,7 +5526,9 @@ export class Blackout extends Component {
         this.setupSprite(half, frame, a.w / 2, a.h);
       }
     }
-    this.battleSprite('weapon_ammo', HUD.ammo);
+    const legacyAmmo: Node[] = [];
+    const normalAmmo = this.battleSprite('weapon_ammo', HUD.ammo);
+    if (normalAmmo) legacyAmmo.push(normalAmmo);
     if (ammoFrame && this.battle.heroId !== HEROINE_ID) {
       const icon = this.supplyUiFrames.get(this.battle.hero.weapon);
       if (icon) {
@@ -3791,10 +5536,12 @@ export class Blackout extends Component {
         const backdrop = this.makeNode('Weapon icon background', this.battleArtwork!);
         backdrop.setPosition(HUD.ammo.x + 72 - W / 2, HUD.ammo.y + HUD.ammo.h / 2 - H / 2);
         this.setupSprite(backdrop, patch, 98, 51);
+        legacyAmmo.push(backdrop);
         const weapon = this.makeNode('Weapon icon ' + this.battle.heroId, this.battleArtwork!);
         weapon.setPosition(HUD.ammo.x + 72 - W / 2, HUD.ammo.y + HUD.ammo.h / 2 - H / 2);
         const fit = Math.min(82 / icon.originalSize.width, 42 / icon.originalSize.height);
         this.setupSprite(weapon, icon, icon.originalSize.width * fit, icon.originalSize.height * fit);
+        legacyAmmo.push(weapon);
       }
     }
     for (const [id, rect] of [['joystick_move_base', HUD.move], ['joystick_fire', HUD.fire]] as Array<[BattleImage, typeof HUD.move]>) {
@@ -3803,35 +5550,56 @@ export class Blackout extends Component {
     this.moveCap = this.battleSprite('joystick_move_cap', { x: HUD.move.x + HUD.move.w / 2 - 40, y: HUD.move.y + HUD.move.h / 2 - 40, w: 80, h: 80 });
     this.createHudAction('dodge', 'button_roll', HUD.roll, () => this.battle.player.dash, () => 2.4);
     this.createHudAction('reload', 'button_reload', HUD.reload, () => this.battle.player.reload, () => this.battle.hero.reload);
-    const air = this.battle.operationRun?.airSupport && this.streetFrames.get('op-littlebird');
-    this.createHudAction('grenade', air || (isShopMine(this.battle.tactical.selected) ? 'button_trap' : 'button_grenade'), HUD.grenade,
+    this.createHudAction('grenade', isShopMine(this.battle.tactical.selected) ? 'button_trap' : 'button_grenade', HUD.grenade,
       () => this.battle.tactical.cooldown, () => TACTICAL_DEFINITIONS[this.battle.tactical.selected || 'grenade'].cooldown);
+    const air = this.streetFrames.get('op-littlebird-hud');
+    if (this.battle.operationRun?.airSupport && air) this.createHudAction('air', air, HUD.air,
+      () => this.battle.operationRun?.airCooldown ?? 0, () => OPERATION_AIR_COOLDOWN);
+    if (this.battle.stage.operation?.part === 'compound') this.buildOperationBossHud(this.battleArtwork);
     this.createHudAction('door', 'button_interact', HUD.door, () => 0, () => 0);
     this.createHudAction('pickup', 'button_pickup', HUD.pickup, () => 0, () => 0);
     if (this.battle.apartment) this.createHudAction('apartment-trap', 'button_trap', HUD.trap, () => 0, () => 0);
     // The source PNG restores the erased quantity-badge corner from its clean mirrored rim.
     const operation = this.battle.stage.operation;
-    const name = operation ? operation.part === 'defense' ? '幽灵二组' : '幽灵一组' : `${this.battle.hero.name}  Lv.${this.battle.level}`;
-    this.text('name', name, 113, 691, 17, C.text, this.canvas, 180);
-    this.text('health', '', 113, 657, 13, C.jade, this.canvas, 205);
-    this.text('portrait', this.battle.hero.name.slice(0, 1), 62, 674, 28, C.gold, this.canvas, 62, Label.HorizontalAlign.CENTER);
+    const name = operation ? '幽灵一组' : `${this.battle.hero.name}  Lv.${this.battle.level}`;
+    const statusX = this.playerStatus ? HEALTH_X : 113;
+    this.text('name', name, statusX, 693, this.playerStatus && sys.isMobile ? 19 : 17, C.text, this.canvas, 212);
+    const healthSize = this.playerStatus ? (sys.isMobile ? 16 : 14) : 13;
+    this.text('health', '', statusX, 654, healthSize, C.jade, this.canvas, HEALTH_W);
+    this.text('portrait', this.battle.hero.name.slice(0, 1), this.playerStatus ? 57 : 62, 674, 28, C.gold, this.canvas, 62, Label.HorizontalAlign.CENTER);
+    this.buildBattleMessages(this.battleArtwork);
     this.text('objective', '', 446, 698, 17, C.text, this.canvas, 430);
     this.text('sub-objective', '', 423, 663, 12, C.text, this.canvas, 506);
     this.text('ammo', '', HUD.ammo.x + HUD.ammo.w * 0.68, HUD.ammo.y + HUD.ammo.h * 0.60, 23, C.text, this.canvas, HUD.ammo.w * 0.57, Label.HorizontalAlign.CENTER);
     this.text('gun', this.battle.hero.gun, HUD.ammo.x + HUD.ammo.w * 0.68, HUD.ammo.y + HUD.ammo.h * 0.28, 11, C.text, this.canvas, HUD.ammo.w * 0.57, Label.HorizontalAlign.CENTER);
+    if (this.battle.survival) this.buildSurvivalAmmo(legacyAmmo);
     this.text('reload-hint', sys.isMobile ? '换弹' : '换弹 R', HUD.reload.x + HUD.reload.w / 2, HUD.reload.y - 6, 12, C.text, this.canvas, 90, Label.HorizontalAlign.CENTER);
     const bind = (id: string, r: typeof HUD.status, action: () => void) => this.addButton(id, r.x, r.y, r.w, r.h, action);
     bind('settings', HUD.settings, () => this.open('settings'));
     bind('pause', HUD.pause, () => this.open('pause'));
+    if (this.battle.survival) {
+      const map = HUD.map, height = map.h - 44, width = height * HARBOR_ART_WIDTH / HARBOR_ART_HEIGHT;
+      const backdrop = this.graphics('Harbor minimap backdrop', this.battleArtwork);
+      this.sbox(backdrop, map.x + 14, map.y + 17, map.w - 28, map.h - 34, '#0f1212');
+      const sprite = this.harborMapSprite(this.battleArtwork, map.x + (map.w - width) / 2, map.y + 22, width, height);
+      if (sprite) sprite.color = color('#cfd8d5');
+      this.text('harbor-minimap-open', sys.isMobile ? '港区地图' : '港区地图  M', map.x + map.w / 2,
+        map.y + 5, 12, C.text, this.canvas, map.w - 24, Label.HorizontalAlign.CENTER);
+      bind('survival-map', map, () => this.open('survival-map'));
+    }
     if (this.battle.tutorial) this.button('tutorial-skip-live', '跳过教程', 24, 440, 148, () => {
       this.requestTutorialSkip();
     }, false, true, 38);
     bind('dodge', HUD.roll, () => this.dodge());
     bind('reload', HUD.reload, () => this.battle.reload());
-    bind('grenade', HUD.grenade, () => this.useTactical());
+    bind('grenade', HUD.grenade, () => {
+      if (!sys.isMobile || !this.battle.operationRun || this.battle.tactical.selected !== 'grenade') this.useTactical();
+    });
+    if (this.battle.operationRun?.airSupport) bind('air', HUD.air, () => this.callOperationAir());
     bind('auto-fire', HUD.auto, () => this.toggleAutoFire());
-    bind('supply-toggle', { x: 1170, y: 365, w: 75, h: 48 }, () => { this.suppliesOpen = !this.suppliesOpen; this.uiTick = 0; });
     if (this.battle.apartment) bind('apartment-trap', HUD.trap, () => this.placeApartmentTrap());
+    if (!this.battle.survival) {
+    bind('supply-toggle', { x: 1170, y: 365, w: 75, h: 48 }, () => { this.suppliesOpen = !this.suppliesOpen; this.uiTick = 0; });
     const backpack = this.supplyUiFrames.get('backpack');
     if (backpack) {
       const node = this.makeNode('Supply backpack', this.battleArtwork!);
@@ -3839,7 +5607,7 @@ export class Blackout extends Component {
       this.setupSprite(node, backpack, 58, 58);
     }
     const slotFrame = this.supplyUiFrames.get('slot');
-    if (slotFrame) for (let i = 0; i < 3; i++) {
+    if (slotFrame) for (let i = 0; i < (this.battle.survival ? 4 : 3); i++) {
       const node = this.makeNode('Supply slot ' + i, this.battleArtwork!);
       node.setPosition(1120 - i * 55 + 24 - W / 2, 389 - H / 2);
       this.setupSprite(node, slotFrame, 50, 50);
@@ -3856,65 +5624,52 @@ export class Blackout extends Component {
       node.on(Node.EventType.TOUCH_CANCEL, () => { if (this.supplyPress) this.supplyPress.cancelled = true; this.supplyTooltip = ''; });
       node.active = this.suppliesOpen;
     });
+    }
     (['healing', 'speed'] as const).forEach((kind, i) => {
       const node = bind('status-' + kind, { x: 25 + i * 31, y: 600, w: 26, h: 26 }, () => this.toast(kind === 'healing' ? '生命恢复中 · 绷带持续治疗' : '提速中 · 能量饮料提高移动速度'));
       node.active = false;
     });
-    bind('door', HUD.door, () => this.interactOrInvestigate());
+    const doorButton = bind('door', HUD.door, () => {
+      if (!this.survivalDoorHold?.opened) this.interactOrInvestigate();
+    });
+    if (this.battle.survival) {
+      doorButton.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
+        const owner = event.getID();
+        if (owner !== null) this.startSurvivalDoorHold(owner);
+      });
+      const release = (event: EventTouch) => {
+        if (this.survivalDoorHold?.owner === event.getID()) this.survivalDoorHold = undefined;
+      };
+      doorButton.on(Node.EventType.TOUCH_END, release);
+      doorButton.on(Node.EventType.TOUCH_CANCEL, release);
+      doorButton.on(Node.EventType.TOUCH_MOVE, (event: EventTouch) => {
+        const p = this.pointerPosition(event), r = HUD.door;
+        if (p.x < r.x || p.x > r.x + r.w || p.y < r.y || p.y > r.y + r.h) release(event);
+      });
+    }
     bind('pickup', HUD.pickup, () => this.battle.collectPickup());
     for (const a of this.hudActions) {
       const node = this.buttons.find(b => b.node.name === 'Button-' + a.id)!.node;
       node.on(Node.EventType.TOUCH_START, (e: EventTouch) => { if (this.transition) return; const id = e.getID(); if (id === null) return; a.owners.add(id); a.scale = 0.88; a.root.setScale(0.88, 0.88, 1); });
       for (const event of [Node.EventType.TOUCH_END, Node.EventType.TOUCH_CANCEL]) node.on(event, (e: EventTouch) => this.releaseHud(e.getID()));
     }
+    if (this.battle.survival) this.buildSurvivalBagHud();
     this.updateHud(); this.updateHudFeedback(0);
   }
   private startGhostRadio() {
     if (this.ghostRadio?.battle === this.battle) return;
-    const node = this.makeNode('Ghost radio', this.canvas);
-    node.setPosition(W / 2, 60);
-    const panel = this.graphics('Radio panel', node);
-    polygon(panel, [{ x: 0, y: -42 }, { x: 302, y: -42 }, { x: 316, y: -28 }, { x: 316, y: 42 }, { x: 14, y: 42 }, { x: 0, y: 28 }], '#111b21', CHARACTER_DIALOG_BACKGROUND_ALPHA);
-    line(panel, 14, 41, 315, 41, C.gold, 1.5, 235);
-    line(panel, 0, -41, 302, -41, '#59615a', 1.2);
-    box(panel, 10, -33, 65, 66, '#314142');
-    outline(panel, 10, -33, 65, 66, '#9d8b6c');
+    const dialogue = this.makeStoryDialogue('Ghost radio', this.canvas);
+    dialogue.node.setPosition(W / 2, STORY_PANEL_Y);
     const portrait = this.trainingFrames.get('ghost-face') ?? this.ghostPortrait ?? this.artFrames.get('operator');
-    if (portrait) {
-      const icon = this.makeNode('Ghost portrait', node);
-      icon.setPosition(42.5, 0);
-      this.setupSprite(icon, portrait, 61, 62);
-    }
-    const label = this.makeNode('Radio line', node).addComponent(Label);
-    label.node.setPosition(86, 0);
-    const layout = label.node.getComponent(UITransform)!;
-    layout.setContentSize(220, 44);
-    layout.setAnchorPoint(0, 0.5);
-    label.fontSize = 22;
-    label.lineHeight = 28;
-    label.isBold = true;
-    label.horizontalAlign = Label.HorizontalAlign.LEFT;
-    label.verticalAlign = Label.VerticalAlign.CENTER;
-    label.color = color('#f2e1b8');
-    label.enableOutline = true; label.outlineColor = color('#080d10'); label.outlineWidth = 2;
-    label.string = '';
-    this.ghostRadio = { battle: this.battle, node, label, elapsed: 0 };
+    this.setStorySpeaker(dialogue, '幽灵', false, portrait, '#b8c0ad');
+    this.ghostRadio = { battle: this.battle, node: dialogue.node, label: dialogue.label, elapsed: 0 };
   }
   private startIntro() {
     this.intro?.node.destroy();
-    const node = this.makeNode('Lin monologue', this.canvas);
-    const panel = this.graphics('Monologue panel', node);
-    box(panel, 0, -42, 460, 84, '#111b21', CHARACTER_DIALOG_BACKGROUND_ALPHA);
-    line(panel, 0, 42, 460, 42, C.gold, 2);
+    const dialogue = this.makeStoryDialogue('Lin monologue', this.canvas);
     const portrait = this.trainingFrames.get('lin-face') ?? this.linPortrait ?? this.artFrames.get('heroine');
-    if (portrait) { const icon = this.makeNode('Lin portrait', node); icon.setPosition(40, 0); this.setupSprite(icon, portrait, 64, 64); }
-    const label = this.makeNode('Monologue line', node).addComponent(Label);
-    label.node.setPosition(83, 0);
-    const layout = label.node.getComponent(UITransform)!; layout.setContentSize(365, 62); layout.setAnchorPoint(0, 0.5);
-    label.fontSize = 19; label.lineHeight = 26; label.isBold = true; label.horizontalAlign = Label.HorizontalAlign.LEFT;
-    label.verticalAlign = Label.VerticalAlign.CENTER; label.color = color('#f2e1b8'); label.string = '';
-    label.enableOutline = true; label.outlineColor = color('#080d10'); label.outlineWidth = 2;
-    this.intro = { battle: this.battle, node, label, time: 0 };
+    this.setStorySpeaker(dialogue, '凛', true, portrait);
+    this.intro = { battle: this.battle, node: dialogue.node, label: dialogue.label, time: 0 };
   }
   private apartmentPortrait(lin: boolean) {
     return lin ? this.trainingFrames.get('lin-face') ?? this.linPortrait ?? this.artFrames.get('heroine')! :
@@ -3927,20 +5682,17 @@ export class Blackout extends Component {
       return;
     }
     this.apartmentDialogue?.node.destroy();
-    const node = this.makeNode('Apartment dialogue', this.canvas);
-    node.setPosition(lines[0].startsWith('凛') ? -W / 2 + 20 : W / 2 - 515, 106);
-    const panel = this.graphics('Dialogue background', node);
-    box(panel, 0, -46, 495, 92, '#111b21', CHARACTER_DIALOG_BACKGROUND_ALPHA);
-    line(panel, 0, 45, 495, 45, C.gold, 2);
-    const frame = this.apartmentPortrait(lines[0].startsWith('凛'));
-    const icon = this.makeNode('Apartment speaker portrait', node); icon.setPosition(43, 0);
-    const portrait = this.setupSprite(icon, frame, 67, 67);
-    const text = this.makeNode('Apartment line', node).addComponent(Label);
-    text.node.setPosition(86, 0); text.node.getComponent(UITransform)!.setAnchorPoint(0, .5);
-    text.node.getComponent(UITransform)!.setContentSize(390, 76);
-    text.fontSize = 18; text.lineHeight = 25; text.enableWrapText = true; text.overflow = Label.Overflow.CLAMP;
-    text.verticalAlign = Label.VerticalAlign.CENTER; text.color = color('#f5e2b8'); text.enableOutline = true; text.outlineColor = color('#090e12'); text.outlineWidth = 2;
-    text.string = lines[0]; this.apartmentDialogue = { node, battle: this.battle, text, portrait, lines, time: 0 };
+    const dialogue = this.makeStoryDialogue('Apartment dialogue', this.canvas, () => {
+      const active = this.apartmentDialogue;
+      if (!active || !active.node.active) return;
+      const index = Math.floor(active.time / APARTMENT_LINE_SECONDS);
+      const text = active.lines[index]?.replace(/^[^：]+：/, '') ?? '';
+      const reveal = .13 + text.length * .024;
+      const start = index * APARTMENT_LINE_SECONDS;
+      active.time = active.time < start + reveal ? start + reveal : (index + 1) * APARTMENT_LINE_SECONDS;
+    });
+    dialogue.node.setPosition(-W - STORY_PANEL_WIDTH, STORY_PANEL_Y);
+    this.apartmentDialogue = { ...dialogue, battle: this.battle, lines, time: 0 };
   }
   private updateApartmentPresentation(dt: number) {
     const dialogue = this.apartmentDialogue;
@@ -3953,14 +5705,12 @@ export class Blackout extends Component {
           const index = Math.floor(dialogue.time / APARTMENT_LINE_SECONDS);
           if (index >= dialogue.lines.length) { dialogue.node.destroy(); this.apartmentDialogue = undefined; }
           else {
-            const sentence = dialogue.lines[index];
-            const left = sentence.startsWith('凛');
-            const localTime = dialogue.time - index * APARTMENT_LINE_SECONDS;
-            const slide = Math.max(0, 1 - Math.min(localTime, APARTMENT_LINE_SECONDS - localTime) / 0.22) ** 2;
-            dialogue.node.setPosition((left ? -W / 2 + 20 : W / 2 - 515) + (left ? -1 : 1) * 520 * slide, 106);
-            dialogue.text.string = sentence;
-            const portrait = this.apartmentPortrait(left);
-            if (portrait && dialogue.portrait.spriteFrame !== portrait) dialogue.portrait.spriteFrame = portrait;
+            const sentence = dialogue.lines[index], left = sentence.startsWith('凛');
+            const body = sentence.replace(/^[^：]+：/, '');
+            const time = dialogue.time - index * APARTMENT_LINE_SECONDS;
+            this.setStorySpeaker(dialogue, left ? '凛' : '维川', left, this.apartmentPortrait(left), left ? '#ddc18c' : '#b8c0ad');
+            dialogue.label.string = body.slice(0, Math.max(0, Math.floor((time - .13) / .024 + 1e-6)));
+            this.placeStoryDialogue(dialogue.node, left, time, APARTMENT_LINE_SECONDS - .25);
           }
         }
       }
@@ -4037,32 +5787,64 @@ export class Blackout extends Component {
     '你们能帮我回家吗?',
     '抱歉,这不在我们的任务范围之内,我们知道最近的避难点（递出地图）,接下来的路就得靠你自己了..',
   ];
-  private makeStoryDialogue(name: string, parent: Node, advance: () => void): StoryDialogueNodes {
+  private makeStoryDialogue(name: string, parent: Node, advance?: () => void): StoryDialogueNodes {
     const node = this.makeNode(name, parent);
-    const panel = this.graphics('Street story panel', node);
-    box(panel, 0, -55, 510, 110, '#111b21', CHARACTER_DIALOG_BACKGROUND_ALPHA);
-    line(panel, 0, 54, 510, 54, C.gold, 2);
-    box(panel, 10, -34, 66, 68, '#314142'); outline(panel, 10, -34, 66, 68, '#9d8b6c');
-    const portrait = this.makeNode('Story portrait', node); portrait.setPosition(43, 0);
+    const frame = this.campaignFrames.get('radio-panel');
+    if (frame) {
+      const artwork = this.makeNode('Dialogue plate', node);
+      artwork.setPosition(STORY_PANEL_WIDTH / 2, 0);
+      this.setupSprite(artwork, frame, STORY_PANEL_WIDTH, 104);
+    } else {
+      const panel = this.graphics('Dialogue plate', node);
+      box(panel, 0, -52, STORY_PANEL_WIDTH, 104, '#141c20', 247);
+      outline(panel, 0, -52, STORY_PANEL_WIDTH, 104, '#957354');
+    }
+    const trim = this.graphics('Dialogue portrait surround', node);
+    const portrait = this.makeNode('Story portrait', node);
     const label = this.makeNode('Story line', node).addComponent(Label);
-    label.node.setPosition(86, 5); const layout = label.node.getComponent(UITransform)!;
-    layout.setContentSize(410, 82); layout.setAnchorPoint(0, 0.5);
-    label.fontSize = 19; label.lineHeight = 25; label.isBold = true; label.enableWrapText = true; label.overflow = Label.Overflow.CLAMP;
-    label.horizontalAlign = Label.HorizontalAlign.LEFT; label.verticalAlign = Label.VerticalAlign.CENTER; label.color = color('#f2e1b8'); label.enableOutline = true; label.outlineColor = color('#080d10'); label.outlineWidth = 2; label.string = '';
-    const hint = this.makeNode('Story hint', node).addComponent(Label);
-    hint.node.setPosition(492, -44); const hintLayout = hint.node.getComponent(UITransform)!;
-    hintLayout.setContentSize(230, 18); hintLayout.setAnchorPoint(1, 0.5);
-    hint.fontSize = 11; hint.horizontalAlign = Label.HorizontalAlign.RIGHT; hint.color = color('#b4a588'); hint.string = '点击对话框继续';
-    const next = this.makeNode('Story advance', node); next.setPosition(255, 0); next.getComponent(UITransform)!.setContentSize(510, 110);
-    next.addComponent(Button).transition = Button.Transition.NONE;
-    next.on(Button.EventType.CLICK, advance, this);
-    return { node, label, portrait };
+    label.node.getComponent(UITransform)!.setContentSize(399, 48);
+    label.node.getComponent(UITransform)!.setAnchorPoint(0, 1);
+    label.fontSize = 18; label.lineHeight = 23; label.enableWrapText = true; label.overflow = Label.Overflow.CLAMP;
+    label.horizontalAlign = Label.HorizontalAlign.LEFT; label.verticalAlign = Label.VerticalAlign.TOP; label.color = color('#f3e9d9'); label.string = '';
+    const speaker = this.makeNode('Story speaker', node).addComponent(Label);
+    speaker.node.getComponent(UITransform)!.setAnchorPoint(0, .5);
+    speaker.node.getComponent(UITransform)!.setContentSize(395, 20);
+    speaker.fontSize = 16; speaker.isBold = true; speaker.horizontalAlign = Label.HorizontalAlign.LEFT;
+    if (advance) {
+      const hint = this.makeNode('Story advance hint', node).addComponent(Label);
+      hint.node.setPosition(STORY_PANEL_WIDTH / 2, -41);
+      hint.node.getComponent(UITransform)!.setContentSize(90, 18);
+      hint.fontSize = 11; hint.color = color('#bda888'); hint.string = '继续 ›';
+      const button = this.makeNode('Story advance', node);
+      button.setPosition(STORY_PANEL_WIDTH / 2, 0);
+      button.getComponent(UITransform)!.setContentSize(STORY_PANEL_WIDTH, 104);
+      button.addComponent(Button).transition = Button.Transition.NONE;
+      button.on(Button.EventType.CLICK, advance, this);
+    }
+    return { node, label, portrait, speaker, trim };
+  }
+  private setStorySpeaker(dialogue: StoryDialogueNodes, name: string, left: boolean, frame?: SpriteFrame, tint = left ? '#ddc18c' : '#cda098') {
+    if (dialogue.speaker.string !== name) dialogue.speaker.string = name;
+    if (dialogue.side !== left || dialogue.tint !== tint) {
+      dialogue.side = left; dialogue.tint = tint;
+      const face = left ? 52 : STORY_PANEL_WIDTH - 52;
+      const textX = left ? 101 : 20;
+      dialogue.portrait.setPosition(face, 1);
+      dialogue.speaker.node.setPosition(textX, 28);
+      dialogue.speaker.color = color(tint);
+      dialogue.label.node.setPosition(textX, 13);
+      const g = dialogue.trim;
+      g.clear();
+      box(g, textX, 16, 38, 1.5, tint, 155);
+    }
+    dialogue.portrait.active = !!frame;
+    if (frame) this.setupStoryPortrait(dialogue.portrait, frame);
   }
   private beginStreetStory() {
     this.intro?.node.destroy(); this.intro = undefined;
     this.ghostRadio?.node.destroy(); this.ghostRadio = undefined;
-    const { node, label, portrait } = this.makeStoryDialogue('Street story', this.canvas, () => this.advanceStreetStory());
-    this.streetStory = { battle: this.battle, node, label, portrait, index: 0, time: 0 };
+    const dialogue = this.makeStoryDialogue('Street story', this.canvas, () => this.advanceStreetStory());
+    this.streetStory = { ...dialogue, battle: this.battle, index: 0, time: 0 };
     this.battle.exitHold = true;
     this.streetStoryBattle = this.battle;
   }
@@ -4094,62 +5876,60 @@ export class Blackout extends Component {
     const portraitFrame = story.index % 2 === 0
       ? this.trainingFrames.get('lin-face') ?? this.linPortrait ?? this.artFrames.get('heroine')
       : this.trainingFrames.get('ghost-face') ?? this.ghostPortrait ?? this.artFrames.get('operator');
-    if (portraitFrame) this.setupStoryPortrait(story.portrait, portraitFrame);
-    this.placeStoryDialogue(story.node, story.index % 2 === 0, story.time, typed + 2.2);
+    const left = story.index % 2 === 0;
+    this.setStorySpeaker(story, left ? '凛' : '幽灵', left, portraitFrame, left ? '#ddc18c' : '#b8c0ad');
+    this.placeStoryDialogue(story.node, left, story.time, typed + 2.2);
     if (story.time >= typed + 2.45) {
       if (++story.index >= this.streetStoryLines.length) { story.battle.exitHold = false; story.node.destroy(); this.streetStory = undefined; }
       else story.time = 0;
     }
   }
-  private placeStoryDialogue(node: Node, left: boolean, time: number, exit: number) {
+  private placeStoryDialogue(node: Node, left: boolean, time: number, exit: number, y = STORY_PANEL_Y) {
     const smooth = (x: number) => x * x * (3 - 2 * x);
     const slide = smooth(clamp(time / 0.25, 0, 1)) - smooth(clamp((time - exit) / 0.25, 0, 1));
-    node.setPosition(left ? -W / 2 - 510 + 530 * slide : W / 2 - 530 * slide, left ? 80 : 108);
+    const travel = (STORY_PANEL_WIDTH + 20) * slide;
+    node.setPosition(left ? -W / 2 - STORY_PANEL_WIDTH + travel : W / 2 - travel, y);
   }
-  private beginOperationStoryLock(kind: 'injection' | 'escape', x: number, y: number, duration: number) {
-    this.clearOperationStoryLock();
-    const injection = kind === 'injection';
-    const frame = this.streetFrames.get(injection ? 'op-inject' : 'op-king') ?? this.streetFrames.get('op-king');
+  private beginOperationEscape(x: number, y: number, duration: number) {
+    this.clearOperationEscape();
+    const frame = this.streetFrames.get('op-rimelet-mutated');
     if (!frame) return;
-    const node = this.makeNode('Operation story ' + kind, this.spriteLayer);
-    this.setupSprite(node, frame, injection ? 132 : 118, injection ? 120 : 104);
+    const node = this.makeNode('Operation escape', this.spriteLayer);
+    this.setupSprite(node, frame, OPERATION_UNIT_ART.width, OPERATION_UNIT_ART.height);
+    node.getComponent(UITransform)!.setAnchorPoint(0.5, OPERATION_UNIT_ART.anchorY);
     const opacity = node.addComponent(UIOpacity);
     node.setPosition(x, y);
-    this.operationStoryLock = { kind, node, opacity, x, y, time: 0, duration };
+    this.operationEscape = { node, opacity, x, y, time: 0, duration };
   }
-  private clearOperationStoryLock() {
-    const lock = this.operationStoryLock;
-    if (!lock) return;
-    lock.node.active = false;
-    lock.node.destroy();
-    this.operationStoryLock = undefined;
+  private clearOperationEscape() {
+    const escape = this.operationEscape;
+    if (!escape) return;
+    escape.node.active = false;
+    escape.node.destroy();
+    this.operationEscape = undefined;
   }
-  private stepOperationStoryLock(dt: number) {
-    const lock = this.operationStoryLock;
-    if (!lock) return;
-    lock.time += dt;
-    const t = lock.time;
-    if (lock.kind === 'escape') {
-      lock.node.setPosition(lock.x + 90 * t + 260 * t * t, lock.y + 60 * t + 190 * t * t);
-      lock.node.setScale(1 + t * .25, 1 + t * .25, 1);
-      lock.opacity.opacity = Math.round(255 * (1 - clamp((t - .5) / 1.6, 0, 1)));
-    } else {
-      lock.node.angle = 8 * Math.sin(t * 12);
-      lock.opacity.opacity = Math.round(255 * (1 - clamp((t - 1) / .6, 0, 1)));
-    }
-    if (t >= lock.duration && (lock.kind === 'injection' || !this.operationDialogue)) this.clearOperationStoryLock();
+  private stepOperationEscape(dt: number) {
+    const escape = this.operationEscape;
+    if (!escape || this.mode !== 'playing') return;
+    escape.time += dt;
+    const t = escape.time;
+    escape.node.setPosition(escape.x + 90 * t + 260 * t * t, escape.y + 60 * t + 190 * t * t);
+    escape.node.setScale(1 + t * .25, 1 + t * .25, 1);
+    escape.opacity.opacity = Math.round(255 * (1 - clamp((t - .5) / 1.6, 0, 1)));
+    if (t >= escape.duration) this.clearOperationEscape();
   }
   private speakOperation(lines: OperationLine[], cinematic = false) {
     const existing = this.operationDialogue;
     if (existing && existing.cinematic === cinematic) { existing.lines.push(...lines); return; }
     this.clearOperationDialogue();
+    const { y, readDelay, charTime, hold, slideOut } = OPERATION_DIALOGUE_LAYOUT;
     const dialogue = this.makeStoryDialogue('Operation dialogue', this.canvas, () => {
       const state = this.operationDialogue;
       if (!state || !state.node.active) return;
-      const reveal = 0.25 + state.lines[state.index].join('  ').length * 0.035;
-      state.time = state.time < reveal ? reveal : reveal + 1.5;
+      const reveal = readDelay + state.lines[state.index][1].length * charTime;
+      state.time = state.time < reveal ? reveal : reveal + hold + slideOut;
     });
-    dialogue.node.setPosition(-W, 80);
+    dialogue.node.setPosition(-W - STORY_PANEL_WIDTH, y);
     this.operationDialogue = { ...dialogue, lines, index: 0, time: 0, cinematic };
   }
   private clearOperationDialogue() {
@@ -4164,24 +5944,30 @@ export class Blackout extends Component {
     dialogue.node.active = dialogue.cinematic ? this.mode === 'operation-cinematic' : this.mode === 'playing' && !this.transition;
     if (!dialogue.node.active) return;
     dialogue.time += dt;
-    const [speaker, line] = dialogue.lines[dialogue.index];
-    const text = speaker + '  ' + line, typed = 0.25 + text.length * 0.035;
-    const visible = text.slice(0, Math.max(0, Math.floor((dialogue.time - 0.25) / 0.035)));
-    dialogue.label.string = visible.match(/.{1,19}/gu)?.join('\n') ?? '';
-    const left = speaker.startsWith('幽灵');
-    const frame = speaker === '「阀」首领' ? this.streetFrames.get('op-leader-ak') ?? this.streetFrames.get('op-leader') :
-      speaker === '丧尸王' ? this.streetFrames.get('op-king') ?? this.streetFrames.get('op-leader') :
-      left ? this.trainingFrames.get('ghost-face') ?? this.ghostPortrait ?? this.streetFrames.get('op-soldier') : this.streetFrames.get('op-soldier');
-    if (frame) this.setupStoryPortrait(dialogue.portrait, frame);
-    this.placeStoryDialogue(dialogue.node, left, dialogue.time, typed + 1.5);
-    if (dialogue.time < typed + 1.75) return;
+    const [key, line] = dialogue.lines[dialogue.index];
+    const configured = OPERATION_SPEAKERS[key];
+    const speaker = 'slot' in configured && !this.battle.allies.some(a => a.slot === configured.slot && a.hp > 0) ?
+      OPERATION_SPEAKERS.ghost : configured;
+    const { y, readDelay, charTime, hold, slideOut } = OPERATION_DIALOGUE_LAYOUT;
+    const typed = readDelay + line.length * charTime;
+    dialogue.label.string = line.slice(0, Math.max(0, Math.floor((dialogue.time - readDelay) / charTime + 1e-6)));
+    const frame = speaker.frame ? this.streetFrames.get(speaker.frame) :
+      this.trainingFrames.get('ghost-face') ?? this.ghostPortrait ?? this.streetFrames.get('op-soldier');
+    this.setStorySpeaker(dialogue, speaker.name, speaker.left, frame, key === 'rimelet' ? '#d49a89' : '#ddc18c');
+    if (frame) {
+      const mutated = key === 'rimelet' && (this.battle.operationRun?.phase === 'king-fight' || this.battle.operationRun?.kingEscaped);
+      dialogue.portrait.getComponent(Sprite)!.color = color(mutated ? '#becbb1' : '#ffffff');
+    }
+    const flight = dialogue.cinematic && this.operationCinema?.root.name === 'Operation flight';
+    this.placeStoryDialogue(dialogue.node, speaker.left, dialogue.time, typed + hold, flight ? H / 2 - 75 : y);
+    if (dialogue.time < typed + hold + slideOut) return;
     dialogue.time = 0;
     if (++dialogue.index === dialogue.lines.length) this.clearOperationDialogue();
   }
   private setupStoryPortrait(node: Node, frame: SpriteFrame) {
     const sprite = node.getComponent(Sprite);
     if (sprite) { if (sprite.spriteFrame !== frame) sprite.spriteFrame = frame; }
-    else this.setupSprite(node, frame, 62, 64);
+    else this.setupSprite(node, frame, 66, 68);
   }
   private updateIntro(dt: number) {
     const intro = this.intro;
@@ -4196,7 +5982,7 @@ export class Blackout extends Component {
     const text = lines[second ? 1 : 0], end = 0.3 + text.length * 0.075 + 2;
     const smooth = (t: number) => t * t * (3 - 2 * t);
     const slide = smooth(clamp(elapsed / 0.3, 0, 1)) - smooth(clamp((elapsed - end) / 0.3, 0, 1));
-    intro.node.setPosition(-W / 2 - 460 + 480 * slide, 106);
+    intro.node.setPosition(-W / 2 - STORY_PANEL_WIDTH + (STORY_PANEL_WIDTH + 20) * slide, STORY_PANEL_Y);
     intro.label.string = text.slice(0, clamp(Math.floor((elapsed - 0.3) / 0.075), 0, text.length));
     if (second && elapsed >= end + 0.3) { intro.node.destroy(); this.intro = undefined; }
   }
@@ -4231,7 +6017,7 @@ export class Blackout extends Component {
       if (!node && frame) { node = this.makeNode(id, this.canvas); this.setupSprite(node, frame, index < 3 ? 38 : 22, index < 3 ? 38 : 22); this.itemHudNodes.set(kind, node); }
       if (!node) continue;
       const time = kind === 'healing' ? b.healingTime : kind === 'speed' ? b.speedTime : 0;
-      node.active = this.mode === 'playing' && (index < 3 ? this.suppliesOpen && !b.tutorial : time > 0 && (time >= 3 || Math.floor(b.elapsed * 5) % 2 === 0));
+      node.active = this.mode === 'playing' && (index < 3 ? this.suppliesOpen && !b.tutorial && !b.survival : time > 0 && (time >= 3 || Math.floor(b.elapsed * 5) % 2 === 0));
       if (index < 3) node.setPosition(1120 - index * 55 + 24 - W / 2, 389 - H / 2);
       else node.setPosition(25 + (index - 3) * 31 + 13 - W / 2, 613 - H / 2);
       node.setSiblingIndex(this.hud.node.getSiblingIndex() + 1);
@@ -4253,7 +6039,7 @@ export class Blackout extends Component {
     const slide = 0.30, cadence = 0.075, typingEnds = slide + text.length * cadence, exitStarts = typingEnds + 2;
     const ease = (t: number) => t * t * (3 - 2 * t);
     const progress = ease(clamp(radio.elapsed / slide, 0, 1)) - ease(clamp((radio.elapsed - exitStarts) / slide, 0, 1));
-    radio.node.setPosition(W / 2 - 338 * progress, 60);
+    radio.node.setPosition(W / 2 - (STORY_PANEL_WIDTH + 20) * progress, STORY_PANEL_Y);
     radio.label.string = text.slice(0, clamp(Math.floor((radio.elapsed - slide) / cadence), 0, text.length));
     if (radio.elapsed >= exitStarts + slide) {
       radio.node.destroy();
@@ -4272,23 +6058,316 @@ export class Blackout extends Component {
   private toggleAutoFire() {
     this.profile.autoFire = !this.profile.autoFire;
     this.battle.tutorial?.enableAuto(this.profile.autoFire);
-    this.mouseFire = false; // Switching mode is never itself a trigger.
+    this.mouseFire = this.mouseQueuedFire = false; // Switching mode is never itself a trigger.
     this.save(); this.uiTick = 0;
   }
-  private useTactical() {
-    if (this.battle.operationRun) {
-      if (!this.transition && this.mode === 'playing' && this.battle.operationRun.airSupport) {
-        if (this.battle.useOperationSupport()) this.uiTick = 0;
-        else this.toast('请朝开阔区域瞄准后再呼叫支援');
-      }
+  private buildOperationBossHud(parent: Node) {
+    const root = this.makeNode('Rimelet health', parent);
+    root.active = false;
+    const opacity = root.addComponent(UIOpacity);
+    const fill = this.graphics('Health under the glass', root);
+    const frame = this.streetFrames.get('op-rimelet-health');
+    if (frame) this.campaignSprite(root, frame, W / 2, 53, 510, 31);
+    const label = this.text('operation-boss-name', OPERATION_BOSS_NAME, W / 2, 83, 21, '#f8e3b2', root, 330, Label.HorizontalAlign.CENTER);
+    label.enableOutline = true; label.outlineColor = color('#111718'); label.outlineWidth = 2;
+    this.operationBossHud = { root, fill, label, opacity };
+  }
+  private updateOperationBossHud(dt: number) {
+    const hud = this.operationBossHud!;
+    const b = this.battle, run = b.operationRun, injection = run?.phase === 'injection';
+    const enemy = b.enemies.find(e => e.operationBoss === (injection || run?.phase === 'leader-fight' ? 'leader' : 'king'));
+    const chapel = b.stage.operation?.chapel;
+    const departing = this.operationEscape?.time;
+    let health = this.operationBossFill;
+    if (health?.battle !== b) health = undefined;
+    const seen = !!enemy && !!chapel && roomAt(b.player, [chapel.bounds]) >= 0;
+    hud.root.active = !this.transition && !!enemy && (!!health || seen || injection) &&
+      (!run?.kingEscaped || departing !== undefined && departing < 1.15);
+    if (!hud.root.active || !enemy) return;
+    hud.opacity.opacity = departing === undefined ? 255 : Math.round(255 * (1 - clamp((departing - 0.55) / 0.6, 0, 1)));
+    if (!health) health = this.operationBossFill = { battle: b, phase: 'leader', value: injection ? 0 : enemy.hp / enemy.maxHp,
+      trail: injection ? 0 : enemy.hp / enemy.maxHp, reveal: 0 };
+    const phase = injection ? 'leader' : enemy.operationBoss!;
+    if (phase !== health.phase) {
+      health.phase = phase;
+      health.value = health.trail = 0;
+      health.reveal = 0.95;
+    }
+    const target = injection ? 0 : enemy.hp / enemy.maxHp;
+    health.value += (target - health.value) * (1 - Math.exp(-dt * (health.reveal > 0 ? 4 : 14)));
+    health.trail += (target - health.trail) * (1 - Math.exp(-dt * (target > health.trail ? 7 : 3.4)));
+    health.reveal = Math.max(0, health.reveal - dt);
+    const glass = hud.fill; glass.clear();
+    const width = 474, x = (W - width) / 2;
+    this.sbox(glass, x, 43, width, 20, '#161c20');
+    this.sbox(glass, x, 43, width * health.trail, 20, '#d99a61', 205);
+    const rows = phase === 'king' ? ['#762723', '#ab392a', '#d95838', '#ef8659'] : ['#902826', '#b13a32', '#d44c3b', '#f07a58'];
+    rows.forEach((tint, i) => {
+      if (health!.value > 0.001) this.sbox(glass, x, 43 + 5 * i, width * health!.value, 5, tint);
+    });
+  }
+  private attachLittlebirdPods(body: Sprite, width: number, height: number): LittlebirdPod[] {
+    const { side, forward } = OPERATION_AIR_PODS;
+    const frame = this.streetFrames.get('op-littlebird-pod')!;
+    const scale = width / OPERATION_LITTLEBIRD_ART.width;
+    return [-1, 1].map(sign => {
+      const mount = this.makeNode('Rotary pod mount', body.node);
+      mount.setPosition(sign * side * scale, forward * height / OPERATION_LITTLEBIRD_ART.height);
+      const perspective = this.makeNode('Rotary pod perspective', mount);
+      perspective.setScale(1, 0.56, 1);
+      const wheel = this.makeNode('Rotary barrel face', perspective);
+      this.setupSprite(wheel, frame, 9.5 * scale, 9.5 * scale);
+      wheel.angle = sign * 14;
+      return { wheel, flash: this.graphics('Rotary pod flash', mount), spin: 0 };
+    });
+  }
+  private playOperationJet(volume: number) {
+    const clip = this.clips.get('jet-flyover');
+    if (clip && this.profile.sound) this.audio.playOneShot(clip, volume);
+  }
+  private updateOperationAirArt(dt: number) {
+    const stage = this.battle.stage.operation;
+    const run = this.battle.operationRun, extraction = stage?.part === 'defense' ? run?.extraction : undefined;
+    const air = run?.air;
+    const arrival = stage?.part === 'city' && this.operationArrival?.battle === this.battle ? this.operationArrival : undefined;
+    if (!stage || !air && !arrival && !extraction || this.mode !== 'playing') {
+      if (this.airborne) this.airborne.root.active = false;
       return;
     }
+    if (!this.airborne) {
+      const root = this.makeNode('Operation air overlay', this.canvas);
+      root.setSiblingIndex(this.exitArrow.node.getSiblingIndex());
+      root.getComponent(UITransform)!.setContentSize(W, H);
+      root.addComponent(Mask).type = Mask.Type.GRAPHICS_RECT;
+      const asset = (id: string, w: number, h: number) => this.campaignSprite(root, this.streetFrames.get(id)!, 0, 0, w, h)!;
+      const rope = this.graphics('Extraction rope and ground marker', root);
+      const boarders = Array.from({ length: 4 }, () => {
+        const node = this.makeNode('Rope boarding soldier', root);
+        return this.setupSprite(node, this.streetFrames.get('op-soldier')!, OPERATION_SOLDIER_SIZE.width, OPERATION_SOLDIER_SIZE.height);
+      });
+      const craft = asset('op-blackhawk', 133, 297), rotor = asset('op-rotor', 274, 274);
+      const { width, height } = OPERATION_LITTLEBIRD_ART;
+      const littlebird = asset('op-littlebird', width, height), littleRotor = asset('op-rotor', 163, 163);
+      const pods = this.attachLittlebirdPods(littlebird, width, height);
+      this.airborne = { root, craft, rotor, littlebird, littleRotor, rope, boarders, pods };
+    }
+    const art = this.airborne, p = this.battle.player;
+    art.root.active = !this.transition;
+    const pose = (body: Sprite, rotor: Sprite, x: number, y: number, bank: number, scale: number, stem: number, visible: boolean) => {
+      body.node.active = rotor.node.active = visible;
+      const angle = bank * Math.PI / 180;
+      body.node.setPosition(x, y);
+      rotor.node.setPosition(x - Math.sin(angle) * stem * scale, y + Math.cos(angle) * stem * scale);
+      body.node.angle = bank;
+      rotor.node.angle = bank + this.presentationTime * 840 % 360;
+      body.node.setScale(scale, scale, 1); rotor.node.setScale(scale, scale, 1);
+      rotor.color = color('#ffffff', 160);
+    };
+    if (air) {
+      pose(art.littlebird, art.littleRotor, air.x - p.x, air.y - p.y,
+        air.heading * 180 / Math.PI - 90, 1, OPERATION_LITTLEBIRD_ART.rotorForward, true);
+      art.pods.forEach((pod, index) => {
+        const intensity = air.podFlash[index] / OPERATION_AIR_PODS.flashTime;
+        const speed = air.mode === 'sweep' ? 1140 : 0;
+        pod.spin += (speed - pod.spin) * (1 - Math.exp(-dt * 12));
+        pod.wheel.angle = (pod.wheel.angle + dt * pod.spin * (index === 0 ? -1 : 1)) % 360;
+        pod.flash.clear();
+        if (intensity <= 0) return;
+        const length = 12 + intensity * 13, alpha = Math.round(230 * Math.sqrt(intensity));
+        polygon(pod.flash, [{ x: -4, y: 0 }, { x: -6, y: 8 }, { x: 0, y: length }, { x: 6, y: 8 }, { x: 4, y: 0 }], '#ee8e38', alpha);
+        polygon(pod.flash, [{ x: -2.5, y: 1 }, { x: 0, y: length * 0.71 }, { x: 2.5, y: 1 }], '#fff5c5', alpha);
+      });
+    } else art.littlebird.node.active = art.littleRotor.node.active = false;
+    art.craft.node.active = art.rotor.node.active = false;
+    art.rope.clear();
+    for (const actor of art.boarders) actor.node.active = false;
+    if (arrival) {
+      arrival.time += dt;
+      const takeoff = operationTakeoffAt(arrival.time);
+      pose(art.craft, art.rotor, OPERATION_AIRCRAFT.x - p.x + takeoff.x, OPERATION_AIRCRAFT.y - p.y + takeoff.y,
+        takeoff.bank, takeoff.scale, 43, takeoff.visible);
+      if (!takeoff.visible) this.operationArrival = undefined;
+    }
+    if (extraction) {
+      const { pickupTime, boarding } = extraction, pad = this.battle.stage.exit;
+      const departure = boarding ? Math.max(0, boarding.time - operationBoardingEnd(boarding.actors.length)) : 0;
+      const flight = operationExtractionAt(pickupTime, departure);
+      const x = pad.x + flight.x - p.x, y = pad.y + flight.y - p.y;
+      pose(art.craft, art.rotor, x, y, flight.bank, flight.scale, 43, true);
+
+      const radians = flight.bank * Math.PI / 180, c = Math.cos(radians), s = Math.sin(radians);
+      const hatch = { x: x + (c * 61 - s * 7) * flight.scale, y: y + (s * 61 + c * 7) * flight.scale };
+      const foot = { x: pad.x + flight.foot.x - p.x, y: pad.y + flight.foot.y - p.y };
+      const g = art.rope;
+      if (flight.rope > 0) {
+        const sway = Math.sin(pickupTime * 8.4) * (1 - flight.rope) * 41;
+        const end = { x: hatch.x + (foot.x - hatch.x) * flight.rope + sway, y: hatch.y + (foot.y - hatch.y) * flight.rope };
+        if (pickupTime >= OPERATION_PICKUP_READY && !boarding) {
+          const radius = 24 + 3 * Math.sin(this.presentationTime * 4);
+          disc(g, foot.x, foot.y, radius, '#d8ab5d', 46);
+          g.strokeColor = color('#f4d490', 210); g.lineWidth = 2;
+          g.circle(foot.x, foot.y, radius); g.stroke();
+        }
+        const loose = (1 - flight.rope) * 29;
+        const path = Array.from({ length: 8 }, (_, i) => {
+          const t = i / 7;
+          return { x: hatch.x + (end.x - hatch.x) * t + loose * Math.sin(t * Math.PI) * Math.cos(pickupTime * 7 - t * 5),
+            y: hatch.y + (end.y - hatch.y) * t };
+        });
+        for (let i = 1; i < path.length; i++) {
+          const a = path[i - 1], b = path[i];
+          line(g, a.x + 2, a.y - 1, b.x + 2, b.y - 1, '#242322', 5, 178);
+          line(g, a.x, a.y, b.x, b.y, '#b59459', 3);
+          line(g, a.x - 0.7, a.y, b.x - 0.7, b.y, '#f3d99b', 1.15, 232);
+        }
+        disc(g, end.x, end.y, 3, '#dec999');
+      }
+      if (boarding) boarding.actors.forEach((unit, index) => {
+        const actor = art.boarders[index], frame = operationBoarderAt(boarding.time, index);
+        if (!actor || !frame.visible) return;
+        const ghost = unit.id === 0;
+        actor.spriteFrame = (ghost ? this.artFrames.get('operator') : this.streetFrames.get('op-soldier'))!;
+        const tr = actor.node.getComponent(UITransform)!;
+        tr.setContentSize(ghost ? OPERATION_GHOST_SIZE : OPERATION_SOLDIER_SIZE.width, ghost ? OPERATION_GHOST_SIZE : OPERATION_SOLDIER_SIZE.height);
+        tr.setAnchorPoint(ghost ? 0.36 : 0.5, ghost ? 0.5 : 0.32);
+        const rally = { x: unit.rally.x - p.x, y: unit.rally.y - p.y };
+        const gatherX = unit.x - p.x + (unit.rally.x - unit.x) * frame.gather;
+        const gatherY = unit.y - p.y + (unit.rally.y - unit.y) * frame.gather;
+        const walkX = gatherX + (foot.x - gatherX) * frame.walk;
+        const walkY = gatherY + (foot.y - gatherY) * frame.walk;
+        actor.node.active = true;
+        actor.node.setPosition(walkX + (hatch.x - walkX) * frame.climb, walkY + (hatch.y - walkY) * frame.climb);
+        actor.node.setScale(1 - 0.18 * frame.climb, 1 - 0.18 * frame.climb, 1);
+        const angle = frame.climb > 0 ? Math.atan2(hatch.y - foot.y, hatch.x - foot.x) :
+          frame.walk > 0 || frame.gather === 1 ? Math.atan2(foot.y - rally.y, foot.x - rally.x) :
+          Math.atan2(unit.rally.y - unit.y, unit.rally.x - unit.x);
+        actor.node.angle = (boarding.time < 0.04 ? unit.angle : angle) * 180 / Math.PI - (ghost ? 0 : 90);
+      });
+    }
+  }
+  private callOperationAir() {
+    const run = this.battle.operationRun;
+    if (!run || this.transition || this.mode !== 'playing') return;
+    if (this.battle.useOperationSupport()) { this.uiTick = 0; return; }
+    this.toast(run.air ? '小鸟正在支援' : run.airCooldown > 0 ? '小鸟整备中 · ' + Math.ceil(run.airCooldown) + ' 秒' :
+      !run.airSupport ? '室内无法呼叫小鸟' : '小鸟待命 · 进入战区后可呼叫');
+  }
+  private operationMouseGrenadeAim() {
+    const dx = this.mx - W / 2 - this.feedback.x, dy = this.my - H / 2 - this.feedback.y;
+    const distance = Math.hypot(dx, dy);
+    return distance > 1 ? { angle: Math.atan2(dy, dx), range: clamp(distance, 45, OPERATION_GRENADE_RANGE) } :
+      { angle: this.battle.player.angle, range: 150 };
+  }
+  private useTactical(angle?: number, range?: number) {
+    if (this.transition || this.mode !== 'playing') return;
     if (!this.battle.tactical.selected || !this.battle.tactical.remaining) return;
-    if (this.battle.throwTactical()) { this.uiTick = 0; return; }
+    const mouse = this.battle.operationRun && !sys.isMobile && this.battle.tactical.selected === 'grenade' ?
+      this.operationMouseGrenadeAim() : undefined;
+    if (this.battle.throwTactical(angle ?? mouse?.angle, range ?? mouse?.range)) { this.uiTick = 0; return; }
     const slot = this.battle.tactical;
-    this.toast(slot.cooldown > 0 ? `道具冷却 ${slot.cooldown.toFixed(1)}s` : isShopMine(slot.selected) ? '此处暂时无法布置地雷' : '当前动作无法投掷');
+    this.toast(slot.cooldown > 0 ? '道具冷却 ' + slot.cooldown.toFixed(1) + 's' : isShopMine(slot.selected) ? '此处暂时无法布置地雷' : '当前动作无法投掷');
   }
   private time(n: number) { return `${Math.floor(n / 60).toString().padStart(2, '0')}:${Math.floor(n % 60).toString().padStart(2, '0')}`; }
+  private hudTextWidth(value: string, size: number) {
+    return Math.ceil(Array.from(value).reduce((width, char) => width + (char === ' ' ? .34 : char.charCodeAt(0) < 128 ? .62 : 1), 0) * size);
+  }
+  private fitHudIcon(sprite: Sprite, name: HudFrame, maxSize: number) {
+    const frame = this.battleHudFrames.get(name);
+    if (!frame) return;
+    if (sprite.spriteFrame !== frame) sprite.spriteFrame = frame;
+    const { width, height } = frame.originalSize;
+    const scale = maxSize / Math.max(width, height);
+    sprite.node.getComponent(UITransform)!.setContentSize(width * scale, height * scale);
+  }
+  private messageLabel(id: string, value: string, x: number, size: number, fill: string, root: Node, width: number, align = Label.HorizontalAlign.LEFT) {
+    const label = this.text(id, value, W / 2 + x, H / 2, size, fill, root, width, align);
+    label.enableWrapText = false;
+    label.overflow = Label.Overflow.SHRINK;
+    label.node.getComponent(UITransform)!.width = width;
+    return label;
+  }
+  private drawBattlePrompt(prompt: BattlePrompt | undefined) {
+    const panel = this.promptHud;
+    if (!panel) {
+      if (prompt) {
+        this.sbox(this.hud, 388, 77, 440, 40, C.ink, 220);
+        this.text('door-context', [prompt.title, prompt.detail, prompt.badge].filter(Boolean).join('  ·  '),
+          608, 97, 15, C.gold, this.canvas, 430, Label.HorizontalAlign.CENTER);
+      } else if (this.labels.has('door-context')) this.labels.get('door-context')!.string = '';
+      return;
+    }
+    panel.root.active = !!prompt;
+    if (!prompt) return;
+    const { title, detail = '', badge } = prompt;
+    const titleSize = sys.isMobile ? 18 : 16, detailSize = sys.isMobile ? 16 : 13;
+    const detailWidth = detail ? this.hudTextWidth(detail, detailSize) + 18 : 0;
+    const badgeWidth = Math.max(62, this.hudTextWidth(badge, detailSize) + 24);
+    const width = clamp(this.hudTextWidth(title, titleSize) + detailWidth + badgeWidth + 76, 255, 460);
+    const left = -width / 2, badgeX = width / 2 - 15 - badgeWidth / 2, detailX = badgeX - badgeWidth / 2 - detailWidth;
+    panel.plate.node.getComponent(UITransform)!.width = width / PANEL_SCALE;
+    panel.icon.node.setPosition(left + 25, 0);
+    this.fitHudIcon(panel.icon, this.battleHudFrames.has(prompt.icon) ? prompt.icon : 'interact', 21);
+    panel.badge.node.getComponent(UITransform)!.width = badgeWidth;
+    panel.badge.node.setPosition(badgeX, 0);
+    this.messageLabel('door-context', title, left + 44, titleSize, '#eee0c7', panel.root, detailX - left - 50);
+    this.messageLabel('door-context-detail', detail, detailX, detailSize, '#c7c4b5', panel.root, detailWidth);
+    this.messageLabel('door-context-key', badge, badgeX, detailSize, '#f1d295', panel.root, badgeWidth - 11, Label.HorizontalAlign.CENTER);
+  }
+  private drawBattleNotice(visible: boolean, y: number) {
+    const panel = this.noticeHud;
+    if (!panel) {
+      if (visible) {
+        this.sbox(this.hud, 345, y, 590, 42, C.ink, 225);
+        this.text('toast', this.notice, 640, y + 21, 17, C.gold, this.canvas, 570, Label.HorizontalAlign.CENTER);
+      } else if (this.labels.has('toast')) this.labels.get('toast')!.string = '';
+      return;
+    }
+    panel.root.active = visible;
+    if (!visible) return;
+    const size = sys.isMobile ? 18 : 16, width = clamp(this.hudTextWidth(this.notice, size) + 83, 220, 565);
+    const kind = this.battleHudFrames.has(this.noticeKind) ? this.noticeKind : 'inspect';
+    panel.root.setPosition(0, y + 21 - H / 2);
+    panel.plate.node.getComponent(UITransform)!.width = width / PANEL_SCALE;
+    this.fitHudIcon(panel.icon, kind, 20);
+    panel.icon.node.setPosition(-width / 2 + 32, 0);
+    this.messageLabel('toast', this.notice, 15.5, size,
+      kind === 'warning' ? '#ffcc80' : '#f1e2c5', panel.root, width - 75, Label.HorizontalAlign.CENTER);
+    this.updateBattleNoticeFade();
+  }
+  private updateBattleNoticeFade() {
+    const panel = this.noticeHud;
+    if (!panel?.root.active) return;
+    if (this.noticeTime <= 0) { panel.root.active = false; return; }
+    const fade = Math.min((this.presentationTime - this.noticeSince) / .12, this.noticeTime / .23);
+    panel.opacity.opacity = Math.round(clamp(fade, 0, 1) * 255);
+  }
+  private updateBattlePortrait() {
+    const status = this.playerStatus, hero = this.battle.heroId;
+    if (!status) return;
+    const frame = hero === ENGINEER_ID ? this.trainingFrames.get('weichuan-face') ?? this.streetFrames.get('engineer-portrait') :
+      hero === GHOST_ID ? this.trainingFrames.get('ghost-face') ?? this.ghostPortrait ?? this.artFrames.get('operator') :
+        this.trainingFrames.get('lin-face') ?? this.linPortrait ?? this.artFrames.get('heroine');
+    if (!frame) return;
+    this.labels.get('portrait')!.node.active = false;
+    const portrait = status.portrait.getComponent(Sprite);
+    if (portrait?.spriteFrame === frame) return;
+    if (portrait) portrait.spriteFrame = frame;
+    const { width, height } = frame.originalSize;
+    const fit = 60 / Math.min(width, height);
+    if (portrait) status.portrait.getComponent(UITransform)!.setContentSize(width * fit, height * fit);
+    else this.setupSprite(status.portrait, frame, width * fit, height * fit);
+  }
+  private updateBattleHealth(dt: number) {
+    const status = this.playerStatus, p = this.battle.player;
+    if (!status) return;
+    const ratio = p.hp / p.maxHp;
+    this.playerHealth.step(ratio, dt);
+    status.fill.color = color(ratio <= .25 ? '#ff6863' : '#ffffff');
+    for (const [sprite, value] of [[status.fill, this.playerHealth.fill], [status.trail, this.playerHealth.trail]] as const) {
+      sprite.node.active = value > 0;
+      sprite.node.getComponent(UITransform)!.width = HEALTH_W * value;
+    }
+  }
   private updateHud() {
     const g = this.hud, b = this.battle, p = b.player; g.clear();
     const a = HUD.auto, on = this.profile.autoFire;
@@ -4296,21 +6375,30 @@ export class Blackout extends Component {
     this.text('auto-fire-state', `AUTO ${on ? 'ON' : 'OFF'}`, a.x + a.w / 2, a.y + a.h * 0.68, 18, on ? C.gold : C.text, this.canvas, a.w, Label.HorizontalAlign.CENTER);
     const reason = b.shootBlockReason();
     this.text('auto-fire-reason', on ? reason ? `禁火:${reason}` : (this.sweeping ? '转向中' : '自动射击') : '手动射击', a.x + a.w / 2, a.y + a.h * 0.24, 14, on && reason ? C.gold : C.text, this.canvas, a.w, Label.HorizontalAlign.CENTER);
-    this.sbox(g, 113, 672, 205, 8, '#293c3e'); this.sbox(g, 113, 672, 205 * clamp(p.hp / p.maxHp, 0, 1), 8, p.hp / p.maxHp <= 0.25 ? C.red : C.jade);
-    this.labels.get('health')!.string = `生命 ${Math.ceil(p.hp)} / ${p.maxHp}`;
+    if (!this.playerStatus) {
+      this.sbox(g, 113, 672, 205, 8, '#293c3e');
+      this.sbox(g, 113, 672, 205 * clamp(p.hp / p.maxHp, 0, 1), 8, p.hp / p.maxHp <= 0.25 ? C.red : C.jade);
+    }
+    this.updateBattlePortrait();
+    const health = this.labels.get('health')!;
+    health.string = `生命 ${Math.ceil(p.hp)} / ${p.maxHp}`;
+    health.color = color(p.hp / p.maxHp <= .25 ? '#f19a83' : C.jade);
     const room = Math.max(0, roomAt(p, this.battle.rooms));
     const intruders = b.enemies.filter(e => e.hp > 0 && e.room !== room && roomAt(e, b.rooms) === room).length;
     const remaining = b.enemies.filter(e => e.room === room && e.hp > 0).length + intruders, safe = b.cleared[room] && intruders === 0;
     this.labels.get('objective')!.string = b.stage.operation ? b.stage.title : b.stage.apartment ? `${b.stage.title}  /  ${b.rooms[room].kind}` : b.stage.street ? `归途  /  ${b.rooms[room].kind}` : b.stage.dorm ? `宿舍楼 ${b.stage.dorm.number}F  /  ${b.rooms[room].kind}` : b.cleared.every(Boolean) ? '前往洗衣房东北角楼梯撤离' : `${b.rooms[room].kind}  /  ${safe ? '区域安全' : intruders ? '应对追击' : '清理威胁'}`;
     this.labels.get('sub-objective')!.string = b.stage.operation || b.stage.dorm || b.stage.street || b.apartment ? `${this.time(b.elapsed)}    ·    ${b.alarmTime !== null && b.stage.dorm ? '警报响起  ·  ' : ''}${b.objective}` : `${this.time(b.elapsed)}    ·    已清理 ${b.cleared.filter(Boolean).length} / ${b.rooms.length}    ·    ${safe ? b.stage.hints[room] : `当前区域剩余威胁 ${remaining}`}`;
+    if (b.survival) this.updateSurvivalHud();
     this.drawMinimap(g);
     this.labels.get('ammo')!.string = p.reload > 0 ? `换弹 ${p.reload.toFixed(1)}s` : `${String(p.ammo).padStart(2, '0')} / ${b.reserveAmmo}`;
     this.labels.get('ammo')!.color = color(p.ammo < 5 || p.reload > 0 ? C.gold : C.text);
+    this.labels.get('gun')!.string = b.hero.gun;
+    if (!b.survival) {
     if (!this.supplyUiFrames.has('backpack')) {
       this.sbox(g, 1170, 365, 75, 48, '#172328', 245);
       this.soutline(g, 1170, 365, 75, 48, C.gold);
     }
-    this.text('supply-toggle-text', this.suppliesOpen ? '收起' : '补给', 1207, 357, 12, C.text, this.canvas, 70, Label.HorizontalAlign.CENTER);
+    this.text('supply-toggle-text', this.suppliesOpen ? '收起' : b.survival ? '背包' : '补给', 1207, 357, 12, C.text, this.canvas, 70, Label.HorizontalAlign.CENTER);
     (['bandage', 'medkit', 'drink'] as SupplyKind[]).forEach((kind, i) => {
       const button = this.buttons.find(button => button.node.name === 'Button-supply-' + kind)?.node;
       if (button) button.active = this.suppliesOpen && !b.tutorial;
@@ -4323,6 +6411,7 @@ export class Blackout extends Component {
       }
       this.text(key, String(b.supplies[kind]), x + 41, 372, 15, '#ffffff', this.canvas, 20, Label.HorizontalAlign.CENTER);
     });
+    }
     for (const [i, kind, time] of [[0, 'healing', b.healingTime], [1, 'speed', b.speedTime]] as const) {
       const button = this.buttons.find(button => button.node.name === 'Button-status-' + kind)?.node;
       if (button) button.active = time > 0;
@@ -4344,27 +6433,55 @@ export class Blackout extends Component {
       this.labels.get('sub-objective')!.string = '安全教学 · 暂停可跳过 · 完成后原地继续探索';
     }
     // Item cooldowns are drawn on their own scalable roots every frame.
-    const target = b.nearbyObjective(), loot = b.nearbyPickup(), clue = b.nearbyClue(), door = b.nearbyDoor();
+    const target = b.nearbyObjective(), loot = b.nearbyPickup(), clue = b.nearbyClue();
+    const door = b.survival ? b.nearbySurvivalDoor() : b.nearbyDoor();
+    const crate = !target && b.survival ? b.nearbySurvivalCrate() : undefined;
     for (const visibleClue of b.visibleClues()) {
       const found = this.profile.clues.includes(visibleClue.id), x = visibleClue.surface.x - p.x + W / 2, y = visibleClue.surface.y - p.y + H / 2;
       this.soutline(g, x - 18, y - 18, 36, 36, found ? '#e4d49a' : C.gold, found ? 160 : 245);
       this.sbox(g, x - 12, y - 12, 24, 24, found ? '#e4d49a' : '#d9ad4d', found ? 100 : 190);
     }
-    const free = !t && !b.floorPending && !b.evacuationDrive, handsFree = free && b.generatorProgress === undefined;
-    const verb = clue ? '调查' : target ? target.id === 'apartment' ? target.verb : '下楼' : door ? door.locked ? '开锁' : Math.abs(door.target - door.baseAngle) < 0.01 ? '开门' : '关门' : '';
+    const free = !t && !b.floorPending && !b.evacuationDrive && b.operationRun?.phase !== 'boarding';
+    const handsFree = free && b.generatorProgress === undefined && !b.survivalDoorWork && !this.survivalVehiclePanel;
+    const verb = crate ? (crate.opened ? '查看' : '开箱') : clue ? '调查' : target ? target.id === 'apartment' ? target.verb :
+      target.id === 'survival-board' ? '上车' : target.id === 'survival-vehicle' ? b.survivalVehicleStatus(target.vehicle).ready ? '撤离' : '检查' :
+      target.id === 'operation-board' ? '登机' : target.id === 'survival-workbench' ? '制作' : target.id === 'survival-radio' ? '电台' : '下楼' :
+      door ? door.destroyed ? '工事' : door.locked ? '开锁' : Math.abs(door.target - door.baseAngle) < 0.01 ? '开门' : '关门' : '';
     const kits = b.apartment?.kits ?? 0;
-    this.showHudAction('door', HUD.door, handsFree && !!verb, 'door-button', verb, 'E');
+    this.showHudAction('door', HUD.door, handsFree && (!!verb || !!this.survivalDoorHold?.opened), 'door-button', verb, 'E');
     this.showHudAction('pickup', HUD.pickup, handsFree && !!loot, 'pickup-button', '拾取', 'F');
     this.showHudAction('apartment-trap', HUD.trap, free && kits > 0, 'apartment-trap-count', `陷阱 ×${kits}`, 'T');
     const tactical = b.tactical.selected;
-    const air = b.operationRun?.airSupport;
-    this.showHudAction('grenade', HUD.grenade, free && (!!air || !!tactical && b.tactical.remaining > 0), 'grenade-label',
-      air ? '空中支援 ×1' : tactical ? `${TACTICAL_DEFINITIONS[tactical].title} ×${b.tactical.remaining}` : '', 'G');
-    if (handsFree && (verb || loot)) {
-      this.sbox(g, 388, 77, 440, 40, C.ink, 220);
-      const context = clue ? `${CLUE_SPECS.find(c => c.id === clue.id)!.title}  ·  ${this.profile.clues.includes(clue.id) ? '已调查，可重复阅读' : '首次调查建立剧情档案'}` : target ? target.name : door ? `${door.name}  ·  ${door.locked ? door.key === 'stairs' ? '需要楼梯钥匙' : '需要大门钥匙' : door.alarm && b.alarmTime === null ? '警报装置待机' : door.material === 'steel' ? '不可破坏' : `耐久 ${Math.ceil(door.hp)} / ${door.maxHp}`}` : loot!.name;
-      this.text('door-context', context, 608, 97, 17, C.gold, this.canvas, 430, Label.HorizontalAlign.CENTER);
-    } else if (this.labels.has('door-context')) this.labels.get('door-context')!.string = '';
+    this.showHudAction('grenade', HUD.grenade, free && !!tactical && b.tactical.remaining > 0, 'grenade-label',
+      tactical ? TACTICAL_DEFINITIONS[tactical].title + ' ×' + b.tactical.remaining : '', 'G');
+    const air = b.operationRun?.air;
+    const airLabel = air?.mode === 'outbound' ? '小鸟返航' : air?.onStation === undefined ? air ? '小鸟进场' : '小鸟支援' :
+      '支援 ' + Math.max(0, Math.ceil(OPERATION_AIR_DURATION - air.onStation)) + ' 秒';
+    this.showHudAction('air', HUD.air, free && !!b.operationRun?.airSupport, 'air-label', airLabel, 'V');
+    let prompt: BattlePrompt | undefined;
+    if (handsFree) {
+      const badge = sys.isMobile ? verb : 'E · ' + verb;
+      const barricade = door?.fortification;
+      if (crate) prompt = { title: SURVIVAL_CRATE_LABELS[crate.kind], badge, icon: 'supplies' };
+      else if (clue) prompt = { title: CLUE_SPECS.find(c => c.id === clue.id)!.title, badge, icon: 'inspect',
+        detail: this.profile.clues.includes(clue.id) ? '可重复阅读' : '首次调查' };
+      else if (target) {
+        const [title, detail] = target.name.split(' · ', 2);
+        const icon = target.id === 'survival-radio' ? 'radio' : target.id === 'survival-workbench' ? 'work' :
+          target.id === 'descend' || target.id === 'apartment' && target.station === 'stairs' ? 'stairs' : 'interact';
+        prompt = { title, detail, badge, icon };
+      } else if (door) {
+        const durability = `耐久 ${Math.ceil(door.hp)}/${door.maxHp}`;
+        if (barricade) prompt = { title: door.name + ' · ' + SURVIVAL_DOORS[barricade].title,
+          detail: door.destroyed ? '可重装' : durability, badge: door.destroyed ? badge : sys.isMobile ? '长按交互' : '长按 E · 工事', icon: 'door' };
+        else prompt = { title: door.name, badge, icon: 'door', detail: door.locked ? (door.key === 'stairs' ? '需要楼梯钥匙' : '需要大门钥匙') :
+          door.alarm && b.alarmTime === null ? '警报装置待机' : door.material === 'steel' ? '不可破坏' : durability };
+      } else if (loot) {
+        const [title, detail] = loot.name.split(' · ', 2);
+        prompt = { title, detail: detail === '拾取' ? undefined : detail, badge: sys.isMobile ? '拾取' : 'F · 拾取', icon: 'supplies' };
+      }
+    }
+    this.drawBattlePrompt(prompt);
     for (const [i, rect, origin, active, vector] of [
       [0, HUD.move, this.moveOrigin, this.moving, this.moveVector],
       [1, HUD.fire, this.aimOrigin, this.aiming, this.aimVector],
@@ -4379,46 +6496,589 @@ export class Blackout extends Component {
         disc(g, x + vector.x * 39 - W / 2, y + vector.y * 39 - H / 2, 21, this.aimOuter ? C.gold : C.muted, 120);
       }
     }
+    const grenade = this.operationGrenadeTouch ?? (this.operationGrenadeKey ? this.operationMouseGrenadeAim() : undefined);
+    if (grenade && b.tactical.selected === 'grenade' && b.tactical.remaining > 0 && b.tactical.cooldown <= 0) {
+      const { bounces, impact } = b.operationGrenadePreview(grenade.angle, grenade.range);
+      let x = W / 2 + this.feedback.x, y = H / 2 + this.feedback.y;
+      for (const [i, point] of [...bounces, impact].entries()) {
+        const nx = W / 2 + this.feedback.x + point.x - p.x, ny = H / 2 + this.feedback.y + point.y - p.y;
+        this.sline(g, x, y, nx, ny, '#f0d29c', 1.8, i === 0 ? 190 : 126);
+        x = nx; y = ny;
+        if (i < bounces.length) disc(g, x - W / 2, y - H / 2, 4, '#efcb83', 200);
+      }
+      g.strokeColor = color('#f0bd70', 195); g.lineWidth = 2;
+      g.circle(x - W / 2, y - H / 2, 22); g.stroke();
+    }
     // Crosshair is part of HUD: it must not disclose unseen enemies.
-    if (!sys.isMobile) {
+    if (!sys.isMobile && !this.overSurvivalBag(this.mx, this.my)) {
       for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) this.sline(g, this.mx + dx * 6, this.my + dy * 6, this.mx + dx * 14, this.my + dy * 14, C.gold, 1.5, 200);
     }
-    if (this.noticeTime > 0 && !t) {
-      this.sbox(g, 345, 549, 590, 45, C.ink, 225);
-      this.text('toast', this.notice, 640, 572, 17, C.gold, this.canvas, 570, Label.HorizontalAlign.CENTER);
-    } else if (this.labels.has('toast')) this.labels.get('toast')!.string = '';
+    const gearPanel = this.suppliesOpen || this.survivalWorkshopOpen || this.survivalCrateId || this.survivalDoorPanel || this.survivalVehiclePanel;
+    this.drawBattleNotice(this.noticeTime > 0 && !t, b.survival && gearPanel ? 608 : 549);
+    if (b.survival) this.drawSurvivalBagHud();
+  }
+  private updateSurvivalHud() {
+    const b = this.battle, run = b.survival!, plan = b.stage.survival!;
+    const title = this.labels.get('objective')!, detail = this.labels.get('sub-objective')!;
+    const floor = b.survivalFloorView;
+    const atHouse = floor || plan.stairs.some(stair => roomAt(b.player, [b.rooms[stair.lowerRoom]]) >= 0);
+    const level = floor?.moving ? '楼梯间' : floor?.upstairs ? '二楼' : '一楼';
+    const floorLabel = atHouse ? '　·　' + level : '';
+    const now = b.elapsed;
+    const fuel = (['helicopter', 'boat'] as const).find(id => b.survivalVehicleStatus(id).fuel !== undefined && !b.survivalVehicleStatus(id).ready);
+    title.string = (now >= CONVOY_LEAVE ? '最后追击　' + this.time(Math.ceil(SURVIVAL_DEADLINE - now)) :
+      now >= CONVOY_ARRIVAL ? '车队撤离　' + this.time(Math.ceil(CONVOY_LEAVE - now)) :
+        '距离车队抵达　' + this.time(Math.ceil(CONVOY_ARRIVAL - now))) + floorLabel;
+    title.color = color(now >= CONVOY_NOTICE || fuel ? '#ff9f75' : '#ecd8b8');
+    detail.string = (fuel ? EVAC_VEHICLES[fuel].name + '加油 ' + Math.ceil(b.survivalVehicleStatus(fuel).fuel ?? 0) + ' 秒　·　' : '') +
+      '奖励池　金币 ' + (run.pool.coins + run.salvage) + '　材料 ' + run.pool.materials;
+  }
+  private overSurvivalBag(x: number, y: number) {
+    if (!this.battle.survival) return false;
+    const panels = [this.suppliesOpen ? SURVIVAL_BAG : undefined,
+      this.survivalWorkshopOpen ? SURVIVAL_WORKSHOP : undefined, this.survivalCrateId ? SURVIVAL_CRATE_PANEL : undefined,
+      this.survivalDoorPanel ? SURVIVAL_DOOR_PANEL : undefined, this.survivalVehiclePanel ? SURVIVAL_VEHICLE_PANEL : undefined];
+    return panels.some(r => r && x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
+  }
+  private toggleSurvivalQuick() {
+    this.survivalQuickOpen = !this.suppliesOpen && !this.survivalQuickOpen;
+    this.suppliesOpen = this.survivalWorkshopOpen = false;
+    this.survivalDoorPanel = undefined;
+    this.survivalVehiclePanel = undefined;
+    this.survivalCrateId = undefined;
+    this.survivalHeldItem = undefined;
+    this.survivalDrag = this.survivalRotatePreview = undefined;
+    this.mouseFire = this.mouseQueuedFire = false;
+    this.updateHud();
+  }
+  private toggleSurvivalBag() {
+    this.suppliesOpen = !this.suppliesOpen;
+    this.survivalWorkshopOpen = false;
+    this.survivalDoorPanel = undefined;
+    this.survivalHeldItem = undefined;
+    this.survivalDrag = this.survivalRotatePreview = undefined;
+    this.mouseFire = this.mouseQueuedFire = false;
+    this.updateHud();
+  }
+  private closeSurvivalPanels() {
+    this.suppliesOpen = this.survivalQuickOpen = this.survivalWorkshopOpen = false;
+    this.survivalDoorPanel = undefined;
+    this.survivalVehiclePanel = undefined;
+    this.survivalCrateId = undefined; this.survivalHeldItem = undefined;
+    this.survivalDrag = this.survivalRotatePreview = undefined;
+    this.updateHud();
+  }
+  private openSurvivalDoorPanel(id: number) {
+    const door = this.battle.nearbySurvivalDoor(id);
+    if (!door || this.battle.survivalDoorWork) return;
+    this.suppliesOpen = this.survivalQuickOpen = this.survivalWorkshopOpen = false;
+    this.survivalCrateId = undefined; this.survivalHeldItem = undefined;
+    this.survivalDoorPanel = { id, replacement: door.destroyed ? door.fortification : undefined };
+    this.mouseFire = this.mouseQueuedFire = false;
+    this.updateHud();
+  }
+  private startSurvivalDoorHold(owner: number) {
+    if (this.mode !== 'playing' || this.transition || this.survivalDoorHold || this.survivalDoorPanel ||
+        this.battle.survivalDoorWork || !this.battle.survival || this.battle.nearbyObjective()) return false;
+    const door = this.battle.nearbySurvivalDoor();
+    if (!door) return false;
+    this.survivalDoorHold = { owner, id: door.id, left: SURVIVAL_DOOR_HOLD, opened: false };
+    return true;
+  }
+  private stepSurvivalDoorHold(dt: number) {
+    const hold = this.survivalDoorHold;
+    if (!hold || hold.opened) return;
+    if (!this.battle.nearbySurvivalDoor(hold.id)) { this.survivalDoorHold = undefined; return; }
+    hold.left -= dt;
+    if (hold.left > 0) return;
+    hold.opened = true;
+    this.openSurvivalDoorPanel(hold.id);
+  }
+  private survivalItemFrame(kind: GearKind) {
+    const newArt = this.timedSurvivalFrames.get(kind);
+    if (newArt) return newArt;
+    if (kind === 'mod-cache') return this.shopFrames.get('parts');
+    if (kind === 'grenade') return this.grenadeFrame;
+    if (kind === 'special-ammo') return this.itemFrames.get('rifle-ammo');
+    if (kind === 'scanner') return this.survivalGearFrames.get(kind);
+    if (isSurvivalGun(kind)) return this.shopFrames.get(FIXED_WEAPON_ART[SURVIVAL_GUNS[kind].hero]);
+    return this.survivalGearFrames.get(kind) ?? (kind === 'shock-mine' ? this.shopFrames.get('shock-mine') : this.itemFrames.get(kind));
+  }
+  private useSurvivalBagItem(id: number | null | undefined) {
+    const item = this.battle.survivalBag?.item(id);
+    if (!item) return;
+    if (this.battle.useSurvivalItem(item.id)) {
+      if (['sentry', 'grenade', 'mine', 'shock-mine'].includes(item.kind) && this.suppliesOpen) this.toggleSurvivalBag();
+      this.uiTick = 0;
+    } else if (isSurvivalGun(item.kind)) {
+      this.toast(SURVIVAL_GUNS[item.kind].hero !== this.battle.heroId ? '该武器限 ' + heroes[SURVIVAL_GUNS[item.kind].hero].name + ' 装备' :
+        this.battle.survivalSpecial ? '无法替换 · 请为换下的武器腾出空间' : '当前动作无法装备');
+    } else {
+      this.toast(['sentry', 'shock-mine', 'mine'].includes(item.kind) ? '前方没有足够的布置空间' :
+        item.kind === 'special-ammo' ? '需要先装备一把特殊武器' : '此时无法使用或背包空间不足');
+    }
+  }
+  private buildSurvivalBagHud() {
+    const b = this.battle, bag = b.survivalBag!, layout = SURVIVAL_BAG, q = SURVIVAL_QUICK;
+    this.survivalBagLayer = this.makeNode('Survival gear overlay', this.canvas);
+    this.survivalBagSkin = this.makeNode('Textured panels', this.survivalBagLayer);
+    this.survivalBagArt = this.graphics('Inventory highlights', this.survivalBagLayer);
+    this.survivalBagItemLayer = this.makeNode('Inventory item models', this.survivalBagLayer);
+    const bind = (name: string, x: number, y: number, w: number, h: number, run: () => void) =>
+      this.addButton('gear-' + name, x, y, w, h, () => { run(); this.uiTick = 0; });
+    bind('blocker', layout.x, layout.y, layout.w, layout.h, () => {});
+    bind('toggle', SURVIVAL_BAG_BUTTON.x, SURVIVAL_BAG_BUTTON.y, SURVIVAL_BAG_BUTTON.w, SURVIVAL_BAG_BUTTON.h, () => this.toggleSurvivalQuick());
+    bind('all', q.x - 68, q.y, 61, q.h, () => this.toggleSurvivalBag());
+    for (let i = 0; i < 3; i++) bind('quick-' + i, q.x + i * 67, q.y, q.w, q.h, () => this.useSurvivalBagItem(bag.quick[i]));
+    const close = SURVIVAL_BAG_CLOSE;
+    bind('close', close.x, close.y, close.w, close.h, () => this.toggleSurvivalBag());
+    const vehiclePanel = SURVIVAL_VEHICLE_PANEL;
+    bind('vehicle-blocker', vehiclePanel.x, vehiclePanel.y, vehiclePanel.w, vehiclePanel.h, () => {});
+    bind('vehicle-close', 941, 546, 54, 36, () => this.closeSurvivalPanels());
+    for (let i = 0; i < 5; i++) bind('vehicle-fit-' + i, 859, 477 - 51 * i, 116, 36, () => {
+      const id = this.survivalVehiclePanel;
+      if (id && b.fitSurvivalPart(id, i)) this.play('unlock');
+    });
+    bind('vehicle-start', 716, 177, 258, 51, () => {
+      const id = this.survivalVehiclePanel;
+      if (!id) return;
+      const status = b.survivalVehicleStatus(id);
+      if (!(status.ready ? b.boardSurvival(id) : b.beginSurvivalFuel(id))) return;
+      this.closeSurvivalPanels();
+      if (!status.ready) this.toast('加油开始 · 尸群正在被引来', 4, 'warning');
+    });
+    for (let i = 0; i < SURVIVAL_RECIPE_IDS.length; i++) {
+      bind('recipe-' + i, 644, 488 - 45 * i, 216, 40, () => { this.survivalRecipe = SURVIVAL_RECIPE_IDS[i]; });
+    }
+    bind('workshop-close', 1073, 543, 61, 34, () => this.closeSurvivalPanels());
+    bind('fort-close', 1060, 543, 61, 34, () => this.closeSurvivalPanels());
+    bind('fort-repair', 645, 466, 182, 37, () => {
+      if (this.survivalDoorPanel) this.survivalDoorPanel.replacement = undefined;
+    });
+    SURVIVAL_DOOR_KINDS.forEach((kind, i) => bind('fort-kind-' + i, 645, 419 - i * 41, 182, 36, () => {
+      if (this.survivalDoorPanel) this.survivalDoorPanel.replacement = kind;
+    }));
+    bind('fort-confirm', 859, 221, 235, 42, () => {
+      const selection = this.survivalDoorPanel;
+      if (!selection) return;
+      if (b.startSurvivalDoorWork(selection.id, selection.replacement)) {
+        this.closeSurvivalPanels();
+      } else this.toast(b.survivalDoorPlan(selection.id, selection.replacement)?.reason ?? '当前无法施工', undefined, 'warning');
+    });
+    bind('craft', 902, 229, 210, 43, () => {
+      const result = b.craftSurvival(this.survivalRecipe);
+      if (result === 'ok') {
+        this.play('loot');
+        this.toast(SURVIVAL_GEAR[this.survivalRecipe][0] + ' 已放入背包');
+      }
+      else this.toast(result === 'space' ? '成品需要一块连续空位' : result === 'materials' ? '制作材料不足' : '请靠近工事工作台');
+    });
+    const crateRect = SURVIVAL_CRATE_PANEL;
+    bind('crate-close', crateRect.x + 12, crateRect.y + 12, 80, 34, () => { this.survivalCrateId = undefined; });
+    bind('crate-all', crateRect.x + 128, crateRect.y + 12, 80, 34, () => this.toggleSurvivalBag());
+    for (let i = 0; i < 6; i++) bind('take-' + i, crateRect.x + 13, 440 - i * 33, 200, 31, () => {
+      if (!this.survivalCrateId) return;
+      const crate = b.nearbySurvivalCrate(this.survivalCrateId), stack = crate?.goods[i];
+      if (!crate || !stack) return;
+      if (!b.takeSurvivalCrate(crate.id, i)) {
+        const [w, h] = bag.size(stack.kind, false);
+        this.toast(SURVIVAL_GEAR[stack.kind][0] + '需要连续 ' + w + '×' + h + ' 格（' + w * h + ' 格）');
+      }
+    });
+    const actions = {
+      use: () => this.useSurvivalBagItem(this.survivalHeldItem),
+      rotate: () => {
+        const item = bag.item(this.survivalHeldItem);
+        if (!item) return;
+        if (bag.move(item.id, item.col, item.row, !item.rotated)) this.survivalRotatePreview = undefined;
+        else {
+          this.survivalRotatePreview = { id: item.id, until: this.presentationTime + .55 };
+          this.toast('旋转后的空间不足');
+        }
+      },
+      split: () => {
+        const item = bag.item(this.survivalHeldItem);
+        if (item && !bag.split(item.id)) this.toast('没有可拆分的堆叠或空间不足');
+      },
+      drop: () => {
+        if (this.survivalHeldItem !== undefined && b.dropSurvivalItem(this.survivalHeldItem)) this.survivalHeldItem = undefined;
+      },
+    };
+    for (const { id, x, y, w, h } of SURVIVAL_BAG_ACTIONS) bind(id, x, y, w, h, actions[id]);
+    for (let i = 0; i < 3; i++) bind('assign-' + i, 734 + i * 131, 105, 122, 35, () => {
+      const item = bag.item(this.survivalHeldItem);
+      if (!item || !canUseSurvivalGear(item.kind)) return;
+      const old = bag.quick[i];
+      bag.quick = bag.quick.map(id => id === item.id ? null : id);
+      bag.quick[i] = old === item.id ? null : item.id;
+      this.toast(old === item.id ? '已移出快捷栏' : '已绑定快捷格 ' + (i + 1));
+    });
+    // Cocos cancels a touch released outside its starting hit box. One hit box
+    // for the whole inventory keeps a drag alive while moving across cells.
+    const extent = layout.cell * layout.displaySize;
+    const grid = bind('grid', layout.gridX, layout.gridTop - extent, extent, extent, () => {});
+    const cellAt = (p: { x: number; y: number }) => ({
+      col: Math.floor((p.x - layout.gridX) / layout.cell),
+      row: Math.floor((layout.gridTop - p.y) / layout.cell),
+    });
+    const distance = (start: { x: number; y: number }, end: { x: number; y: number }) => Math.hypot(end.x - start.x, end.y - start.y);
+    grid.on(Node.EventType.TOUCH_START, (e: EventTouch) => {
+      if (this.survivalDrag || !this.suppliesOpen) return;
+      const p = this.pointerPosition(e), { col, row } = cellAt(p);
+      this.survivalDrag = { ...p, id: bag.covering(col, row)?.id, owner: e.getID() };
+    });
+    const updateDrag = (drag: NonNullable<Blackout['survivalDrag']>, p: { x: number; y: number }) => {
+      const item = bag.item(drag.id);
+      if (!item || drag.col === undefined && distance(drag, p) < 8) return;
+      drag.col = item.col + Math.round((p.x - drag.x) / layout.cell);
+      drag.row = item.row - Math.round((p.y - drag.y) / layout.cell);
+      this.survivalHeldItem = item.id;
+      this.survivalRotatePreview = undefined;
+      this.uiTick = 0;
+    };
+    grid.on(Node.EventType.TOUCH_MOVE, (e: EventTouch) => {
+      const drag = this.survivalDrag;
+      if (drag && drag.owner === e.getID()) updateDrag(drag, this.pointerPosition(e));
+    });
+    grid.on(Node.EventType.TOUCH_END, (e: EventTouch) => {
+      const drag = this.survivalDrag;
+      if (!drag || drag.owner !== e.getID()) return;
+      this.survivalDrag = undefined;
+      const p = this.pointerPosition(e);
+      updateDrag(drag, p);
+      if (drag.id !== undefined && drag.col !== undefined && drag.row !== undefined) {
+        bag.move(drag.id, drag.col, drag.row);
+      } else if (distance(drag, p) < 8) {
+        const { col, row } = cellAt(p);
+        if (col < 0 || col >= bag.columns || row < 0 || row >= bag.rows) return;
+        const item = bag.covering(col, row), selected = bag.item(this.survivalHeldItem);
+        this.survivalRotatePreview = undefined;
+        if (item) this.survivalHeldItem = selected === item ? undefined : item.id;
+        else if (selected && !bag.move(selected.id, col, row)) this.toast('这个位置放不下');
+      }
+      this.uiTick = 0;
+    });
+    grid.on(Node.EventType.TOUCH_CANCEL, (e: EventTouch) => {
+      if (this.survivalDrag?.owner !== e.getID()) return;
+      this.survivalDrag = undefined;
+      this.uiTick = 0;
+    });
+  }
+  private drawSurvivalBagHud() {
+    const b = this.battle, bag = b.survivalBag!, g = this.survivalBagArt;
+    if (!g || !this.survivalBagLayer) return;
+    g.clear();
+    const shown = new Set<string>(), activeButtons = new Set<string>();
+    const q = SURVIVAL_QUICK, layout = SURVIVAL_BAG, show = this.suppliesOpen;
+    const selected = bag.item(this.survivalHeldItem);
+    const crate = this.survivalCrateId ? b.nearbySurvivalCrate(this.survivalCrateId) : undefined;
+    if (!crate) this.survivalCrateId = undefined;
+    if (this.survivalWorkshopOpen && !b.survivalAtWorkbench) this.survivalWorkshopOpen = false;
+    const fortDoor = this.survivalDoorPanel ? b.nearbySurvivalDoor(this.survivalDoorPanel.id) : undefined;
+    if (!fortDoor) this.survivalDoorPanel = undefined;
+    const label = (id: string, str: string, x: number, y: number, w: number, size = 14, fill = C.text, height?: number,
+      align = Label.HorizontalAlign.CENTER) => {
+      const key = 'gear-ui-' + id;
+      shown.add(key);
+      const result = this.text(key, str, x, y, size, fill, this.survivalBagLayer!, w, align);
+      if (height) result.node.getComponent(UITransform)!.height = height;
+    };
+    let skinIndex = 0, icons = 0;
+    const texture = (frame: SpriteFrame | undefined, x: number, y: number, w: number, h: number, tint = '#ffffff', slice = false) => {
+      if (!frame) return false;
+      const index = skinIndex++;
+      const sprite = this.survivalBagSkinNodes[index] ??= this.setupSprite(this.makeNode('Survival UI texture', this.survivalBagSkin!), frame, w, h);
+      sprite.spriteFrame = frame; sprite.type = slice ? Sprite.Type.SLICED : Sprite.Type.SIMPLE; sprite.color = color(tint);
+      sprite.node.getComponent(UITransform)!.setContentSize(w, h);
+      sprite.node.setPosition(x + w / 2 - W / 2, y + h / 2 - H / 2);
+      sprite.node.active = true;
+      return true;
+    };
+    const panel = (r: { x: number; y: number; w: number; h: number }, type = 'panel') => {
+      if (!texture(this.survivalSkin.get(type), r.x, r.y, r.w, r.h, '#ffffff', true)) {
+        this.sbox(g, r.x, r.y, r.w, r.h, '#111c22', 251);
+        this.soutline(g, r.x, r.y, r.w, r.h, '#a38558');
+      }
+    };
+    const button = (id: string, str: string, x: number, y: number, w: number, h: number, pressed = false, enabled = true) => {
+      if (!texture(this.survivalSkin.get('button'), x, y, w, h, pressed ? '#e5c48d' : enabled ? '#ffffff' : '#8a8c86')) {
+        this.sbox(g, x, y, w, h, pressed ? '#493c2a' : '#1c292a');
+        this.soutline(g, x, y, w, h, '#8a734f');
+      }
+      label(id, str, x + w / 2, y + h / 2, w - 7, w < 55 ? 12 : 14, enabled ? C.text : C.muted);
+      if (enabled) activeButtons.add(id);
+    };
+    const icon = (kind: GearKind, x: number, y: number, w: number, h: number, rotated = false) => {
+      const frame = this.survivalItemFrame(kind);
+      if (!frame) return false;
+      const sprite = this.survivalBagIcons[icons++] ??= this.setupSprite(this.makeNode('Inventory object', this.survivalBagItemLayer!), frame, w, h);
+      sprite.spriteFrame = frame;
+      const { width, height } = frame.originalSize;
+      const turn = rotated !== (kind === 'sentry-barrel');
+      const scale = Math.min(w / (turn ? height : width), h / (turn ? width : height));
+      sprite.node.getComponent(UITransform)!.setContentSize(width * scale, height * scale);
+      sprite.node.setPosition(x - W / 2, y - H / 2);
+      sprite.node.angle = turn ? 90 : 0;
+      sprite.node.active = true;
+      return true;
+    };
+    const old = SURVIVAL_BAG_BUTTON;
+    texture(this.supplyUiFrames.get('backpack'), old.x + 10, old.y - 5, 56, 56);
+    label('backpack-label', '背包', old.x + old.w / 2, old.y - 8, 70, 12, this.survivalQuickOpen ? C.gold : C.text);
+    activeButtons.add('toggle');
+    if (this.survivalQuickOpen && !show && !crate && !this.survivalWorkshopOpen) {
+      button('all', '全部', q.x - 68, q.y, 61, q.h);
+      for (let i = 0; i < 3; i++) {
+        const x = q.x + i * 67, item = bag.item(bag.quick[i]);
+        texture(this.survivalSkin.get('slot') ?? this.supplyUiFrames.get('slot'), x, q.y, q.w, q.h);
+        if (item) {
+          icon(item.kind, x + q.w / 2, q.y + 27, 42, 31);
+          label('quick-count-' + i, '×' + item.count, x + 47, q.y + 8, 25, 10, C.gold);
+        } else label('quick-empty-' + i, String(i + 1), x + q.w / 2, q.y + 23, 28, 13, '#8a918e');
+        activeButtons.add('quick-' + i);
+      }
+    }
+    if (b.survivalPlacement) {
+      const p = b.survivalPlacement;
+      button('install', '安装哨械枪  ' + p.left.toFixed(1) + ' 秒', 487, 108, 277, 39, true);
+      this.sbox(g, 500, 114, 248 * (1 - p.left / p.duration), 3, C.gold);
+    }
+    if (b.survivalDoorWork) {
+      const work = b.survivalDoorWork;
+      button('fort-progress', (work.replacement ? '安装门板' : '修补门板') + '  ' + Math.max(0, work.left).toFixed(1) + ' 秒', 481, 105, 285, 40, true);
+      this.sbox(g, 497, 111, 252 * (1 - Math.max(0, work.left) / work.duration), 3, C.gold);
+    } else if (this.survivalDoorHold && !this.survivalDoorHold.opened) {
+      const hold = this.survivalDoorHold;
+      this.sbox(g, 498, 78, 220 * clamp(1 - hold.left / SURVIVAL_DOOR_HOLD, 0, 1), 3, C.gold);
+    }
+    if (show) {
+      if (!texture(this.survivalUiFrames.get('bag'), layout.x, layout.y, layout.w, layout.h)) panel(layout);
+      activeButtons.add('blocker');
+      activeButtons.add('grid');
+      label('capacity', bag.columns + ' × ' + bag.rows + '　·　已用 ' + bag.used + ' / ' + (bag.columns * bag.rows) + ' 格',
+        layout.gridX, 612, 350, 21, '#f0d8a9', undefined, Label.HorizontalAlign.LEFT);
+      const close = SURVIVAL_BAG_CLOSE;
+      if (texture(this.survivalUiFrames.get('close'), close.x, close.y, close.w, close.h)) activeButtons.add('close');
+      else button('close', '×', close.x, close.y, close.w, close.h);
+      const cell = layout.cell, gridLength = layout.displaySize * cell;
+      const slot = this.survivalUiFrames.get('tile') ?? this.survivalSkin.get('slot');
+      const locked = this.survivalUiFrames.get('tile-locked');
+      for (let row = 0; row < layout.displaySize; row++) for (let col = 0; col < layout.displaySize; col++) {
+        const x = layout.gridX + col * cell, y = layout.gridTop - (row + 1) * cell;
+        const available = row < bag.rows && col < bag.columns;
+        texture(available ? slot : locked ?? slot, x, y, cell - 2, cell - 2, available ? '#ffffff' : '#868782');
+        if (!available && !locked) label('locked-' + col + '-' + row, '×', x + cell / 2, y + cell / 2, cell - 2, 19, '#848179');
+      }
+      for (const [i, item] of bag.items.entries()) {
+        const [w, h] = bag.size(item.kind, item.rotated);
+        const x = layout.gridX + item.col * cell + 2, y = layout.gridTop - (item.row + h) * cell + 2;
+        const width = w * cell - 4, height = h * cell - 4;
+        this.sbox(g, x, y, width, height, item === selected ? '#655336' : '#303e37', 151);
+        if (item === selected && !texture(this.survivalUiFrames.get('tile-selected'), x, y, width, height)) {
+          this.soutline(g, x, y, width, height, '#f3cf8b');
+        }
+        const visible = icon(item.kind, x + width / 2, y + height / 2, width - 5, height - 7, item.rotated);
+        if (!visible || item.count > 1) label('item-' + i, visible ? String(item.count) : SURVIVAL_GEAR[item.kind][0],
+          visible ? x + width - 8 : x + width / 2, visible ? y + 7 : y + height / 2, visible ? 16 : width, visible ? 10 : 11, '#f5dfae');
+      }
+      const turn = this.survivalRotatePreview;
+      const rotation = turn && turn.until > this.presentationTime ? bag.item(turn.id) : undefined;
+      const drag = this.survivalDrag, moving = bag.item(drag?.id);
+      const preview = rotation ? { item: rotation, col: rotation.col, row: rotation.row, rotated: !rotation.rotated } :
+        moving && drag?.col !== undefined && drag.row !== undefined ? { item: moving, col: drag.col, row: drag.row, rotated: moving.rotated } : undefined;
+      if (preview) {
+        const { item, col, row, rotated } = preview, [w, h] = bag.size(item.kind, rotated);
+        const x = layout.gridX + col * cell, y = layout.gridTop - (row + h) * cell;
+        const valid = bag.fits(item.kind, col, row, rotated, item.id);
+        const left = Math.max(x, layout.gridX), right = Math.min(x + w * cell, layout.gridX + gridLength);
+        const bottom = Math.max(y, layout.gridTop - gridLength), top = Math.min(y + h * cell, layout.gridTop);
+        if (right > left && top > bottom) this.sbox(g, left, bottom, right - left, top - bottom, valid ? '#9acb93' : '#e75a4d', 137);
+      }
+      const [w, h] = selected ? bag.size(selected.kind, selected.rotated) : [0, 0];
+      const gun = selected && isSurvivalGun(selected.kind) ? SURVIVAL_GUNS[selected.kind] : undefined;
+      const usable = !!selected && canUseSurvivalGear(selected.kind) && (!gun || gun.hero === b.heroId);
+      if (selected) {
+        label('selected', SURVIVAL_GEAR[selected.kind][0], 734, 539, 370, 31, '#f3d6a3', undefined, Label.HorizontalAlign.LEFT);
+        icon(selected.kind, 928, 447, 240, 119, selected.rotated);
+        const detail = SURVIVAL_DESCRIPTIONS[selected.kind] + (gun ? '\n适用 ' + heroes[gun.hero].name + '　·　弹匣 ' +
+          (selected.rounds ?? gun.magazine) + ' / ' + gun.magazine : '');
+        label('details', detail, 734, 343, 384, 19, '#eee2cd', 63, Label.HorizontalAlign.LEFT);
+        label('size', w + ' × ' + h + ' 格　·　数量 ' + selected.count, 734, 286, 360, 16, C.jade, undefined, Label.HorizontalAlign.LEFT);
+      } else {
+        label('details-empty', '选择左侧物品查看详情', 927, 424, 355, 23, '#c5bba6');
+      }
+      const enabled = { use: usable, rotate: w !== h, split: (selected?.count ?? 0) > 1, drop: !!selected };
+      const actionButton = (id: string, title: string, x: number, y: number, width: number, height: number,
+        active: boolean, primary = false) => {
+        const frame = this.survivalUiFrames.get(primary ? 'primary' : 'secondary') ?? this.survivalSkin.get('button');
+        texture(frame, x, y, width, height, active ? '#ffffff' : '#727475');
+        label(id, title, x + width / 2, y + height / 2, width - 12, height >= 40 ? 20 : 14, active ? '#f1dfbd' : '#9e9b91');
+        if (active) activeButtons.add(id);
+      };
+      const equip = gun ? b.survivalSpecial ? '替换 ' + SURVIVAL_GUNS[b.survivalSpecial.id].gun : '装备' : '使用';
+      for (const action of SURVIVAL_BAG_ACTIONS) actionButton(action.id, action.id === 'use' ? equip : action.label, action.x, action.y, action.w, action.h,
+        enabled[action.id], action.id === 'use' && usable);
+      for (let i = 0; i < 3; i++) {
+        const assigned = !!selected && bag.quick[i] === selected.id;
+        actionButton('assign-' + i, '快捷 ' + (i + 1), 734 + i * 131, 105, 122, 35, usable, assigned);
+      }
+    } else if (crate) {
+      const r = SURVIVAL_CRATE_PANEL;
+      panel(r, 'tooltip');
+      label('source', SURVIVAL_CRATE_LABELS[crate.kind], r.x + r.w / 2, 487, 185, 18, '#f0d5a3');
+      for (const [i, stack] of crate.goods.entries()) {
+        button('take-' + i, '　' + SURVIVAL_GEAR[stack.kind][0] + ' ×' + stack.count, r.x + 13, 440 - i * 33, 200, 31);
+        icon(stack.kind, r.x + 31, 455 - i * 33, 25, 22);
+      }
+      button('crate-close', '关闭', r.x + 12, r.y + 12, 80, 34);
+      button('crate-all', show ? '收起背包' : '全部', r.x + 128, r.y + 12, 80, 34);
+    }
+    if (this.survivalVehiclePanel && b.survivalVehicleAtPlayer() !== this.survivalVehiclePanel) this.survivalVehiclePanel = undefined;
+    const vehicleId = this.survivalVehiclePanel;
+    if (vehicleId) {
+      activeButtons.add('vehicle-blocker');
+      const r = SURVIVAL_VEHICLE_PANEL, v = EVAC_VEHICLES[vehicleId], status = b.survivalVehicleStatus(vehicleId);
+      if (!texture(this.timedSurvivalFrames.get('service-card'), r.x, r.y, r.w, r.h)) panel(r);
+      label('vehicle-title', v.name, 655, 564, 286, 27, '#ffdc9c');
+      button('vehicle-close', '关闭', 941, 546, 54, 36);
+      const craft = vehicleId === 'helicopter' ? this.streetFrames.get('op-blackhawk') : this.timedSurvivalFrames.get('boat');
+      if (craft) {
+        const fit = Math.min(200 / craft.originalSize.width, 265 / craft.originalSize.height);
+        const w = fit * craft.originalSize.width, h = fit * craft.originalSize.height;
+        texture(craft, 507 - w / 2, 365 - h / 2, w, h, '#d1d6c9');
+        if (vehicleId === 'helicopter') texture(this.streetFrames.get('op-rotor'), 439, 327, 136, 136, '#c4c5b8');
+      }
+      for (const [i, part] of v.parts.entries()) {
+        const fitted = !!(status.installed & (1 << i)), y = 477 - 51 * i;
+        const markerX = 507 + (i % 2 ? 67 : -63), markerY = 453 - i * 43;
+        texture(this.timedSurvivalFrames.get('service-strip'), 669, y - 3, 309, 42, fitted ? '#86ab82' : '#b37d71');
+        icon(part, 695, y + 18, 33, 27);
+        label('vehicle-part-' + i, SURVIVAL_GEAR[part][0], 719, y + 18, 136, 16, fitted ? '#a9d9a2' : '#ffc0a9',
+          undefined, Label.HorizontalAlign.LEFT);
+        texture(this.survivalUiFrames.get(fitted ? 'tile-selected' : 'tile-locked'), markerX - 13, markerY - 13, 26, 26,
+          fitted ? '#8bdd8a' : '#ff8467');
+        label('vehicle-mark-' + i, String(i + 1), markerX, markerY, 22, 15, '#fff0d0');
+        if (fitted) label('vehicle-fitted-' + i, '已安装', 917, y + 18, 100, 16, '#a9d9a2');
+        else button('vehicle-fit-' + i, bag.count(part) ? '装入' : '缺少部件', 859, y, 116, 36, !!bag.count(part), !!bag.count(part));
+      }
+      const readyToFuel = status.installed === 31 && !!bag.count('evac-fuel');
+      const start = status.ready ? '登乘撤离' : status.fuel !== undefined ? '加油中 · ' + Math.ceil(status.fuel) + ' 秒' :
+        status.installed !== 31 ? '部件未齐全' : readyToFuel ? '开始加油' : '需要撤离燃油';
+      button('vehicle-start', start, 716, 177, 258, 51, status.ready || readyToFuel, status.ready || status.fuel === undefined && readyToFuel);
+      label('vehicle-fuel-note', '加油会吸引附近尸群', 817, 151, 290, 14, '#e4af92');
+    }
+    if (this.survivalWorkshopOpen) {
+      panel(SURVIVAL_WORKSHOP);
+      label('workshop-title', '工事工作台', 731, 560, 170, 23, '#f0d5a3');
+      button('workshop-close', '关闭', 1073, 543, 61, 34);
+      SURVIVAL_RECIPE_IDS.forEach((id, i) => {
+        const y = 488 - i * 45;
+        button('recipe-' + i, id === 'sentry' ? '组装哨械枪' : SURVIVAL_GEAR[id][0], 644, y, 216, 40, this.survivalRecipe === id);
+        icon(id, 671, y + 20, 34, 30);
+      });
+      const recipe = this.survivalRecipe, status = b.craftSurvival(recipe, true), [w, h] = bag.size(recipe, false);
+      icon(recipe, 1007, 482, 102, 72);
+      label('result-size', SURVIVAL_GEAR[recipe][0] + '  ·  ' + w + '×' + h + ' 格', 1007, 430, 204, 17, '#f3d6a3');
+      for (const [i, [material, count]] of SURVIVAL_RECIPES[recipe].entries()) {
+        const y = 391 - i * 33, have = bag.count(material);
+        icon(material, 913, y, 25, 23);
+        label('material-' + i, SURVIVAL_GEAR[material][0] + '   ' + have + ' / ' + count, 1016, y, 173, 15, have >= count ? C.jade : '#eb967a');
+      }
+      label('craft-status', status === 'space' ? '扣料后仍缺连续空格' : status === 'materials' ? '材料不足' : '成品直接放入背包', 1007, 291, 203, 13, status === 'ok' ? C.jade : '#eb967a');
+      button('craft', recipe === 'sentry' ? '确认组装' : '确认制作', 902, 229, 210, 43, status === 'ok', status === 'ok');
+    }
+    if (fortDoor && this.survivalDoorPanel) {
+      const selection = this.survivalDoorPanel, current = SURVIVAL_DOORS[fortDoor.fortification!];
+      const plan = b.survivalDoorPlan(selection.id, selection.replacement);
+      panel(SURVIVAL_DOOR_PANEL);
+      label('fort-title', fortDoor.name + ' · 工事', 781, 563, 277, 21, '#f0d5a3');
+      label('fort-health', current.title + '   ·   ' + (fortDoor.destroyed ? '门板已毁' : Math.ceil(fortDoor.hp) + ' / ' + fortDoor.maxHp), 850, 524, 353, 15, fortDoor.destroyed ? '#ed9b80' : C.jade);
+      button('fort-close', '关闭', 1060, 543, 61, 34);
+      button('fort-repair', '修补本门', 645, 466, 182, 37, !selection.replacement);
+      for (const [i, kind] of SURVIVAL_DOOR_KINDS.entries()) {
+        const y = 419 - i * 41;
+        button('fort-kind-' + i, SURVIVAL_DOORS[kind].title, 645, y, 182, 36, kind === selection.replacement);
+        texture(this.survivalDoorFrames.get(kind), 657, y + 6, 44, 7);
+      }
+      if (plan) {
+        const self = !selection.replacement, title = SURVIVAL_DOORS[plan.kind].title;
+        const verb = self ? '修补' : fortDoor.destroyed ? '重装' : '换装';
+        label('fort-choice', verb + ' ' + title, 976, 478, 245, 17, '#f3d6a3');
+        label('fort-estimate', plan.seconds.toFixed(1) + ' 秒 · ' + (self ? '+' + Math.ceil(plan.gain) + ' 耐久' : plan.gain + ' 耐久'), 976, 443, 245, 15, C.jade);
+        for (const [i, [material, quantity]] of plan.cost.entries()) {
+          const y = 410 - i * 29, have = bag.count(material);
+          icon(material, 875, y, 24, 22);
+          label('fort-material-' + i, SURVIVAL_GEAR[material][0] + '   ' + have + ' / ' + quantity, 978, y, 173, 14, have >= quantity ? C.jade : '#eb967a');
+        }
+        label('fort-status', plan.reason ?? '施工期间可移动取消', 975, 295, 251, 14, plan.reason ? '#eb967a' : '#d9d1b9');
+        button('fort-confirm', '确认' + verb, 859, 221, 235, 42, !plan.reason, !plan.reason);
+      }
+    }
+    for (const buttonNode of this.buttons) {
+      const key = buttonNode.node.name;
+      if (!key.startsWith('Button-gear-')) continue;
+      const id = key.slice('Button-gear-'.length);
+      buttonNode.node.active = activeButtons.has(id);
+    }
+    for (const [key, existing] of this.labels) if (key.startsWith('gear-ui-') && !shown.has(key)) existing.string = '';
+    for (let i = skinIndex; i < this.survivalBagSkinNodes.length; i++) this.survivalBagSkinNodes[i].node.active = false;
+    for (let i = icons; i < this.survivalBagIcons.length; i++) this.survivalBagIcons[i].node.active = false;
   }
   private drawMinimap(g: Graphics) {
-    const r = HUD.map;
-    this.sbox(g, r.x + 14, r.y + 17, r.w - 28, r.h - 34, '#0f1212');
-    const rooms = this.battle.rooms;
+    const r = HUD.map, b = this.battle;
+    if (!b.survival) this.sbox(g, r.x + 14, r.y + 17, r.w - 28, r.h - 34, '#0f1212');
+    const rooms = b.stage.survival ? [b.rooms[b.stage.survival.streetRoom]] : b.rooms;
     const minX = Math.min(...rooms.map(r => r.x)), minY = Math.min(...rooms.map(r => r.y));
     const maxX = Math.max(...rooms.map(r => r.x + r.w)), maxY = Math.max(...rooms.map(r => r.y + r.h));
     const scale = Math.min((r.w - 38) / (maxX - minX), (r.h - 44) / (maxY - minY));
     const ox = r.x + (r.w - (maxX - minX) * scale) / 2 - minX * scale;
     const oy = r.y + (r.h - (maxY - minY) * scale) / 2 - minY * scale;
-    const b = this.battle, map = b.minimap, size = MINIMAP_CELL_SIZE;
+    const map = b.minimap, size = MINIMAP_CELL_SIZE, columns = Math.min(map.columns, Math.ceil(maxX / size));
     const state = (x: number, y: number) => map.visible[y * map.columns + x] ? 2 : map.explored[y * map.columns + x] ? 1 : 0;
     for (let y = 0; y < map.rows; y++) {
-      for (let x = 0; x < map.columns;) {
+      for (let x = 0; x < columns;) {
         const fill = state(x, y);
         if (!fill) { x++; continue; }
         let end = x + 1;
-        while (end < map.columns && state(end, y) === fill) end++;
+        while (end < columns && state(end, y) === fill) end++;
         const left = Math.max(minX, x * size), bottom = Math.max(minY, y * size);
-        this.sbox(g, ox + left * scale, oy + bottom * scale, (Math.min(maxX, end * size) - left) * scale, (Math.min(maxY, (y + 1) * size) - bottom) * scale, fill === 2 ? '#778c83' : '#37484c');
+        this.sbox(g, ox + left * scale, oy + bottom * scale, (Math.min(maxX, end * size) - left) * scale, (Math.min(maxY, (y + 1) * size) - bottom) * scale,
+          fill === 2 ? '#778c83' : '#37484c', b.survival ? fill === 2 ? 110 : 75 : 255);
         x = end;
       }
     }
     const street = b.stage.street;
     const goal = street ? b.alarmTime === null ? street.alarm : b.player.y < street.upperTurn.y - 170 ? street.upperTurn : b.stage.exit
-      : b.stage.dorm ? b.pickup ?? b.stage.exit : b.apartmentGoal;
-    if (goal && state(Math.floor(goal.x / size), Math.floor(goal.y / size))) disc(g, ox + goal.x * scale - W / 2, oy + goal.y * scale - H / 2, 3, C.gold);
+      : b.stage.dorm ? b.pickup ?? b.stage.exit : b.stage.survival?.radio ?? b.operationGoal ?? b.apartmentGoal;
+    if (goal && (b.stage.operation || b.stage.survival || state(Math.floor(goal.x / size), Math.floor(goal.y / size)))) {
+      disc(g, ox + goal.x * scale - W / 2, oy + goal.y * scale - H / 2, 3, C.gold);
+    }
     for (const ally of b.allies) if (ally.hp > 0 && state(Math.floor(ally.x / size), Math.floor(ally.y / size)) === 2) {
       disc(g, ox + ally.x * scale - W / 2, oy + ally.y * scale - H / 2, 2, '#7acfbf');
     }
+    const air = b.operationAirSight;
+    if (air) for (const enemy of b.enemies) if (enemy.hp > 0 && b.operationAirSees(enemy, air)) {
+      disc(g, ox + enemy.x * scale - W / 2, oy + enemy.y * scale - H / 2, 1.8, '#ff8667', Math.round(220 * air.intensity));
+    }
     const p = this.battle.player;
-    const px = ox + p.x * scale - W / 2, py = oy + p.y * scale - H / 2;
+    if (b.survival) for (const [index, [name, x, y]] of HARBOR_MAP_REGIONS.entries()) {
+      const supplied = b.survivalRestock?.zones.includes(index);
+      if (name === '工事' && !supplied) continue;
+      const q = harborPoint(x, y);
+      disc(g, ox + q.x * scale - W / 2, oy + q.y * scale - H / 2, supplied ? 3.3 : 1.8, supplied ? C.jade : '#e6cb98');
+    }
+    if (b.survival) {
+      const mark = (point: { x: number; y: number }, fill: string, size: number) =>
+        this.sbox(g, ox + point.x * scale - size / 2, oy + point.y * scale - size / 2, size, size, fill);
+      if (b.survivalConvoyReady) mark(CONVOY_BOARD, '#fff1ad', 6);
+      for (const crate of b.survivalCrates) if (crate.kind === 'airdrop' && crate.goods.length) mark(crate, '#ffad64', 6);
+      const floor = b.survivalUpperFloor;
+      if (b.survivalScan > 0) for (const enemy of b.enemies) {
+        if (enemy.hp <= 0 || Math.hypot(enemy.x - p.x, enemy.y - p.y) > 850) continue;
+        mark({ x: enemy.x - (floor?.offsetX ?? 0), y: enemy.y }, '#ff6f55', 3);
+      }
+    }
+    const px = ox + (p.x - (b.survivalUpperFloor?.offsetX ?? 0)) * scale - W / 2, py = oy + p.y * scale - H / 2;
     const angle = p.angle;
     polygon(g, [
       { x: px + Math.cos(angle) * 5, y: py + Math.sin(angle) * 5 },
@@ -4431,9 +7091,12 @@ export class Blackout extends Component {
       this.makeNode(id, this.battleArtwork!);
     if (typeof art !== 'string') {
       const badge = this.makeNode('Air support aircraft', root);
-      const sprite = this.setupSprite(badge, art, rect.h * 0.32, rect.h * 0.79);
-      sprite.color = color('#ffe3a7');
-      badge.angle = -36;
+      const plate = this.graphics('Support button plate', root);
+      disc(plate, 0, 0, rect.h * 0.43, '#282824', 245);
+      plate.strokeColor = color('#d4a950', 225); plate.lineWidth = 2;
+      plate.circle(0, 0, rect.h * 0.43); plate.stroke();
+      badge.setSiblingIndex(root.children.length - 1);
+      this.setupSprite(badge, art, rect.h * 0.49, rect.h * 0.64);
     }
     root.getComponent(UITransform)!.setContentSize(rect.w, rect.h);
     root.setPosition(rect.x + rect.w / 2 - W / 2, rect.y + rect.h / 2 - H / 2);
@@ -4458,7 +7121,89 @@ export class Blackout extends Component {
     }
   }
   private releaseHud(owner: number | null) { if (owner !== null) for (const a of this.hudActions) a.owners.delete(owner); }
+  private buildSurvivalAmmo(legacy: Node[]) {
+    const frame = this.timedSurvivalFrames.get('ammo-card');
+    if (!frame || !this.battleArtwork) return;
+    const { x, y, w, h } = HUD.ammo;
+    const cards = [false, true].map(special => {
+      const root = this.makeNode(special ? 'Special weapon card' : 'Base weapon card', this.battleArtwork!);
+      this.campaignSprite(root, frame, W / 2, H / 2, w, h);
+      const icon = this.makeNode('Weapon icon', root);
+      icon.setPosition(-w * .29, 3);
+      const name = this.text('stack-gun-' + special, '', W / 2 + w * .19, H / 2 - h * .29,
+        13, C.text, root, w * .55, Label.HorizontalAlign.CENTER);
+      const ammo = this.text('stack-ammo-' + special, '', W / 2 + w * .19, H / 2 + h * .09,
+        23, C.text, root, w * .55, Label.HorizontalAlign.CENTER);
+      return { root, icon, name, ammo };
+    });
+    const rearY = y - h * .49;
+    const hit = [this.addButton('weapon-front', x, y, w, h, () => this.requestSurvivalWeaponSwap()),
+      this.addButton('weapon-rear', x + 14, rearY, w, h, () => this.requestSurvivalWeaponSwap())];
+    this.survivalAmmo = { cards, legacy, hit };
+  }
+  private requestSurvivalWeaponSwap() {
+    const b = this.battle;
+    if (!b.canSwitchSurvivalWeapon() || this.survivalSwap || this.transition) return;
+    if (!this.survivalAmmo) { b.switchSurvivalWeapon(); this.uiTick = 0; return; }
+    this.mouseFire = this.mouseQueuedFire = false;
+    this.survivalSwap = { time: 0, startedWithSpecial: b.survivalSpecialActive, committed: false };
+  }
+  private updateSurvivalAmmo(dt: number) {
+    const widget = this.survivalAmmo;
+    if (!widget) return;
+    const b = this.battle, special = b.survivalSpecial, showing = !!special;
+    for (const node of widget.legacy) node.active = !showing;
+    for (const key of ['ammo', 'gun']) {
+      const label = this.labels.get(key);
+      if (label) label.node.active = !showing;
+    }
+    for (const node of widget.hit) node.active = showing;
+    for (const card of widget.cards) card.root.active = showing;
+    if (!special) { this.survivalSwap = undefined; return; }
+    const swap = this.survivalSwap;
+    if (swap) {
+      swap.time += dt;
+      if (!swap.committed && swap.time >= .12) {
+        if (!b.switchSurvivalWeapon()) this.survivalSwap = undefined;
+        else { swap.committed = true; this.uiTick = 0; }
+      }
+      if (swap.time >= .24) this.survivalSwap = undefined;
+    }
+    const { x, y, w, h } = HUD.ammo, motion = this.survivalSwap, t = clamp((motion?.time ?? 0) / .24, 0, 1);
+    const mix = t * t * (3 - 2 * t), swing = Math.sin(t * Math.PI);
+    widget.cards.forEach((card, i) => {
+      const isSpecial = i === 1, active = b.survivalSpecialActive === isSpecial;
+      const startedInFront = (motion?.startedWithSpecial ?? b.survivalSpecialActive) === isSpecial;
+      const offset = motion ? startedInFront ? mix : 1 - mix : active ? 0 : 1;
+      card.root.setPosition(x + w / 2 - W / 2 + offset * 14 + swing * (startedInFront ? -22 : 22),
+        y + h / 2 - H / 2 - offset * h * .49 + swing * (startedInFront ? 5 : -5));
+      if (active) card.root.setSiblingIndex(widget.cards[1 - i].root.getSiblingIndex() + 1);
+      const background = card.root.children[0]?.getComponent(Sprite);
+      if (background) background.color = color(active ? '#ffffff' : '#aaa99f');
+      const data = b.survivalWeaponReadout(isSpecial);
+      card.name.string = data.name;
+      card.name.color = color(active ? '#ffe1a3' : '#ccb998');
+      card.ammo.string = active && b.player.reload > 0 ? '换弹 ' + b.player.reload.toFixed(1) + 's' :
+        String(data.ammo).padStart(2, '0') + ' / ' + data.reserve;
+      const face = isSpecial ? this.timedSurvivalFrames.get(special.id) :
+        this.shopFrames.get(FIXED_WEAPON_ART[b.heroId]) ?? this.supplyUiFrames.get(heroes[b.heroId].weapon);
+      card.icon.active = !!face;
+      card.icon.setPosition(-w * .29, active ? 3 : -h * .23);
+      if (face) {
+        const icon = card.icon.getComponent(Sprite);
+        const { width, height } = face.originalSize, scale = Math.min(74 / width, 39 / height);
+        if (!icon) this.setupSprite(card.icon, face, width * scale, height * scale);
+        else if (icon.spriteFrame !== face) {
+          icon.spriteFrame = face;
+          card.icon.getComponent(UITransform)!.setContentSize(width * scale, height * scale);
+        }
+      }
+    });
+  }
   private updateHudFeedback(dt: number) {
+    this.updateSurvivalAmmo(dt);
+    this.updateBattleHealth(dt);
+    this.updateBattleNoticeFade();
     const v = this.moving ? this.moveVector : { x: 0, y: 0 };
     const ease = this.moving ? 1 : 1 - Math.exp(-dt * 24);
     this.capOffset.x += (v.x * 39 - this.capOffset.x) * ease;
@@ -4523,30 +7268,77 @@ export class Blackout extends Component {
       const product = this.shopProduct;
       this.shopProduct = undefined; this.open(product ? 'shop' : this.shopBack); return;
     }
-    if (e.keyCode === KeyCode.ESCAPE && this.mode === 'chapters') { this.open('menu'); return; }
-    if (e.keyCode === KeyCode.ESCAPE && this.mode === 'chapter-intro') { this.open('chapters'); return; }
-    if (e.keyCode === KeyCode.ESCAPE && this.mode === 'select-hero') { this.open('chapter-intro'); return; }
+    if (e.keyCode === KeyCode.ESCAPE && (this.mode === 'chapters' || this.mode === 'profile-info')) { this.open('menu'); return; }
+    if (e.keyCode === KeyCode.ESCAPE && this.mode === 'survival-entry') { this.open('menu'); return; }
+    if (e.keyCode === KeyCode.ESCAPE && this.mode === 'survival-resume') { this.open('survival-entry'); return; }
+    if (e.keyCode === KeyCode.ESCAPE && this.mode === 'survival-hero') { this.closeSurvivalPicker(); return; }
+    if (e.keyCode === KeyCode.ESCAPE && this.mode === 'street-loading') { this.backFromDeparture(); return; }
+    if (e.keyCode === KeyCode.ESCAPE && this.mode === 'survival-radio') { this.open('playing'); return; }
+    if (this.mode === 'survival-map' && (e.keyCode === KeyCode.ESCAPE || e.keyCode === KeyCode.KEY_M)) { this.open('playing'); return; }
+    if (e.keyCode === KeyCode.ESCAPE && this.mode === 'select-hero') { this.open('chapters'); return; }
     if (e.keyCode === KeyCode.ESCAPE && this.mode === 'help') { this.open('settings'); return; }
     if (e.keyCode === KeyCode.ESCAPE && this.mode === 'settings') { this.open(this.battleSettings ? 'playing' : 'menu'); return; }
     if (e.keyCode === KeyCode.ENTER) {
       if (this.mode === 'menu') this.open('chapters');
-      else if (this.mode === 'chapter-intro') this.openSortiePicker();
-      else if (this.mode === 'select-hero') this.dispatchSortie();
+      else if (this.mode === 'street-loading') this.confirmDeparture();
+      else if (this.mode === 'select-hero' || this.mode === 'survival-hero') this.dispatchSortie();
       else if (this.mode === 'pause') this.open('playing');
       return;
     }
     if (e.keyCode === KeyCode.ESCAPE && this.reader.open) { this.closeReader(); return; }
+    if (this.mode === 'playing' && this.battle.survival) {
+      if (e.keyCode === KeyCode.KEY_B) { this.toggleSurvivalQuick(); return; }
+      if (e.keyCode === KeyCode.ESCAPE && (this.suppliesOpen || this.survivalQuickOpen || this.survivalWorkshopOpen || this.survivalCrateId || this.survivalDoorPanel || this.survivalVehiclePanel)) {
+        this.closeSurvivalPanels(); return;
+      }
+      if (e.keyCode === KeyCode.KEY_X) { this.requestSurvivalWeaponSwap(); return; }
+      if (e.keyCode === KeyCode.ESCAPE && this.battle.survivalPlacement) { this.battle.cancelSurvivalPlacement(); return; }
+      if (e.keyCode === KeyCode.ESCAPE && this.battle.survivalDoorWork) { this.battle.cancelSurvivalDoorWork(); this.toast('已取消施工', undefined, 'warning'); return; }
+    }
     if (e.keyCode === KeyCode.ESCAPE || e.keyCode === KeyCode.KEY_P) { if (this.mode === 'playing') this.open('pause'); else if (this.mode === 'pause') this.open('playing'); return; }
     if (this.mode !== 'playing') return;
+    if (e.keyCode === KeyCode.KEY_M && this.battle.survival) { this.open('survival-map'); return; }
     if (e.keyCode === KeyCode.SPACE) this.dodge();
     if (e.keyCode === KeyCode.KEY_R) this.battle.reload();
-    if (e.keyCode === KeyCode.KEY_G) this.useTactical();
+    if (e.keyCode === KeyCode.KEY_G) {
+      if (this.battle.operationRun && this.battle.tactical.selected === 'grenade') this.operationGrenadeKey = true;
+      else this.useTactical();
+    }
+    if (e.keyCode === KeyCode.KEY_V && this.battle.operationRun) this.callOperationAir();
     if (e.keyCode === KeyCode.KEY_T && this.battle.apartment) this.placeApartmentTrap();
-    if (e.keyCode === KeyCode.KEY_E) this.interactOrInvestigate();
+    if (e.keyCode === KeyCode.KEY_E && !this.startSurvivalDoorHold(-1)) this.interactOrInvestigate();
     if (e.keyCode === KeyCode.KEY_F) this.battle.collectPickup();
   }
   private interactOrInvestigate() {
-    if (this.readerLayer || this.mode !== 'playing') return;
+    if (this.readerLayer || this.mode !== 'playing' || this.survivalDoorPanel || this.battle.survivalDoorWork) return;
+    const b = this.battle;
+    if (b.survivalAtConvoy && b.interact()) return;
+    const vehicle = b.survivalVehicleAtPlayer();
+    if (vehicle && b.interact()) {
+      if (b.status === 'playing') {
+        this.closeSurvivalPanels();
+        this.survivalVehiclePanel = vehicle;
+        this.mouseFire = this.mouseQueuedFire = false;
+        this.updateHud();
+      }
+      return;
+    }
+    if (this.battle.survivalAtRadio && this.battle.interact()) { this.open('survival-radio'); return; }
+    if (this.battle.survivalAtWorkbench && this.battle.interact()) {
+      this.survivalWorkshopOpen = true;
+      this.suppliesOpen = this.survivalQuickOpen = false;
+      this.survivalCrateId = undefined; this.survivalHeldItem = undefined;
+      this.mouseFire = this.mouseQueuedFire = false;
+      this.updateHud(); return;
+    }
+    const crate = this.battle.openSurvivalCrate();
+    if (crate) {
+      this.survivalCrateId = crate.id; this.survivalWorkshopOpen = false; this.survivalHeldItem = undefined;
+      this.mouseFire = this.mouseQueuedFire = false;
+      this.updateHud(); return;
+    }
+    const broken = this.battle.nearbySurvivalDoor();
+    if (broken?.destroyed) { this.openSurvivalDoorPanel(broken.id); return; }
     const clue = this.battle.nearbyClue();
     if (clue) {
       const result = this.battle.investigateClue(this.profile);
@@ -4560,9 +7352,20 @@ export class Blackout extends Component {
     if (!this.battle.placeApartmentTrap()) this.toast('此处暂时无法布置麻痹陷阱');
     else { this.toast('麻痹陷阱已布置'); this.uiTick = 0; }
   }
-  private keyUp(e: EventKeyboard) { this.keys.delete(e.keyCode); }
+  private keyUp(e: EventKeyboard) {
+    this.keys.delete(e.keyCode);
+    if (e.keyCode === KeyCode.KEY_E && this.survivalDoorHold?.owner === -1) {
+      const hold = this.survivalDoorHold;
+      this.survivalDoorHold = undefined;
+      if (!hold.opened) this.interactOrInvestigate();
+    }
+    if (e.keyCode === KeyCode.KEY_G && this.operationGrenadeKey) {
+      this.operationGrenadeKey = false;
+      this.useTactical();
+    }
+  }
   private hitButton(x: number, y: number): boolean {
-    return this.buttons.some(b => b.node.active && x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
+    return this.overSurvivalBag(x, y) || this.buttons.some(b => b.node.active && x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
   }
   private pointerPosition(e: EventMouse | EventTouch) {
     // Match the actual UI camera, including letterboxing and editor preview resizing.
@@ -4572,23 +7375,55 @@ export class Blackout extends Component {
     return { x: local.x + W / 2, y: local.y + H / 2 };
   }
   private overStreetStory(x: number, y: number) {
-    const story = this.streetStory;
+    const story = this.operationDialogue ?? this.streetStory;
     if (!story || !story.node.active) return false;
     const left = story.node.position.x + W / 2, centerY = story.node.position.y + H / 2;
     return x >= left && x <= left + 510 && y >= centerY - 55 && y <= centerY + 55;
   }
-  private mouseMove(e: EventMouse) { if (this.readerLayer || this.transition) return; const p = this.pointerPosition(e); this.mx = p.x; this.my = p.y; if (this.mode === 'playing' && !this.hitButton(p.x, p.y) && !this.overStreetStory(p.x, p.y)) this.mouseAimInput = true; }
-  private mouseDown(e: EventMouse) { if (this.readerLayer || this.transition || this.tutorialPrompt || sys.isMobile || e.getButton() !== EventMouse.BUTTON_LEFT) return; const p = this.pointerPosition(e); if (this.overStreetStory(p.x, p.y)) return; this.mouseMove(e); this.startSupplyPress(this.mx, this.my, -2); this.pressHud(this.mx, this.my, -2); if (!this.hitButton(this.mx, this.my) && this.mode === 'playing') this.mouseFire = true; }
+  private mouseMove(e: EventMouse) {
+    if (this.readerLayer) return;
+    const point = this.pointerPosition(e);
+    this.mx = point.x; this.my = point.y;
+    if (this.mode === 'playing' && !this.transition &&
+        !this.hitButton(point.x, point.y) && !this.overStreetStory(point.x, point.y)) this.mouseAimInput = true;
+  }
+  private mouseDown(e: EventMouse) {
+    if (this.readerLayer || this.transition || this.tutorialPrompt || sys.isMobile ||
+        e.getButton() !== EventMouse.BUTTON_LEFT) return;
+    const point = this.pointerPosition(e);
+    if (this.mode === 'street-loading') {
+      if (!this.hitButton(point.x, point.y)) this.confirmDeparture();
+      return;
+    }
+    if (this.overStreetStory(point.x, point.y)) return;
+    this.mouseMove(e);
+    this.startSupplyPress(this.mx, this.my, -2);
+    this.pressHud(this.mx, this.my, -2);
+    if (!this.hitButton(this.mx, this.my) && this.mode === 'playing') {
+      this.mouseFire = true;
+      this.mouseQueuedFire = true;
+    }
+  }
   private mouseUp() { if (this.readerLayer) { this.resetInput(); return; } this.mouseFire = false; this.releaseHud(-2); }
   private touchStart(e: EventTouch) {
     if (this.readerLayer) return;
     // Desktop clicks also generate touch events in Cocos; only mobile uses sticks.
     if (!sys.isMobile || this.tutorialPrompt || this.transition) return;
     const p = this.pointerPosition(e), id = e.getID();
+    if (this.mode === 'street-loading') {
+      if (!this.hitButton(p.x, p.y)) this.confirmDeparture();
+      return;
+    }
     if (id === null) return;
     if (this.overStreetStory(p.x, p.y)) return;
     this.startSupplyPress(p.x, p.y, id);
     this.pressHud(p.x, p.y, id);
+    const grenade = this.buttons.find(button => button.node.name === 'Button-grenade');
+    if (this.battle.operationRun && this.battle.tactical.selected === 'grenade' &&
+        grenade?.node.active && p.x >= grenade.x && p.x <= grenade.x + grenade.w && p.y >= grenade.y && p.y <= grenade.y + grenade.h) {
+      if (!this.operationGrenadeTouch) this.operationGrenadeTouch = { id, ...p, angle: this.battle.player.angle, range: 150 };
+      return;
+    }
     if (this.hitButton(p.x, p.y) || this.mode !== 'playing') return;
     const inside = (r: typeof HUD.move) => Math.hypot((p.x - r.x - r.w / 2) / (r.w / 2), (p.y - r.y - r.h / 2) / (r.h / 2)) <= 1;
     if (inside(HUD.move) && this.moveTouch < 0) { this.moveTouch = id; this.moveOrigin = { x: HUD.move.x + HUD.move.w / 2, y: HUD.move.y + HUD.move.h / 2 }; this.moving = true; }
@@ -4605,6 +7440,12 @@ export class Blackout extends Component {
   private touchMove(e: EventTouch) {
     if (!sys.isMobile || this.tutorialPrompt || this.transition) return;
     const p = this.pointerPosition(e), id = e.getID();
+    const grenade = this.operationGrenadeTouch;
+    if (grenade && id === grenade.id) {
+      const dx = p.x - grenade.x, dy = p.y - grenade.y, length = Math.hypot(dx, dy);
+      grenade.angle = length > 10 ? Math.atan2(dy, dx) : this.battle.player.angle;
+      grenade.range = length > 10 ? clamp(length * 3.6, 55, OPERATION_GRENADE_RANGE) : 150;
+    }
     if (id === this.moveTouch) { const dx = p.x - this.moveOrigin.x, dy = p.y - this.moveOrigin.y, d = Math.max(52, Math.hypot(dx, dy)); this.moveVector = { x: dx / d, y: dy / d }; }
     if (id === this.aimTouch) {
       const dx = p.x - this.aimOrigin.x, dy = p.y - this.aimOrigin.y;
@@ -4618,6 +7459,11 @@ export class Blackout extends Component {
   }
   private touchEnd(e: EventTouch) {
     this.releaseHud(e.getID());
+    const grenade = this.operationGrenadeTouch;
+    if (grenade && e.getID() === grenade.id) {
+      this.operationGrenadeTouch = undefined;
+      if (e.type !== Input.EventType.TOUCH_CANCEL) this.useTactical(grenade.angle, grenade.range);
+    }
     if (e.getID() === this.moveTouch) { this.moveTouch = -1; this.moving = false; this.moveVector = { x: 0, y: 0 }; }
     if (e.getID() === this.aimTouch) { this.aimTouch = -1; this.aiming = false; this.aimOuter = false; this.aimRadius = 0; }
   }
@@ -4626,7 +7472,7 @@ export class Blackout extends Component {
   private hide() { if (this.mode === 'playing' && !this.transition) this.open('pause'); else this.resetInput(); }
   private play(name: string) {
     if (name === 'door-use' || !this.profile.sound) return;
-    const support = name === 'support-shot' || name === 'support-shot-suppressed' || name === 'operation-hostile-shot';
+    const support = name === 'operation-air-burst' || name === 'support-shot' || name === 'support-shot-suppressed' || name === 'operation-hostile-shot';
     const quiet = name === 'support-shot-suppressed' || name === 'shoot' && this.battle.hero.quiet;
     const clip = this.clips.get(quiet ? 'shoot-suppressed' : support ? 'shoot' : name === 'door-sound' ? 'reload' :
       name === 'door-break' || name === 'grenade-blast' ? 'kill' : name);
@@ -4651,7 +7497,7 @@ export class Blackout extends Component {
     dt = Math.min(dt, 0.05); this.presentationTime += dt; this.noticeTime = Math.max(0, this.noticeTime - dt); this.hitAudioTime = Math.max(0, this.hitAudioTime - dt);
     const cinema = this.operationCinema;
     this.stepOperationDialogue(dt);
-    this.stepOperationStoryLock(dt);
+    this.stepOperationEscape(dt);
     if (this.mode === 'operation-cinematic' && cinema) {
       cinema.time += dt;
       if (cinema.draw(cinema.time)) cinema.finish();
@@ -4667,7 +7513,7 @@ export class Blackout extends Component {
     }
     if (!transitioning) this.updateGhostRadio(dt);
     this.updateApartmentPresentation(dt);
-    if (this.mode === 'street-loading') { this.updateChapterLoad(dt); return; }
+    if (this.mode === 'street-loading') { this.updateDeparture(dt); return; }
     if (!showsBattle(this.mode, this.battleSettings)) {
       if (this.mode === 'training') this.stepTrainingSwitch(dt);
       if (this.mode === 'cases') this.stepCaseRoll(dt);
@@ -4700,20 +7546,27 @@ export class Blackout extends Component {
       return;
     }
     this.syncActorMotions();
-    const active = this.mode === 'playing' && !transitioning && !this.transition && !this.operationStoryLock, p = this.battle.player;
+    const active = this.mode === 'playing' && !transitioning && !this.transition, p = this.battle.player;
     if (active) {
+      this.stepSurvivalDoorHold(dt);
       this.weaponEffects.step(dt, this.battle.blockers);
       if (this.tutorialPrompt) {
         this.resetInput();
       } else {
       const v = this.movement();
       const stick = this.aiming && this.aimRadius > 0;
-      const intent = stick || !sys.isMobile;
-      const raw = stick ? Math.atan2(this.aimVector.y, this.aimVector.x) : !sys.isMobile ? Math.atan2(this.my - H / 2 - this.feedback.y, this.mx - W / 2 - this.feedback.x) : p.angle;
-      const aim = this.aimAssist.step(dt, raw, p.angle, intent && !p.knockback, sys.isMobile && this.profile.aimAssist, this.battle.aimCandidates());
+      const overBag = !sys.isMobile && this.overSurvivalBag(this.mx, this.my);
+      const pointer = overBag ? p.angle : Math.atan2(this.my - H / 2 - this.feedback.y, this.mx - W / 2 - this.feedback.x);
+      const raw = stick ? Math.atan2(this.aimVector.y, this.aimVector.x) : p.angle;
+      const aim = sys.isMobile ? this.aimAssist.step(dt, raw, p.angle, stick && !p.knockback,
+        this.profile.aimAssist, this.battle.aimCandidates()) : { angle: pointer, sweeping: false };
       this.lastFacing = aim.angle; this.sweeping = aim.sweeping;
-      this.battle.update(dt, { ...v, angle: this.lastFacing, fire: !this.profile.autoFire && (this.mouseFire || stick && this.aimOuter), autoFire: this.profile.autoFire, sweeping: this.sweeping,
-        aimActive: sys.isMobile ? stick && !this.aimOuter : this.mouseAimInput, manualHeld: this.mouseFire || this.aimOuter });
+      this.battle.operationRadioBusy = !!this.operationDialogue;
+      const fire = !overBag && (this.mouseFire || this.mouseQueuedFire || stick && this.aimOuter);
+      this.mouseQueuedFire = false;
+      this.battle.update(dt, { ...v, angle: this.lastFacing, fire: !this.profile.autoFire && fire,
+        autoFire: this.profile.autoFire && !overBag, sweeping: this.sweeping,
+        aimActive: sys.isMobile ? stick && !this.aimOuter : this.mouseAimInput, manualHeld: fire });
       for (const footfall of this.battle.bruteFootfalls) this.feedback.heavyFootfall(footfall, p);
       this.mouseAimInput = false;
       const tutorial = this.battle.tutorial;
@@ -4730,70 +7583,94 @@ export class Blackout extends Component {
           this.motion.shoot(p, this.battle.heroId);
           this.weaponEffects.shoot(this.playerWeaponMount(), this.battle.heroId);
         }
-        if (event === 'hurt') this.feedback.hurt(p.hp / p.maxHp);
+        if (event === 'hurt') this.feedback.hurt(p.hp / p.maxHp, this.battle.lastHurtAngle);
         if (event === 'grenade-blast') {
-          const effect = this.battle.tacticalEffects.find(item => item.kind === 'grenade' && item.life === item.max);
-          if (effect) this.feedback.explosion(effect, p, !lineClear(effect, p, this.battle.blockers));
+          const effect = this.battle.tacticalEffects.find(item => (item.kind === 'grenade' || item.kind === 'proximity-mine') && item.life === item.max);
+          if (effect) this.feedback.explosion(effect, p, !lineClear(effect, p, this.battle.blockers), effect.kind === 'proximity-mine' ? 1.45 : 1);
         }
         if (event === 'clear') this.toast(this.battle.stage.operation ? '敌人已肃清 · 前往目标' : !this.battle.stage.dorm && !this.battle.stage.street && this.battle.cleared.every(Boolean) ? '所有区域已清理，前往洗衣房东北角楼梯撤离' : '区域安全 · 生命恢复 20，继续前进');
-        if (event === 'room' && !this.battle.stage.dorm && !this.battle.stage.street && !this.battle.stage.operation) this.toast(`进入${this.battle.rooms[Math.max(0, roomAt(p, this.battle.rooms))].kind} · 留意攻击预警`);
+        if (event === 'room' && !this.battle.survival && !this.battle.stage.dorm && !this.battle.stage.street && !this.battle.stage.operation) this.toast(`进入${this.battle.rooms[Math.max(0, roomAt(p, this.battle.rooms))].kind} · 留意攻击预警`);
         if (event === 'operation-air-request') this.speakOperation([
-          ['幽灵一组', '小鸟二号，请打击我标记的位置。'],
-          ['小鸟二号', '收到，正在打击。'],
+          ['littlebird', '我到了，正在找目标。'],
+        ]);
+        if (event === 'operation-first-contact') this.speakOperation([
+          ['two', '前面有人，留神。'],
         ]);
         if (event === 'operation-market') this.speakOperation([
-          ['幽灵一组', '我们进市集了，侧巷有人在增援。'],
-          ['小鸟二号', '前方还有封锁线。市集仓库有后门，可以穿过去。'],
-        ]);
+          ['three', '侧巷有人过来了！'],
+                  ]);
         if (event === 'operation-emplacement') this.speakOperation([
-          ['幽灵一组', '看到两处重机枪阵地。各组从掩体分开推进。'],
-          ['指挥部', '指挥部就在封锁线后方。攻下阵地后，继续向东。'],
-        ]);
-        if (event === 'operation-hold') this.speakOperation([
-          ['幽灵二组', '登陆区到了！各组守住这里。'],
-          ['指挥部', '接应编队仍未应答，继续呼叫。'],
-        ]);
-        if (event === 'operation-injection') {
-          const king = this.battle.enemies.find(e => e.operationBoss === 'king');
-          this.beginOperationStoryLock('injection', king?.x ?? OPERATION_LEADER.x, king?.y ?? OPERATION_LEADER.y, 1.6);
-          this.speakOperation([
-            ['「阀」首领', '你们来迟了。样本已经送往各地，你们留不住我。'],
-            ['幽灵一组', '他手里是注射器！离他远点！'],
-            ['指挥部', '目标正在变异……所有单位后撤！'],
-          ]);
+          ['four', '两挺机枪，先找掩体！'],
+                  ]);
+        if (event === 'operation-rope-ready') this.speakOperation([['pickup', '绳放下了。一个个上。']]);
+        if (event === 'operation-boarding') {
+          this.clearOperationDialogue();
+          this.resetInput();
+          this.feedback.reset();
+          this.weaponEffects.clear();
+          this.uiTick = 0;
         }
+        if (event === 'operation-hold') this.speakOperation([
+          ['pickup', '还要一会儿。你们先撑住。'],
+                  ]);
+        if (event === 'operation-injection') this.speakOperation([
+          ['rimelet', '来晚了。样本已经送走了。'],
+          ['two', '他在扎针！往后退！'],
+        ]);
         if (event === 'operation-king-escape') {
           const king = this.battle.enemies.find(e => e.operationBoss === 'king');
-          this.beginOperationStoryLock('escape', king?.x ?? OPERATION_LEADER.x, king?.y ?? OPERATION_LEADER.y, 2.2);
-          this.toast('任务更新 · 撤回开场登陆区');
+          this.beginOperationEscape(king?.x ?? OPERATION_LEADER.x, king?.y ?? OPERATION_LEADER.y, 2.2);
+          this.toast('任务更新 · 经大厅左侧西门撤回登陆区');
           this.speakOperation([
-            ['丧尸王', '你们做的只是徒劳而已,末日已经到了!'],
+            ['rimelet', '你们挡不住。末日已经到了。'],
           ]);
         }
         if (event === 'operation-announcement') {
-          this.toast('全军通告 · 核打击窗口 1 小时');
           this.speakOperation([
-            ['军队指挥部', '接应编队失联。所有单位立即撤出，核打击将在一小时后实施。'],
-            ['幽灵一组', '收到。沿主街撤回登陆区，别停下。'],
+            ['command', '接应在路上。你们撤出后，空袭开始。'],
           ]);
         }
         if (event === 'operation-slam') this.play('grenade-blast');
-        if (event === 'alert' && !this.battle.events.includes('street-alarm')) this.toast('附近敌人已警戒 · 留意攻击预警');
-        if (event === 'door-blocked' && this.battle.doors.some(d => d.blocked > 0 && Math.hypot(p.x - d.x, p.y - d.y) < 200)) this.toast('门被挡住了，请让开门扇的转动范围');
-        if (event === 'door-geometry-blocked') this.toast('门扇被墙体或其他门挡住了');
-        if (event === 'door-warning') this.toast('⚠ 敌人正在强行撞门');
-        if (event === 'door-forced') this.toast('门被强行撞开');
+        if (event === 'alert' && !this.battle.events.includes('street-alarm')) this.toast('附近敌人已警戒 · 留意攻击预警', 3.4, 'warning');
+        if (event === 'door-blocked' && this.battle.doors.some(d => d.blocked > 0 && Math.hypot(p.x - d.x, p.y - d.y) < 200)) this.toast('门被挡住了，请让开门扇的转动范围', undefined, 'warning');
+        if (event === 'door-geometry-blocked') this.toast('门扇被墙体或其他门挡住了', undefined, 'warning');
+        if (event === 'door-warning') this.toast('敌人正在强行撞门', 3.4, 'warning');
+        if (event === 'door-forced') this.toast('门被强行撞开', undefined, 'warning');
         if (event === 'stairs-locked') this.toast('楼梯间铁门锁住了 · 到东侧值班室找钥匙');
         if (event === 'exit-locked') this.toast('宿舍楼铁门锁住了 · 去宿管室找钥匙');
         if (event === 'key-pickup') this.toast(`已拾取${this.battle.stage.dorm?.pickup.name} · ${this.battle.objective}`);
-        if (event === 'unlock') this.toast('铁门已解锁');
-        if (event === 'alarm') this.toast('宿管室警报响了 · 丧尸正向这里靠近');
-        if (event === 'street-alarm') { this.play('alarm'); this.toast('汽车警报响了 · 从路口向北突围'); }
+        if (event === 'unlock') this.toast('铁门已解锁', undefined, 'success');
+        if (event === 'alarm') this.toast('宿管室警报响了 · 丧尸正向这里靠近', 3.4, 'warning');
+        if (event === 'street-alarm') { this.play('alarm'); this.toast('汽车警报响了 · 从路口向北突围', 3.4, 'warning'); }
         if (event === 'street-alarm-pulse') this.play('alarm');
         if (event === 'support-called') this.startGhostRadio();
         if (event === 'ammo-empty') this.toast('备用弹药已耗尽 · 寻找弹药');
-        if (event === 'supply-full') this.toast('该补给已满');
+        if (event === 'supply-full') {
+          if (this.battle.survival) { this.survivalQuickOpen = true; this.uiTick = 0; }
+          const block = this.battle.survivalPickupBlocked;
+          this.toast(block ? SURVIVAL_GEAR[block.kind][0] + '需要连续 ' + block.width + '×' + block.height + ' 格（' +
+            block.width * block.height + ' 格）' : '该补给已满');
+        }
         if (event === 'loot') this.toast(this.battle.events.includes('mod-cache') ? '已拾取配件箱 · 行动结束时结算' : '已拾取物资');
+        if (event === 'survival-stair-threat') this.toast('听见楼梯传来脚步', 2.4, 'warning');
+        if (event === 'survival-airdrop') { this.play('alarm'); this.toast('空投已落地 · 查看港区地图', 4); this.uiTick = 0; }
+        if (event === 'survival-mine-trigger') { this.play('unlock'); this.toast('感应地雷已触发', 1.25); }
+        if (event === 'survival-shock-trigger') this.play('unlock');
+        if (event === 'survival-sentry-fire') this.play('shoot');
+        if (event === 'survival-sentry-placed') this.toast('哨械枪已部署');
+        if (event === 'survival-sentry-blocked') this.toast('落点被占用 · 哨械枪已放回背包');
+        if (event === 'survival-sentry-lost') this.toast('一台哨械枪已被摧毁');
+        if (event === 'survival-door-work-cancel') this.toast('门位施工中断 · 材料已保留', undefined, 'warning');
+        if (event === 'survival-door-repaired' || event === 'survival-door-installed') {
+          this.play('door-sound');
+          this.toast(event === 'survival-door-repaired' ? '门板修补完成' : '新门板已安装', undefined, 'work');
+        }
+        if (event === 'survival-timed-checkpoint') this.saveSurvivalCheckpoint();
+        if (event === 'survival-part-found') this.toast('发现新的撤离部件 · 查看港区地图');
+        if (event === 'survival-convoy-radio') this.speakOperation([
+          ['headquarters', '装甲车队两分钟后到工事南门。'],
+          ['headquarters', '车队停留三分钟。能赶到，就跟他们撤离。'],
+        ]);
         if (event === 'supply-cancel') this.toast('补给使用中断');
         if (event === 'street-supply') this.toast('已使用急救包 · 恢复生命');
         if (event === 'descend') this.beginFloorLoad();
@@ -4829,13 +7706,18 @@ export class Blackout extends Component {
         if (event === 'engineer-down') this.toast('维川倒地 · 靠近后扶起');
         if (event === 'engineer-wait') this.toast('等维川到达电梯再出发');
       }
-      if (this.battle.enemies.some(e => (e.forceOpen || 0) > 0)) this.toast('⚠ 敌人正在强行撞门 · 立即远离门扇');
+      if (this.battle.enemies.some(e => (e.forceOpen || 0) > 0)) this.toast('敌人正在强行撞门 · 立即远离门扇', 3.4, 'warning');
       this.battle.events = [];
-      if (this.battle.status === 'playing' && this.battle.operationRun?.ready && !this.operationStoryLock) {
+      if (this.battle.status === 'playing' && this.battle.operationRun?.ready) {
         const part = this.battle.stage.operation?.part;
         if (part === 'city' && this.battle.advanceOperation(operationLevel('compound'))) this.enterBattleScene(4);
         else if (part === 'compound' && this.battle.advanceOperation(operationLevel('defense'))) this.enterBattleScene(4);
         else if (part === 'defense') this.beginOperationCinematic('strike');
+        return;
+      }
+      if (this.battle.survival && this.battle.status !== 'playing') {
+        if (this.battle.survival.timed?.route) { this.transition = { kind: 'win', time: 0 }; this.resetInput(); }
+        else this.finishBattle();
         return;
       }
       if (this.battle.status === 'lost' && p.hp <= 0) {
@@ -4859,6 +7741,7 @@ export class Blackout extends Component {
     for (const e of this.battle.enemies) this.enemyMotions.get(e.id)?.step(dt, e, active && !this.transition);
     for (const ally of this.battle.allies) this.enemyMotions.get(ally.id)?.step(dt, ally, active && !this.transition);
     this.feedback.step(dt, p.hp / p.maxHp, active && !this.transition);
+    if (this.battle.stage.operation) this.updateOperationAirArt(active ? dt : 0);
     const offsetX = this.feedback.x, offsetY = this.feedback.y;
     const driving = this.battle.evacuationDrive;
     if (driving && this.getawaySprite) {
@@ -4866,30 +7749,39 @@ export class Blackout extends Component {
       this.getawaySprite.node.angle = driving.angle * 180 / Math.PI;
     }
     this.world.setPosition(-p.x + offsetX, -p.y + offsetY);
-    this.environment.setPosition(-p.x + offsetX, -p.y + offsetY);
+    const floorOffset = this.battle.survivalUpperFloor?.offsetX ?? 0;
+    this.environment.setPosition(-p.x + floorOffset + offsetX, -p.y + offsetY);
+    if (this.battle.survival) this.updateSurvivalRoofs(dt);
     // Exact actor clipping is refreshed each frame; only the soft texture is cached.
-    const visionRange = this.battle.playerVisionRange;
+    const evacuationView = this.battle.evacuationViewRadius;
+    const visionRange = evacuationView || this.battle.playerVisionRange;
     const allyRange = this.battle.allyVisionRange;
     const lamp = this.battle.stage.faultyDoorLamp;
-    const allies = this.battle.allies.filter(ally => ally.hp > 0 && Math.abs(ally.x - p.x) <= W / 2 + allyRange && Math.abs(ally.y - p.y) <= H / 2 + allyRange);
+    const allies = evacuationView ? [] : this.battle.allies.filter(ally => ally.hp > 0 && Math.abs(ally.x - p.x) <= W / 2 + allyRange && Math.abs(ally.y - p.y) <= H / 2 + allyRange);
     const allySight = allies.map(ally => [ally.id, Math.round(ally.x / 3), Math.round(ally.y / 3), Math.round(ally.angle * 40)].join(',')).join('|');
-    const grenadeLights = this.battle.grenadeLights;
+    const grenadeLights = this.battle.grenadeLights, airSight = this.battle.operationAirSight;
+    const airKey = airSight ? [airSight.x, airSight.y, airSight.radius].map(value => Math.round(value / 8)).join(',') : '';
     this.sightTick -= dt;
-    if (grenadeLights.length || this.hadGrenadeLight || this.sightTick <= 0 || allySight !== this.lastAllySight || this.lastGeometry !== this.battle.geometryRevision || Math.hypot(p.x - this.lastSightX, p.y - this.lastSightY) > 0.01 || Math.abs(angleDiff(p.angle, this.lastSightAngle)) > 0.001) {
+    if (grenadeLights.length || this.hadGrenadeLight || this.sightTick <= 0 || evacuationView !== this.lastEvacuationView || allySight !== this.lastAllySight || airKey !== this.lastAirSight || this.lastGeometry !== this.battle.geometryRevision || Math.hypot(p.x - this.lastSightX, p.y - this.lastSightY) > 0.01 || Math.abs(angleDiff(p.angle, this.lastSightAngle)) > 0.001) {
       this.sightTick = 1;
       const blocks = this.battle.visionBlockers.filter(r =>
         Math.abs(r.x + r.w / 2 - p.x) < visionRange + r.w && Math.abs(r.y + r.h / 2 - p.y) < visionRange + r.h);
-      const pts = visibilityPolygon(p, p.angle, blocks, visionRange);
+      const pts = visibilityPolygon(p, p.angle, blocks, visionRange, !!evacuationView);
+      if (this.survivalRoofLayer.active) {
+        this.survivalRoofStencil.clear();
+        polygon(this.survivalRoofStencil, floorOffset ? pts.map(q => ({ x: q.x - floorOffset, y: q.y })) : pts, '#ffffff');
+      }
       this.stencil.clear();
       polygon(this.stencil, pts, '#ffffff');
       const toScreen = (q: { x: number; y: number }) => ({ x: q.x - p.x + W / 2, y: q.y - p.y + H / 2 });
-      this.visibilityField.build(pts.map(toScreen), FEATHER_PIXELS, visibilityPolygon(p, p.angle, [], visionRange).map(toScreen), { origin: toScreen(p), peripheralRadius: peripheralRange(visionRange) });
+      this.visibilityField.build(pts.map(toScreen), FEATHER_PIXELS, visibilityPolygon(p, p.angle, [], visionRange, !!evacuationView).map(toScreen),
+        { origin: toScreen(p), peripheralRadius: evacuationView || peripheralRange(visionRange) });
       this.visibilityField.addSurfaces(visibleSurfaces(p, p.angle, blocks, visionRange).map(surface => ({ ...surface, polygon: surface.polygon.map(toScreen) })));
       for (const ally of allies) {
         const range = allyRange;
         const sight = visibilityPolygon(ally, ally.angle, blocks, range);
         polygon(this.stencil, sight, '#ffffff');
-        const field = this.allyVisibilityField ??= new VisibilityField();
+        const field = this.allyVisibilityField ??= new VisibilityField(this.visibilityField.width, this.visibilityField.height);
         field.build(sight.map(toScreen), FEATHER_PIXELS, visibilityPolygon(ally, ally.angle, [], range).map(toScreen),
           { origin: toScreen(ally), peripheralRadius: peripheralRange(range) });
         field.addSurfaces(visibleSurfaces(ally, ally.angle, blocks, range).map(surface => ({ ...surface, polygon: surface.polygon.map(toScreen) })));
@@ -4898,11 +7790,18 @@ export class Blackout extends Component {
       for (const flash of grenadeLights) {
         const sight = grenadeLightPolygon(flash, blocks);
         polygon(this.stencil, sight, '#ffffff');
-        const field = this.allyVisibilityField ??= new VisibilityField();
+        const field = this.allyVisibilityField ??= new VisibilityField(this.visibilityField.width, this.visibilityField.height);
         field.build(sight.map(toScreen), 42);
         const strength = clamp((GRENADE_LIGHT_TIME - (flash.max - flash.life)) / 0.27, 0, 1);
         this.visibilityField.mergeLight(field, strength * strength);
       }
+      if (airSight) {
+        this.stencil.fillColor = color('#ffffff');
+        this.stencil.circle(airSight.x, airSight.y, airSight.radius); this.stencil.fill();
+        this.visibilityField.addAerialSight(toScreen(airSight), airSight.radius, airSight.intensity);
+      }
+      this.lastAirSight = airKey;
+      this.lastEvacuationView = evacuationView;
       this.hadGrenadeLight = grenadeLights.length > 0;
       if (lamp) this.visibilityField.addDoorLamp(lamp, p, this.battle.blockers);
       this.visibilityTexture.uploadData(this.visibilityField.pixels);
@@ -4923,7 +7822,19 @@ export class Blackout extends Component {
         new Vec4(0, 0, 0, DOOR_LAMP_RADIUS));
       this.presentationMaterial.setProperty('feedback', new Vec4(this.feedback.hit, this.feedback.lowHealth, this.feedback.healthSeverity, 0));
       const gray = clamp((this.fallTime - FALL_DURATION) / GRAY_DURATION, 0, 1);
-      this.presentationMaterial.setProperty('grading', new Vec4(DARK_BRIGHTNESS, DARK_SATURATION, gray * gray * (3 - 2 * gray), 0));
+      const daylight = !!this.battle.survival;
+      const focus = daylight ? this.survivalFocus : undefined;
+      const interior = focus ? 1 - focus.opacity.opacity / 255 : 0;
+      if (focus) {
+        const r = focus.bounds;
+        const sceneX = p.x - floorOffset;
+        this.presentationMaterial.setProperty('interiorBounds', new Vec4(r.x + r.w / 2 - sceneX + W / 2, r.y + r.h / 2 - p.y + H / 2, r.w / 2, r.h / 2));
+        const room = focus.rooms[roomAt({ x: sceneX, y: p.y }, focus.rooms)] ?? r;
+        this.presentationMaterial.setProperty('currentRoomBounds', new Vec4(room.x + room.w / 2 - sceneX + W / 2,
+          room.y + room.h / 2 - p.y + H / 2, room.w / 2, room.h / 2));
+      }
+      this.presentationMaterial.setProperty('grading', new Vec4(daylight ? .67 : DARK_BRIGHTNESS,
+        daylight ? .8 : DARK_SATURATION, gray * gray * (3 - 2 * gray), interior));
     }
     const rasterDoors = this.doorArtBattle === this.battle && this.doorArtStage === this.battle.stage;
     if (rasterDoors) this.apartmentDoors.forEach((sprite, index) => {
@@ -4934,15 +7845,27 @@ export class Blackout extends Component {
       sprite.node.angle = door.angle * 180 / Math.PI;
       sprite.color = color(door.hit > 0 ? '#ffe3ad' : '#ffffff');
     });
-    drawDoors(this.doorsLit, this.battle.doors, this.battle.alarmTime, rasterDoors && this.apartmentDoors.length > 0);
+    const doors = this.battle.doors;
+    const exteriorDoors = this.battle.survival ? doors.filter(d => !this.survivalFloorDoors.has(d.id) &&
+      Math.abs(d.x - (p.x - floorOffset)) <= W / 2 + d.length + 32 && Math.abs(d.y - p.y) <= H / 2 + d.length + 32) : doors;
+    if (this.battle.survival) this.drawSurvivalDoorSurfaces(this.doorsLit, exteriorDoors);
+    else drawDoors(this.doorsLit, exteriorDoors, this.battle.alarmTime, rasterDoors && this.apartmentDoors.length > 0);
+    for (const house of this.survivalFloorArt) for (const floor of house.floors) {
+      if (floor.opacity.node.active) this.drawSurvivalDoorSurfaces(floor.doors, floor.doorIds.map(id => doors[id]));
+    }
     if (this.lastBloodBattle !== this.battle || this.lastBloodRevision !== this.battle.bloodRevision) {
-      drawBloodStains(this.bloodArt, this.battle.bloodStains, this.battle); this.lastBloodBattle = this.battle; this.lastBloodRevision = this.battle.bloodRevision;
+      const stains = this.battle.bloodStains;
+      const floorArt = this.survivalFloorArt.flatMap(house => house.floors);
+      drawBloodStains(this.bloodArt, floorArt.length ? stains.filter(stain => !floorArt.some(floor => roomAt(stain, [floor.bounds]) >= 0)) : stains, this.battle);
+      for (const floor of floorArt) drawBloodStains(floor.blood, stains.filter(stain => roomAt(stain, [floor.bounds]) >= 0), this.battle);
+      this.lastBloodBattle = this.battle; this.lastBloodRevision = this.battle.bloodRevision;
     }
     const animal = active && !this.transition && !this.tutorialPrompt && !this.battle.tutorial ? this.wildlife.step(dt, this.battle) : undefined;
     this.wildlifeArt.node.active = !!animal;
     if (animal) drawAmbientAnimal(this.wildlifeArt, animal);
     drawActors(this.actors, this.battle, this.motion.pose, this.hasPlayerArt(), this.artFrames.has('walker'), this.artFrames.has(this.rollKey()), this.enemyPoses, this.artFrames.has('operator') || this.streetFrames.has('engineer'), !!this.battle.apartment && this.streetFrames.has('brute'), !!this.grenadeFrame, this.grenadeBlastFrames.length > 0);
     this.updateGrenadeArt();
+    this.updateSurvivalDeviceArt(dt);
     this.updateMineArt();
     if (this.battle.tutorial) {
       const t = this.battle.tutorial;
@@ -4973,7 +7896,12 @@ export class Blackout extends Component {
       ring.strokeColor = color('#f5cf76', 130); ring.lineWidth = 1.75;
       ring.circle(x, y, parking.trapRadius); ring.stroke();
     }
-    const direction = active && !this.transition && !this.tutorialPrompt ? exitGuideAngle(this.battle) : undefined;
+    let direction = active && !this.transition && !this.tutorialPrompt ? exitGuideAngle(this.battle) : undefined;
+    if (direction !== undefined && (this.battle.stage.operation || this.battle.survival)) {
+      const previous = this.operationGuideHeading ?? direction;
+      direction = previous + angleDiff(direction, previous) * (1 - Math.exp(-dt * 10));
+      this.operationGuideHeading = direction;
+    } else this.operationGuideHeading = undefined;
     if (direction !== undefined) {
       const c = Math.cos(direction), s = Math.sin(direction);
       const x = c * 78 + offsetX, y = s * 78 + offsetY;
@@ -4989,7 +7917,7 @@ export class Blackout extends Component {
       this.sbox(this.exitArrow, x - 46, y + 1, 92 * work, 5, C.gold);
       this.text('generator-work', '操作中', x, y + 21, 17, C.text, this.canvas, 102, Label.HorizontalAlign.CENTER).isBold = true;
     } else if (workLabel) workLabel.string = '';
-    drawWeaponEffects(this.weaponArt, this.weaponEffects, mount, flashAllowed);
+    drawWeaponEffects(this.weaponArt, this.weaponEffects, mount, flashAllowed, this.battle.visionScale > 1);
     if (flashAllowed && !this.battle.tutorial && this.battle.hero.laser > 0) {
       const distance = rayDistance(mount.muzzle, mount.angle, this.battle.hero.laser, this.battle.blockers);
       line(this.weaponArt, mount.muzzle.x, mount.muzzle.y,
@@ -4997,7 +7925,9 @@ export class Blackout extends Component {
     }
     drawHitBlood(this.weaponArt, this.battle.particles);
     drawParalysis(this.weaponArt, this.battle);
+    drawRecovery(this.weaponArt, this.battle);
     if (this.mode === 'playing') {
+      if (this.operationBossHud) this.updateOperationBossHud(dt);
       this.updateObjectiveHud(active ? dt : 0);
       this.updateHudFeedback(dt);
       this.uiTick -= dt;
@@ -5011,9 +7941,11 @@ export class Blackout extends Component {
     }
   }
   onDestroy() {
+    this.clearHarborStream();
     this.canvas?.destroy();
     this.environmentCamera?.node.destroy(); this.actorCamera?.node.destroy();
-    this.presentationMaterial?.destroy(); this.outputFrame?.destroy(); this.visibilityTexture?.destroy(); this.environmentTarget?.destroy(); this.actorTarget?.destroy();
+    this.presentationMaterial?.destroy(); this.satelliteMaterial?.destroy(); this.outputFrame?.destroy();
+    this.visibilityTexture?.destroy(); this.environmentTarget?.destroy(); this.actorTarget?.destroy();
     for (const frame of this.rollFrames) frame.destroy();
     for (const frame of this.uiCrops) frame.destroy();
     input.off(Input.EventType.KEY_DOWN, this.keyDown, this);

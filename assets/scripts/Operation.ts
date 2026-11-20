@@ -1,26 +1,47 @@
-import type { Point, Rect } from './Core';
+import type { Loot, Point, Rect } from './Core';
 import type { DoorSpec, EnemySpawn, LevelDefinition } from './Levels';
 
 export type OperationPart = 'city' | 'compound' | 'defense';
+export type OperationEncounter = { center: Point; radius: number; enemies: EnemySpawn[]; objective: string };
 export type OperationStage = {
   part: OperationPart;
   allies: Point[];
-  route: Point[];
+  encounters: OperationEncounter[];
+  roads: Point[][];
   reinforcements: Point[];
   interiors: Rect[];
   scenery: Rect[];
+  chapel?: { bounds: Rect; positions: Point[]; runner: Rect };
+  drops: Array<[Point, Loot['kind']]>;
 };
 
-export const OPERATION_WIDTH = 3840;
-export const OPERATION_HEIGHT = 1920;
+export const OPERATION_WIDTH = 5600;
+export const OPERATION_HEIGHT = 3000;
 export const OPERATION_HOLD = 14;
-export const OPERATION_LEADER = { x: 3480, y: 1220 };
+export const OPERATION_BOSS_NAME = '里姆雷特';
+export const OPERATION_AIR_DURATION = 20;
+export const OPERATION_AIR_COOLDOWN = 120;
+export const OPERATION_AIR_VISION = 920;
+export const OPERATION_AIR_RANGE = 520;
+export const OPERATION_GRENADE_RANGE = 340;
+export const OPERATION_GRENADE_FUSE = 0.5;
+export const OPERATION_INJECTION_DURATION = 1.6;
+export const OPERATION_AIR_PODS = { side: 30, forward: 43, flashTime: 0.085 };
+export const OPERATION_EXTRACT_RADIUS = 170;
+export const OPERATION_BOARD_RADIUS = 88;
+export const OPERATION_PICKUP_READY = 3.45;
+export const OPERATION_BOARD_GATHER = 1.15;
+export const OPERATION_BOARD_SLOT = 0.82;
+export const OPERATION_DEPARTURE_SECONDS = 2.5;
+export const OPERATION_ROPE_FOOT = { x: 86, y: -36 };
+export const operationBoardingEnd = (count: number) => OPERATION_BOARD_GATHER + count * OPERATION_BOARD_SLOT;
+export const OPERATION_WEST_DOOR_RADIUS = 70;
+export const OPERATION_LEADER = { x: 3626, y: 1240 };
 export const OPERATION_MG = 3;
 export const OPERATION_ENEMY_CAP = 24;
-const point = (x: number, y: number): Point => ({ x, y });
+const point = (x: number, y: number) => ({ x, y });
 const rect = (x: number, y: number, w: number, h: number, kind?: string): Rect => ({ x, y, w, h, kind });
 const gunner = ([x, y, appearance]: number[]): EnemySpawn => [0, x, y, 'gunner', appearance];
-const zombie = ([x, y]: number[]): EnemySpawn => [0, x, y, 'walker'];
 
 type Opening = { side: 'north' | 'south' | 'east' | 'west'; start: number; name?: string };
 function buildRoom(shape: Rect, openings: Opening[], walls: Rect[], doors: DoorSpec[]) {
@@ -38,130 +59,165 @@ function buildRoom(shape: Rect, openings: Opening[], walls: Rect[], doors: DoorS
     for (const opening of openings.filter(o => o.side === side).sort((a, b) => a.start - b.start)) {
       cap(current, opening.start);
       current = opening.start + length;
+      // Leave the latch end clear of the fixed wall throughout the swing.
       if (opening.name) doors.push({ x: horizontal ? opening.start : axis, y: horizontal ? axis : opening.start,
-        baseAngle: horizontal ? 0 : Math.PI / 2, length, name: opening.name, rooms: [0, 0], material: 'wood' });
+        baseAngle: horizontal ? 0 : Math.PI / 2, length: length - 4, name: opening.name, rooms: [0, 0], material: 'wood' });
     }
     cap(current, end);
   }
 }
 
-const cityFireteams = [
-  [1035, 552], [1070, 670], [1150, 680], [1205, 448], [1300, 520], [1305, 695], [1345, 795],
-  [1422, 968], [1510, 1075], [1280, 865], [1180, 840], [1350, 610],
-  [1640, 1100], [1660, 1325], [1780, 1210], [1960, 1220], [2010, 1290], [2085, 1100],
-  [2155, 1382], [2270, 1205], [2310, 1405], [2235, 1000], [2122, 1310],
-  [2390, 925], [2340, 710], [2470, 635], [2540, 811], [2535, 541], [2610, 682], [2700, 582],
-  [2760, 735], [2845, 600], [2880, 714], [2875, 900], [2450, 1050],
-  [2990, 661, OPERATION_MG], [3080, 560], [3100, 780], [3175, 648], [3235, 570], [3310, 725],
-  [3370, 809], [3430, 636], [3485, 712], [3520, 860, OPERATION_MG], [3580, 667], [3630, 802], [3490, 550],
-];
-const rearSquad = [point(530, 650), point(525, 780), point(470, 610), point(467, 838), point(410, 684),
-  point(408, 770), point(357, 640), point(358, 810)];
 
-export function operationLevel(part: OperationPart): LevelDefinition {
-  const inside = part === 'compound', defense = part === 'defense';
-  const spawn = inside ? point(410, 925) : defense ? point(3640, 750) : point(630, 720);
-  const exit = inside ? point(3360, 1220) : defense ? point(580, 720) : point(3690, 742);
+// The district shares the same plan on the way in and on the way out.
+// Map coordinates match chapter4-layout-draft.svg before its diagonal rotation.
+const districtAngle = Math.PI / 12;
+function districtPoint(x: number, y: number): Point {
+  const dx = x - 556, dy = y - 300, cos = Math.cos(districtAngle), sin = Math.sin(districtAngle);
+  return { x: Math.round((547 + dx * cos + dy * sin) * 5), y: Math.round((300 + dx * sin - dy * cos) * 5) };
+}
+const route = (...coordinates: [number, number][]) => coordinates.map(([x, y]) => districtPoint(x, y));
+function footprint(x: number, y: number, w: number, h: number, kind: string): Rect {
+  return { ...districtPoint(x, y + h), w: w * 5, h: h * 5, angle: districtAngle, kind };
+}
+const cityGunners = (positions: [number, number, number?][]) => positions.map(([x, y, appearance]) => {
+  const p = districtPoint(x, y);
+  return [0, p.x, p.y, 'gunner', appearance] as EnemySpawn;
+});
+const mainStreet = route([237, 350], [309, 360], [309, 288], [400, 288], [400, 361],
+  [422, 361], [492, 345], [548, 345], [563, 367], [637, 367], [637, 337],
+  [758, 337], [758, 390], [835, 390], [835, 329], [961, 329]);
+const northStreet = route([482, 339], [513, 246], [565, 214], [751, 214], [834, 279], [834, 329]);
+const freightStreet = route([483, 364], [523, 481], [691, 481], [772, 439], [835, 439], [888, 391], [956, 391], [969, 337]);
+export const OPERATION_LZ = districtPoint(237, 350);
+export const OPERATION_EXTRACT = OPERATION_LZ;
+export const OPERATION_AIRCRAFT = OPERATION_LZ;
+export const OPERATION_APPROACH_RADIUS = 460;
+export const OPERATION_COMMAND_RADIUS = 175;
+const commandEntry = districtPoint(961, 329);
+const cityEncounters: OperationEncounter[] = [
+  { center: districtPoint(424, 360), radius: 350, objective: '穿过沿岸步行道，前往旧城街口',
+    enemies: cityGunners([[462, 342], [482, 368], [508, 327], [523, 351], [500, 386], [517, 375]]) },
+  { center: districtPoint(578, 365), radius: 345, objective: '通过旧城街口，进入市集',
+    enemies: cityGunners([[613, 363], [645, 326], [652, 351], [694, 341], [722, 343], [710, 281], [649, 271], [631, 385]]) },
+  { center: districtPoint(818, 387), radius: 365, objective: '穿过市集，推进到指挥部外侧',
+    enemies: cityGunners([[840, 345, OPERATION_MG], [882, 326, OPERATION_MG], [873, 371], [909, 333],
+      [856, 308], [893, 390], [925, 383], [940, 319]]) },
+];
+function districtLevel(part: 'city' | 'defense'): LevelDefinition {
+  const defense = part === 'defense';
   const walls = [
     rect(0, 0, OPERATION_WIDTH, 28), rect(0, OPERATION_HEIGHT - 28, OPERATION_WIDTH, 28),
-    rect(0, 0, 28, OPERATION_HEIGHT), rect(OPERATION_WIDTH - 28, 0, 28, OPERATION_HEIGHT),
+    rect(0, 0, 715, OPERATION_HEIGHT, 'op-sea'), rect(OPERATION_WIDTH - 28, 0, 28, OPERATION_HEIGHT),
   ];
-  const doors: DoorSpec[] = [], interiors: Rect[] = [], scenery: Rect[] = [];
+  const scenery: Rect[] = [];
+  const solid = (shape: Rect) => {
+    scenery.push(shape);
+    walls.push({ ...shape, kind: 'op-roof' });
+  };
+  for (const [x, y, w, h] of [
+    [325, 208, 70, 38], [337, 315, 38, 69], [325, 416, 74, 43], [433, 245, 50, 54], [420, 408, 59, 49],
+    [483, 155, 49, 32], [541, 150, 49, 32], [601, 150, 49, 32], [701, 151, 49, 32], [761, 155, 49, 32],
+    [534, 244, 49, 32], [592, 242, 49, 32], [704, 240, 49, 32], [764, 282, 49, 27], [846, 235, 49, 32],
+    [785, 313, 23, 50], [977, 278, 84, 103], [1032, 423, 33, 32],
+  ]) solid(footprint(x, y, w, h, 'op-coast-home'));
+  for (const [x, y, w, h] of [
+    [573, 279, 46, 76], [660, 352, 72, 54], [541, 520, 113, 56], [666, 514, 103, 62],
+    [777, 478, 91, 57], [547, 422, 74, 27], [947, 424, 74, 28],
+  ]) solid(footprint(x, y, w, h, 'op-coast-warehouse'));
+  // Close the shallow seams between adjoining roofs, especially behind the market hall.
+  for (const [x, y, w, h] of [
+    [532, 157, 9, 23], [590, 157, 11, 23], [750, 158, 11, 21],
+    [583, 247, 9, 23], [573, 273, 46, 8],
+  ]) solid(footprint(x, y, w, h, 'op-wall-mid'));
+  for (const [x, y, w, h] of [
+    [908, 228, 177, 5], [1080, 233, 5, 244], [908, 477, 177, 5],
+    [908, 233, 5, 74], [908, 348, 5, 27], [908, 407, 5, 70], [341, 383, 32, 35],
+  ]) solid(footprint(x, y, w, h, 'op-wall-mid'));
+  const furniture = [
+    footprint(354, 260, 20, 10, 'op-coast-cargo'), footprint(448, 309, 20, 10, 'op-coast-cargo'),
+    footprint(687, 288, 30, 21, 'op-coast-stall'), footprint(623, 397, 21, 16, 'op-coast-stall'),
+    footprint(567, 456, 20, 10, 'op-coast-cargo'), footprint(749, 479, 17, 10, 'op-coast-cargo'),
+    footprint(920, 267, 26, 15, 'op-coast-cargo'), footprint(981, 406, 18, 12, 'op-coast-cargo'),
+  ];
+  const drops: OperationStage['drops'] = [
+    [districtPoint(285, 345), 'ammo'], [districtPoint(389, 313), 'medkit'], [districtPoint(521, 352), 'ammo'],
+    [districtPoint(602, 381), 'bandage'], [districtPoint(679, 328), 'ammo'], [districtPoint(806, 405), 'medkit'],
+    [districtPoint(936, 322), 'ammo'], [districtPoint(222, 381), 'ammo'],
+  ];
+  const reinforcements = route([938, 293], [927, 403], [868, 408], [867, 276], [782, 215],
+    [711, 279], [689, 477], [537, 491], [505, 279], [478, 394], [398, 395], [334, 266],
+    [305, 361], [286, 409], [197, 365], [265, 517], [334, 469], [225, 299]);
+  return {
+    id: 'operation-' + part,
+    title: defense ? '断翼行动 · 海岸撤离' : '断翼行动 · 沿岸作战区',
+    rooms: [rect(0, 0, OPERATION_WIDTH, OPERATION_HEIGHT, '滨海城区')],
+    walls, furniture, doors: [], spawn: defense ? commandEntry : districtPoint(270, 350), exit: defense ? OPERATION_EXTRACT : commandEntry, hints: [],
+    spawns: [],
+    operation: { part, allies: defense ? route([950, 312], [954, 347], [971, 316]) : route([259, 362], [264, 332], [282, 369]),
+      encounters: defense ? [] : cityEncounters, roads: [mainStreet, northStreet, freightStreet],
+      reinforcements, interiors: [], scenery, drops },
+  };
+}
+
+export function operationLevel(part: OperationPart): LevelDefinition {
+  if (part !== 'compound') return districtLevel(part);
+  const width = 3840, height = 1920;
+  const walls = [
+    rect(0, 0, width, 28), rect(0, height - 28, width, 28),
+    rect(0, 0, 28, height), rect(width - 28, 0, 28, height),
+  ];
+  const doors: DoorSpec[] = [], interiors: Rect[] = [];
   const room = (shape: Rect, ...openings: Opening[]) => {
     interiors.push(shape);
     buildRoom(shape, openings, walls, doors);
   };
-  const furniture = inside ? [
-    rect(655, 940, 150, 65, 'op-console'), rect(835, 815, 78, 58, 'op-crates'),
-    rect(1245, 515, 155, 82, 'op-console'), rect(1570, 545, 134, 66, 'op-barrels'),
-    rect(1210, 1360, 145, 72, 'op-console'), rect(1475, 1270, 80, 60, 'op-shelf'),
-    rect(1950, 1470, 195, 76, 'op-console'), rect(2200, 1110, 120, 69, 'op-sandbags'),
-    rect(1920, 565, 140, 75, 'op-barrels'), rect(2350, 490, 140, 70, 'op-shelf'),
-    rect(2530, 1140, 128, 65, 'op-crates'), rect(2710, 860, 105, 55, 'op-console'),
-    rect(3250, 1370, 180, 79, 'op-console'), rect(3450, 1060, 160, 62, 'op-console'),
-  ] : [
-    rect(1000, 455, 152, 48, 'op-sandbags'), rect(1060, 742, 128, 62, 'op-barrels'),
-    rect(1395, 608, 100, 160, 'op-pickup'), rect(1340, 998, 130, 58, 'op-shelf'),
-    rect(1605, 1195, 127, 83, 'op-stall'), rect(1720, 1070, 115, 86, 'op-stall'),
-    rect(2000, 1140, 85, 53, 'op-sandbags'), rect(2180, 1240, 130, 78, 'op-stall'),
-    rect(2420, 1140, 128, 65, 'op-barrels'), rect(2480, 910, 82, 145, 'op-pickup'),
-    rect(2340, 565, 70, 119, 'op-barrels'), rect(2580, 436, 150, 49, 'op-sandbags'),
-    rect(3070, 625, 38, 76, 'op-sandbags'), rect(3445, 772, 38, 76, 'op-sandbags'),
-    rect(3155, 502, 126, 48, 'op-sandbags'), rect(3180, 709, 72, 121, 'op-pickup'),
-    rect(3435, 901, 78, 75, 'op-crates'), rect(3598, 531, 134, 55, 'op-sandbags'),
-    rect(2525, 1040, 100, 75, 'op-shelf'), rect(2673, 1010, 97, 58, 'op-cot'),
-    rect(3500, 1023, 116, 74, 'op-cot'), rect(3612, 1160, 115, 67, 'op-shelf'),
+  const chapel = {
+    bounds: rect(3080, 890, 665, 700, '旧教堂 · 指挥大厅'),
+    positions: [point(3200, 955), point(3460, 955), point(3628, 1010), point(3480, 1235),
+      point(3625, 1450), point(3470, 1526), point(3194, 1526), point(3250, 1235)],
+    runner: rect(3130, 1175, 530, 130, 'op-chapel-runner'),
+  };
+  const furniture = [
+    rect(650, 974, 166, 80, 'op-office-counter'), rect(540, 777, 125, 43, 'op-office-bench'),
+    rect(816, 1008, 34, 34, 'op-office-stool'),
+    rect(1245, 515, 155, 82, 'op-office-tools'), rect(1570, 545, 134, 55, 'op-office-cabinet'),
+    rect(1210, 1360, 145, 80, 'op-office-desk'), rect(1475, 1295, 94, 42, 'op-office-cabinet'),
+    rect(1520, 1400, 156, 47, 'op-office-board'), rect(1515, 1080, 128, 46, 'op-office-bench'),
+    rect(1900, 1450, 176, 76, 'op-office-desk'), rect(2200, 1110, 130, 54, 'op-office-cabinet'),
+    rect(1915, 546, 142, 69, 'op-office-tools'), rect(2340, 476, 113, 62, 'op-office-cabinet'),
+    rect(2630, 1060, 128, 55, 'op-office-cabinet'), rect(2720, 860, 105, 49, 'op-office-bench'),
+    ...[3210, 3320, 3430].flatMap(x => [1020, 1370].map(y => rect(x, y, 44, 92, 'op-chapel-pew'))),
+    rect(3520, 1105, 45, 45, 'op-chapel-column'), rect(3520, 1330, 45, 45, 'op-chapel-column'),
+    rect(3672, 1160, 48, 160, 'op-chapel-altar'),
   ];
-  if (inside) {
-    room(rect(300, 720, 830, 400, '安保大厅'), { side: 'east', start: 819 }, { side: 'east', start: 963 });
-    walls.push(rect(1100, 729, 24, 96), rect(1100, 1085, 24, 115));
-    room(rect(1129, 410, 679, 426, '仓库与维修区'), { side: 'north', start: 1166, name: '仓库门' }, { side: 'east', start: 636 });
-    room(rect(1129, 1040, 679, 447, '指挥办公室'), { side: 'south', start: 1190, name: '办公室门' }, { side: 'east', start: 1290 });
-    room(rect(1808, 385, 677, 440, '后勤通道'), { side: 'west', start: 636 }, { side: 'east', start: 670, name: '后勤门' });
-    room(rect(1808, 1040, 677, 520, '通信室'), { side: 'west', start: 1290 }, { side: 'east', start: 1190, name: '通信室门' });
-    walls.push(rect(1796, 825, 24, 215), rect(2473, 795, 24, 245));
-    room(rect(2485, 540, 595, 870, '内院与档案走廊'), { side: 'west', start: 670 }, { side: 'west', start: 1190 },
-      { side: 'east', start: 1140, name: '指挥室门' });
-    walls.push(rect(2640, 1005, 440, 24));
-    room(rect(3080, 990, 575, 510, '首领指挥室'), { side: 'west', start: 1140 });
-  } else {
-    const blocks = defense ? [
-      rect(700, 32, 250, 300), rect(1015, 48, 190, 250), rect(1268, 32, 420, 286),
-      rect(2050, 45, 330, 300), rect(2500, 40, 270, 268), rect(2890, 35, 520, 330),
-      rect(760, 1500, 300, 380), rect(1180, 1560, 330, 320), rect(1900, 1500, 360, 380),
-      rect(2400, 1510, 420, 370), rect(2940, 1480, 390, 400), rect(3420, 1520, 330, 360),
-      rect(820, 900, 220, 240), rect(1580, 430, 300, 300), rect(2860, 950, 300, 320),
-    ] : [
-      rect(770, 32, 300, 340), rect(820, 860, 395, 755), rect(1212, 32, 515, 350),
-      rect(1560, 428, 440, 550), rect(1925, 1440, 415, 438), rect(2350, 1420, 505, 440),
-      rect(2070, 45, 575, 430), rect(2855, 35, 590, 424), rect(2855, 925, 540, 821),
-    ];
-    for (const r of blocks) walls.push({ ...r, kind: 'op-roof' });
-    const roofFrames = defense ? ['op-roof-b', 'op-roof-c'] : ['op-roof-a', 'op-roof-b', 'op-roof-c'];
-    blocks.forEach((r, i) => scenery.push({ ...r, kind: roofFrames[i % roofFrames.length] }));
-    if (defense) scenery.push(
-      rect(1080, 470, 300, 272, 'op-collapsed-roof'), rect(2290, 520, 270, 245, 'op-collapsed-roof'),
-      rect(3130, 1180, 280, 254, 'op-collapsed-roof'),
-      rect(1360, 980, 250, 196, 'op-crater'), rect(2620, 1180, 230, 180, 'op-crater'),
-      rect(660, 1180, 210, 165, 'op-crater'),
-      rect(1980, 980, 250, 196, 'op-barricade'), rect(2450, 760, 230, 180, 'op-barricade'),
-      rect(900, 800, 210, 165, 'op-barricade'),
-      rect(1720, 1330, 150, 118, 'op-embers'), rect(2830, 1350, 145, 114, 'op-embers'),
-      rect(1050, 1290, 145, 114, 'op-embers'),
-      rect(360, 560, 190, 150, 'op-barricade'), rect(360, 790, 190, 150, 'op-barricade'),
-      rect(600, 430, 170, 135, 'op-crater'), rect(600, 900, 170, 135, 'op-crater'),
-      rect(190, 660, 150, 118, 'op-sandbags'), rect(760, 570, 150, 118, 'op-barricade'),
-    );
-    else scenery.push(
-      rect(2910, 620, 145, 112, 'op-machinegun'), rect(3290, 766, 145, 112, 'op-machinegun'),
-      rect(760, 520, 180, 140, 'op-crates'), rect(900, 900, 190, 150, 'op-sandbags'),
-      rect(1830, 640, 220, 180, 'op-stall'), rect(2260, 640, 200, 165, 'op-shelf'),
-      rect(3020, 1050, 200, 160, 'op-sandbags'), rect(3250, 1000, 190, 150, 'op-barrels'),
-    );
-    room(rect(1215, 824, 330, 304, '杂货铺'), { side: 'south', start: 1268, name: '杂货铺门' }, { side: 'east', start: 855 });
-    room(rect(2495, 842, 295, 298, '市集仓库'), { side: 'south', start: 2550, name: '仓库侧门' }, { side: 'east', start: 928 });
-    room(rect(3430, 980, 335, 290, '民宅'), { side: 'south', start: 3455 }, { side: 'east', start: 1008, name: '民宅后门' });
-    walls.push(rect(910, 375, 25, 147), rect(910, 775, 25, 88), rect(1795, 975, 25, 136), rect(1795, 1380, 25, 505),
-      rect(2820, 32, 24, 485), rect(2820, 840, 24, 580));
-  }
-  const allies = inside ? [point(335, 880), point(340, 1000), point(460, 858), point(467, 1012)] : defense ?
-    [point(3690, 683), point(3715, 810), point(3650, 848), point(3740, 747), point(3600, 872), point(3545, 730)] : rearSquad;
-  const route = defense ? [point(2940, 670), point(2710, 690), point(2370, 840), point(2175, 1140), point(1835, 1250),
-    point(1500, 1160), point(1250, 740), point(945, 643), exit] : [exit];
-  const reinforcements = [[3740, 660], [3638, 1078], [3060, 870], [2778, 782], [1848, 1510], [2040, 1080],
-    [1800, 1250], [1560, 1430], [1260, 730], [1130, 673], [865, 733], [405, 1200], [410, 336]].map(([x, y]) => point(x, y));
+  room(rect(300, 720, 830, 400, '安保大厅'), { side: 'west', start: 865, name: '西侧入口' },
+    { side: 'east', start: 819 }, { side: 'east', start: 963 });
+  walls.push(rect(1100, 729, 24, 96), rect(1100, 1085, 24, 115));
+  room(rect(1129, 410, 679, 426, '仓库与维修区'), { side: 'north', start: 1166, name: '仓库门' }, { side: 'east', start: 636 });
+  room(rect(1129, 1040, 679, 447, '指挥办公室'), { side: 'south', start: 1346, name: '办公室门' }, { side: 'east', start: 1290 });
+  room(rect(1808, 385, 677, 440, '后勤通道'), { side: 'west', start: 636 }, { side: 'east', start: 670, name: '后勤门' });
+  room(rect(1808, 1040, 677, 520, '通信室'), { side: 'west', start: 1290 }, { side: 'east', start: 1190, name: '通信室门' });
+  walls.push(rect(1796, 825, 24, 215), rect(2473, 795, 24, 245));
+  room(rect(2485, 540, 595, 870, '内院与档案走廊'), { side: 'west', start: 670 }, { side: 'west', start: 1190 },
+    { side: 'east', start: 1140, name: '指挥室门' });
+  walls.push(rect(2640, 1005, 440, 24));
+  room(chapel.bounds, { side: 'west', start: 1140 });
   return {
-    id: 'operation-' + part,
-    title: inside ? '断翼行动 · 「阀」指挥部' : defense ? '断翼行动 · 海岸撤离' : '断翼行动 · 北非沿岸',
-    rooms: [rect(0, 0, OPERATION_WIDTH, OPERATION_HEIGHT, inside ? '指挥部' : '滨海城区')],
-    walls, furniture, doors, spawn, exit, hints: [],
-    spawns: inside ? [...[
+    id: 'operation-compound', title: '断翼行动 · 「阀」指挥部',
+    rooms: [rect(0, 0, width, height, '指挥部')],
+    walls, furniture, doors, spawn: point(410, 925), exit: point(221, 923), hints: [],
+    spawns: [...[
       [904, 1000], [985, 870], [1045, 957], [926, 760], [1245, 710], [1443, 565], [1450, 725], [1630, 704], [1720, 750],
-      [1250, 1180], [1370, 1230], [1575, 1350], [1705, 1205], [1915, 1360], [2020, 1290], [2390, 1300],
+      [1250, 1180], [1370, 1230], [1575, 1362], [1705, 1205], [1915, 1360], [2020, 1290], [2390, 1300],
       [1930, 730], [2070, 671], [2230, 735], [2410, 757], [2580, 1370], [2800, 1310], [2925, 1170],
-      [3150, 1290], [3260, 1165], [3325, 1310], [3520, 1305], [3540, 1150],
-    ].map(gunner), [0, OPERATION_LEADER.x, OPERATION_LEADER.y, 'boss'] as EnemySpawn] : defense ? [[3210, 665], [3180, 604], [2870, 675], [2730, 770], [2600, 720], [2290, 1090],
-      [2195, 1160], [2010, 1350], [1788, 1225], [1450, 1190], [1200, 690], [760, 610]].map(zombie) : cityFireteams.map(gunner),
-    operation: { part, allies, route, reinforcements, interiors, scenery },
+      [3150, 1290], [3260, 1165], [3325, 1310], [3520, 1305], [3540, 1170],
+    ].map(gunner), [0, OPERATION_LEADER.x, OPERATION_LEADER.y, 'boss']],
+    operation: {
+      part, allies: [point(390, 822), point(472, 1030), point(489, 845)], encounters: [], roads: [], reinforcements: [],
+      interiors, scenery: [], chapel, drops: [
+        [point(495, 936), 'ammo'], [point(1300, 1260), 'medkit'], [point(1540, 675), 'ammo'],
+        [point(2280, 1325), 'ammo'], [point(2815, 1230), 'bandage'],
+      ],
+    },
   };
 }
