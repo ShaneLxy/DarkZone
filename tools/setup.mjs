@@ -31,7 +31,7 @@ write('settings/v2/packages/project.json', { __version__: '1.0.0', general: { de
 write('settings/v2/packages/preview.json', { __version__: '1.0.0', general: { startScene: sceneUuid } });
 write('.creator/default-meta.json', { image: { type: 'sprite-frame' } });
 const common = { name: 'Blackout', buildPath: 'project://build', startScene: sceneUuid, scenes: [{ url: 'db://assets/scenes/Facility.scene', uuid: sceneUuid }], debug: false, md5Cache: false, sourceMaps: true, mainBundleCompressionType: 'merge_dep', renderPipeline: 'custom', experimentalEraseModules: false };
-write('config/build-web-mobile.json', { ...common, platform: 'web-mobile', outputName: 'web-mobile', packages: { 'web-mobile': { orientation: 'landscape', embedWebDebugger: false } } });
+write('config/build-web-mobile.json', { ...common, md5Cache: true, platform: 'web-mobile', outputName: 'web-mobile', packages: { 'web-mobile': { orientation: 'landscape', embedWebDebugger: false } } });
 write('config/build-wechatgame.json', { ...common, platform: 'wechatgame', outputName: 'wechatgame', packages: { wechatgame: { orientation: 'landscape', appid: '', separateEngine: false } } });
 // Small synthesized effects keep the sample self-contained and portable to mini games.
 for (const [name, seconds, frequency] of [['shoot', 0.12, 110], ['hurt', 0.2, 65], ['dash', 0.22, 460], ['reload', 0.24, 720], ['kill', 0.12, 160], ['win', 0.65, 520]]) {

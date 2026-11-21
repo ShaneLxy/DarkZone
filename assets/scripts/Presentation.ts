@@ -164,8 +164,20 @@ export class VisibilityField {
     }
     return this.pixels;
   }
-  mergeLight(other: VisibilityField, intensity = 1) {
+  mergeLight(other: VisibilityField, intensity = 1, offsetX = 0, offsetY = 0) {
     const source = other.pixels, target = this.pixels;
+    if (offsetX || offsetY) {
+      // Read cached light in world alignment after the camera has moved by whole mask pixels.
+      const left = Math.max(0, -offsetX), right = Math.min(this.width, this.width - offsetX);
+      const bottom = Math.max(0, -offsetY), top = Math.min(this.height, this.height - offsetY);
+      for (let y = bottom; y < top; y++) for (let x = left; x < right; x++) {
+        const i = (y * this.width + x) * 4, j = i + (offsetY * this.width + offsetX) * 4;
+        target[i] = Math.max(target[i], Math.round(source[j] * intensity));
+        target[i + 1] = Math.max(target[i + 1], source[j + 1]);
+        target[i + 2] = Math.max(target[i + 2], Math.round(source[j + 2] * intensity));
+      }
+      return;
+    }
     for (let i = 0; i < target.length; i += 4) {
       target[i] = Math.max(target[i], Math.round(source[i] * intensity));
       target[i + 1] = Math.max(target[i + 1], source[i + 1]);

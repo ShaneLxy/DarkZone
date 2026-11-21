@@ -434,7 +434,7 @@ export function drawRecovery(g: Graphics, b: Battle) {
   }
 }
 
-export function drawActors(g: Graphics, b: Battle, pose: ActorPose, rasterPlayer = false, rasterWalker = false, rasterRoll = false, enemyPoses: ReadonlyMap<number, ActorPose> = new Map(), rasterOperator = false, rasterBrute = false, grenadeArt = false, blastArt = false) {
+export function drawActors(g: Graphics, b: Battle, pose: ActorPose, rasterPlayer = false, rasterWalker = false, rasterRoll = false, enemyPoses: ReadonlyMap<number, ActorPose> = new Map(), rasterOperator = false, rasterBrute = false, grenadeArt = false, blastArt = false, venomArt?: { spitter: boolean; glob: boolean; dart: boolean }) {
   g.clear();
   const daylight = b.visionScale > 1, boarding = b.operationRun?.phase === 'boarding';
   for (const unit of [b.player, ...b.allies]) {
@@ -453,8 +453,10 @@ export function drawActors(g: Graphics, b: Battle, pose: ActorPose, rasterPlayer
     const operationModel = e.type === 'gunner' || !!e.operationBoss || b.stage.operation?.part === 'defense';
     if (!operationModel) {
       if (enemyPose && !(b.apartment && e.type === 'boss')) drawFeet(g, model, e.angle, sc, enemyPose, e.type === 'walker' && rasterWalker ? 'walker' : 'plain');
-      drawPerson(g, model, e.angle, e.type === 'boss' ? '#9a654c' : e.type === 'spitter' ? '#a09169' : '#687a61', sc, false, e.hit > 0, rasterWalker && e.type === 'walker' || rasterBrute && e.type === 'boss');
-      disc(g, model.x + Math.cos(e.angle) * 9 * sc, model.y + Math.sin(e.angle) * 9 * sc, 2.8 * sc, '#d99567');
+      if (!(e.type === 'spitter' && venomArt?.spitter)) {
+        drawPerson(g, model, e.angle, e.type === 'boss' ? '#9a654c' : e.type === 'spitter' ? '#a09169' : '#687a61', sc, false, e.hit > 0, rasterWalker && e.type === 'walker' || rasterBrute && e.type === 'boss');
+        disc(g, model.x + Math.cos(e.angle) * 9 * sc, model.y + Math.sin(e.angle) * 9 * sc, 2.8 * sc, '#d99567');
+      }
     }
     if (e.charge?.phase === 'windup') {
       const a = e.charge.angle;
@@ -518,6 +520,7 @@ export function drawActors(g: Graphics, b: Battle, pose: ActorPose, rasterPlayer
     }
   }
   for (const item of b.tacticalThrows) {
+    if (item.kind === 'molotov' || item.survival && item.kind === 'flashbang') continue;
     if (item.kind === 'grenade' && grenadeArt) continue;
     const duration = TACTICAL_DEFINITIONS[item.kind].delay, t = Math.max(0, Math.min(1, 1 - item.delay / duration));
     const pose = item.kind === 'grenade' ? grenadeThrowPose(item) : undefined;
@@ -528,6 +531,7 @@ export function drawActors(g: Graphics, b: Battle, pose: ActorPose, rasterPlayer
     line(g, x - 5, y - 5, x, y, '#fff0be', 2); disc(g, x, y, 5, item.kind === 'grenade' ? '#e39b45' : '#c7f6ff');
   }
   for (const effect of b.tacticalEffects) {
+    if (effect.survival && effect.kind === 'flashbang') continue;
     if ((effect.kind === 'grenade' || effect.kind === 'proximity-mine') && blastArt) continue;
     const definition = TACTICAL_DEFINITIONS[effect.kind], explosive = definition.damage > 0;
     const t = 1 - effect.life / effect.max, radius = definition.radius * Math.min(1, 0.15 + t * 1.4);
@@ -549,6 +553,7 @@ export function drawActors(g: Graphics, b: Battle, pose: ActorPose, rasterPlayer
     disc(g, mutation.x, mutation.y, 29 * energy, '#edfac3', Math.round(210 * energy));
   }
   for (const f of b.particles) {
+    if (f.kind === 'spit-splash') continue;
     if (f.kind === 'hit-blood' || f.kind === 'hit-fabric') continue;
     if (f.kind === 'air-case') {
       const alpha = Math.round(255 * Math.min(1, f.life / 0.14)), angle = f.rotation ?? 0;
@@ -591,7 +596,11 @@ export function drawActors(g: Graphics, b: Battle, pose: ActorPose, rasterPlayer
     }
   }
   for (const shot of b.bullets) {
-    if (shot.airSupport) {
+    if (shot.venom) {
+      if (shot.venom === 'spit' ? venomArt?.glob : venomArt?.dart) continue;
+      const factor = 12 / Math.hypot(shot.vx, shot.vy);
+      line(g, shot.x, shot.y, shot.x - shot.vx * factor, shot.y - shot.vy * factor, '#a2cc55', shot.venom === 'spit' ? 4 : 2);
+    } else if (shot.airSupport) {
       const factor = Math.min(24, shot.traveled ?? 0) / Math.hypot(shot.vx, shot.vy);
       const dx = shot.vx * factor, dy = shot.vy * factor;
       line(g, shot.x, shot.y, shot.x - dx, shot.y - dy, '#9b531c', 4, 223);

@@ -49,7 +49,7 @@ export function grenadePose(remaining: number) {
   return { travel: 0.83 + 0.17 * (1 - (1 - t) ** 2), height: 29 * t * (1 - t), spin: 430 + t * 142 };
 }
 
-export function grenadeThrowPose(item: TacticalThrow) {
+export function grenadeThrowPose(item: Omit<TacticalThrow, 'kind'>) {
   if (item.flight) {
     const { vx, vy, bounces, sinceBounce } = item.flight;
     const t = Math.max(0, Math.min(1, 1 - item.delay / OPERATION_GRENADE_FUSE));

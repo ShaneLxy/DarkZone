@@ -4,8 +4,8 @@ import { HERO_IDS } from './Heroes';
 import type { DoorSpec, EnemySpawn, LevelDefinition } from './Levels';
 import { HARBOR_ART_HEIGHT, HARBOR_ART_WIDTH, HARBOR_BUILDINGS, HARBOR_SCALE, HARBOR_UPPER_BUILDINGS, SURVIVAL_LAYOUT, harborPoint, harborRect, harborTerrainBlockers } from './SurvivalHarbor';
 import { addSurvivalUpperFloor, placeSurvivalBuilding, type SurvivalBuilding, type SurvivalStair } from './SurvivalInteriors';
-import { readSurvivalGear, SurvivalBag, SURVIVAL_DOOR_KINDS, SURVIVAL_GEAR, survivalBagCols, survivalBagRows, survivalRandom, type SurvivalGearSave } from './SurvivalGear';
-import { newTimedSurvival, readTimedSurvival, type TimedSurvivalRun, type TimedSurvivalSave } from './SurvivalTimed';
+import { readSurvivalGear, SurvivalBag, SURVIVAL_DOOR_KINDS, SURVIVAL_GEAR, SURVIVAL_GUNS, survivalBagCols, survivalBagRows, survivalRandom, type SurvivalGearSave } from './SurvivalGear';
+import { BLOOD_MOON, EVAC_VEHICLES, newTimedSurvival, readTimedSurvival, SURVIVAL_ACTIVE_HUNT, type TimedSurvivalRun, type TimedSurvivalSave } from './SurvivalTimed';
 
 export const SURVIVAL_MAP_IDS = ['harbor'] as const;
 export type SurvivalMapId = typeof SURVIVAL_MAP_IDS[number];
@@ -38,7 +38,8 @@ const SURVIVAL_SEARCH_TIERS = [
   { sight: 1.24, cone: .38, hearing: 1.30, threshold: .048, memory: 6, search: 28, rooms: 2, scouts: 2, interval: 16, sweepRange: 840 },
   { sight: 1.38, cone: .42, hearing: 1.48, threshold: .038, memory: 8, search: 38, rooms: 3, scouts: 3, interval: 11, sweepRange: 1060 },
 ] as const;
-export const survivalSearchTuning = (elapsed: number) => SURVIVAL_SEARCH_TIERS[elapsed < 240 ? 0 : elapsed < 540 ? 1 : elapsed < 900 ? 2 : 3];
+export const survivalSearchTuning = (elapsed: number) => SURVIVAL_SEARCH_TIERS[
+  elapsed < BLOOD_MOON / 2 ? 0 : elapsed < BLOOD_MOON ? 1 : elapsed < SURVIVAL_ACTIVE_HUNT ? 2 : 3];
 
 export function survivalPayout(pool: SurvivalPool, outcome: SurvivalOutcome) {
   const rate = outcome === 'fallen' ? .5 : 1;
@@ -67,7 +68,7 @@ export function readSurvivalCheckpoint(input: unknown): SurvivalCheckpoint | und
       !Array.isArray(data.enemies) || data.enemies.length > 100 ||
       !data.enemies.every(e => point(e) && integer(e.room, 128) && ['walker', 'spitter'].includes(e.type) && finite(e.angle) && finite(e.hp) && e.hp > 0)) return;
   const timed = data.timed ? readTimedSurvival(data.timed, data.elapsed) : undefined;
-  if (data.version === 2 && !timed ||
+  if (data.version === 2 && !timed || timed?.spawnedWeapons?.some(id => SURVIVAL_GUNS[id].hero !== data.hero) ||
       data.enemies.some(e => e.survivalVariant && !['runner', 'breaker', 'overrun'].includes(e.survivalVariant))) return;
   let gear = readSurvivalGear(data.gear, data.hero, !!timed);
   if (timed && data.gear && !gear) return;
@@ -156,9 +157,11 @@ export function createSurvivalLevel(seed: number): LevelDefinition {
     building.entries.map(({ inside, ...entry }): DoorSpec => ({ ...entry, rooms: [inside, streetRoom] }))),
     ...buildings.flatMap(building => building.kind === 'shop' ? [] : building.interiorDoors),
     ...buildings.flatMap(building => building.kind === 'shop' ? building.interiorDoors : [])];
+  const blackhawk = EVAC_VEHICLES.helicopter.point;
   const furniture = [
+    { kind: 'harbor-obstacle', x: blackhawk.x - 27, y: blackhawk.y - 73, w: 54, h: 146 },
     harborRect('survival-radio-harbor', 1107, 312, 34, 24),
-    harborRect('survival-craft-bench', 1040, 297, 28, 13),
+    harborRect('survival-craft-bench', 970, 278, 28, 13),
     harborRect('survival-forklift', 268, 454, 34, 24),
     harborRect('harbor-obstacle', 945, 317, 62, 37), harborRect('harbor-obstacle', 1101, 340, 32, 16),
     ...buildings.flatMap(building => building.furniture),
@@ -169,19 +172,22 @@ export function createSurvivalLevel(seed: number): LevelDefinition {
   const spawn = candidates.length ? choose(candidates) : harborPoint(1043, 334), radio = harborPoint(1092, 325);
   const loot: Loot[] = [];
   const add = (kind: Loot['kind'], x: number, y: number) => loot.push({ id: loot.length, kind, x, y, taken: false });
-  for (const [kind, x, y] of [['ammo', 1045, 315], ['medkit', 985, 290], ['mod-cache', 1082, 354]] as const) {
+  for (const [kind, x, y] of [['ammo', 1008, 294], ['medkit', 949, 295], ['mod-cache', 1082, 354]] as const) {
     const spot = harborPoint(x, y);
     add(kind, spot.x, spot.y);
   }
   for (const building of buildings) for (const { kind, x, y } of building.loot) add(kind, x, y);
   add('ammo', spawn.x, spawn.y);
   for (let i = spawns.length - 1; i >= 0; i--) if (Math.hypot(spawns[i][1] - spawn.x, spawns[i][2] - spawn.y) < 200) spawns.splice(i, 1);
-  for (const district of SURVIVAL_PATROL_POINTS) {
+  // Leave a few lone ground patrols across the harbor, plus the preplaced indoor residents.
+  const patrolOffset = scatter(SURVIVAL_PATROL_POINTS.length);
+  for (let index = 0; index < SURVIVAL_PATROL_POINTS.length; index += 3) {
+    const district = SURVIVAL_PATROL_POINTS[(patrolOffset + index) % SURVIVAL_PATROL_POINTS.length];
     const [x, y] = district[scatter(district.length)], spot = harborPoint(x, y);
     spawns.push([streetRoom, spot.x, spot.y, 'walker']);
   }
   return { id: 'survival-harbor', title: '生存模式 · 港区工事', rooms, walls, furniture, doors, spawn, exit: radio,
-    spawns, hints: [], survival: { mapId: 'harbor', layout: SURVIVAL_LAYOUT, seed: seed >>> 0, fort, radio, workbench: harborPoint(1054, 317), loot, buildings, streetRoom,
+    spawns, hints: [], survival: { mapId: 'harbor', layout: SURVIVAL_LAYOUT, seed: seed >>> 0, fort, radio, workbench: harborPoint(984, 299), loot, buildings, streetRoom,
       stairs } };
 }
 

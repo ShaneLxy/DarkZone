@@ -14,7 +14,9 @@ http.createServer((req, res) => {
   if (file !== root && !file.startsWith(root + path.sep)) { res.writeHead(403).end(); return; }
   fs.stat(file, (err, stat) => {
     if (err || !stat.isFile()) { res.writeHead(404).end('Not found'); return; }
-    res.writeHead(200, { 'Content-Type': mime[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' });
+    // Cocos appends a content hash when md5Cache is enabled.
+    const cache = /\.[0-9a-f]{5,}\.[a-z0-9]+$/i.test(path.basename(file)) ? 'public, max-age=31536000, immutable' : 'no-cache';
+    res.writeHead(200, { 'Content-Type': mime[path.extname(file)] || 'application/octet-stream', 'Cache-Control': cache, 'X-Content-Type-Options': 'nosniff' });
     fs.createReadStream(file).pipe(res);
   });
 }).listen(port, host, () => console.log(`Blackout preview: http://127.0.0.1:${port}/ ${host === '0.0.0.0' ? '(LAN enabled)' : '(local only)'}`));

@@ -9,7 +9,7 @@
     }
   ],
   "debug": false,
-  "md5Cache": false,
+  "md5Cache": true,
   "sourceMaps": true,
   "mainBundleCompressionType": "merge_dep",
   "renderPipeline": "custom",

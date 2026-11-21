@@ -18,7 +18,9 @@ export const survivalBagCols = (hero: HeroId) => hero === HEROINE_ID ? 7 : survi
 export const SURVIVAL_GEAR = {
   bandage: ['绷带', 1, 1, 3], medkit: ['医疗包', 1, 2, 2], drink: ['能量饮料', 1, 1, 3],
   'mod-cache': ['零部件', 1, 1, 6], grenade: ['手雷', 1, 1, 3],
-  'shock-mine': ['麻痹地雷', 2, 2, 2], mine: ['感应地雷', 2, 2, 2], scanner: ['侦察终端', 1, 1, 2],
+  flashbang: ['震撼弹', 2, 2, 2], molotov: ['燃烧瓶', 2, 3, 2],
+  // Keep the saved item ID and footprint so older inventories and quick slots carry over.
+  'shock-mine': ['麻痹地雷', 2, 2, 2], mine: ['感应地雷', 2, 2, 2], scanner: ['打击终端', 1, 1, 2],
   'medical-stock': ['医疗耗材', 1, 1, 6], 'tactical-stock': ['战术耗材', 1, 1, 6], 'tactical-module': ['战术模块', 1, 1, 3],
   'door-wood': ['木板', 1, 2, 5], 'door-metal': ['金属板', 2, 1, 6], 'door-brace': ['加固组件', 2, 1, 3],
   'sentry-barrel': ['哨械枪头部', 3, 4, 1], 'sentry-bracket': ['哨械枪支架', 2, 5, 1], 'sentry-base': ['哨械枪底座', 2, 1, 1],
@@ -32,6 +34,19 @@ export const SURVIVAL_GEAR = {
   'evac-fuel': ['撤离燃油', 2, 3, 1],
 } as const;
 export type GearKind = keyof typeof SURVIVAL_GEAR;
+export const SURVIVAL_THROWABLES = {
+  grenade: { range: 340, cooldown: 1.15 },
+  flashbang: { range: 260, cooldown: 1.4 },
+  molotov: { range: 235, cooldown: 1.6 },
+} as const;
+export type SurvivalThrowable = keyof typeof SURVIVAL_THROWABLES;
+export type SurvivalMineKind = 'mine' | 'shock-mine';
+export type SurvivalBindings = { throw?: SurvivalThrowable; mine?: SurvivalMineKind };
+export const SURVIVAL_FIRE = { radius: 105, duration: 6, tick: .5, damage: 8, speed: .7, flight: .32 } as const;
+export const SURVIVAL_DISORIENT_SECONDS = 3;
+export const isSurvivalThrowable = (kind: unknown): kind is SurvivalThrowable =>
+  typeof kind === 'string' && Object.prototype.hasOwnProperty.call(SURVIVAL_THROWABLES, kind);
+export const isSurvivalMine = (kind: unknown): kind is SurvivalMineKind => kind === 'mine' || kind === 'shock-mine';
 type MaterialCost = readonly (readonly [GearKind, number])[];
 type SurvivalDoorDefinition = { title: string; hp: number; seconds: number; material: 'wood' | 'steel'; repair: MaterialCost; install: MaterialCost };
 export const SURVIVAL_DOORS = {
@@ -50,7 +65,7 @@ export type SurvivalDoorPlan = { kind: SurvivalDoorKind; cost: MaterialCost; sec
 export const SURVIVAL_DOOR_REACH = 94;
 export type GearStack = { kind: GearKind; count: number; rounds?: number };
 export type BagItem = GearStack & { id: number; col: number; row: number; rotated: boolean };
-export type SurvivalCrate = Point & { id: string; kind: 'medical' | 'armory' | 'engineering' | 'airdrop' | 'dropped'; opened: boolean; goods: GearStack[] };
+export type SurvivalCrate = Point & { id: string; kind: 'medical' | 'armory' | 'engineering' | 'airdrop' | 'dropped' | 'evac'; opened: boolean; goods: GearStack[] };
 export type SurvivalSentry = Point & { angle: number; hp: number; burst: number; next: number; muzzle: number };
 export type SurvivalMine = Point & { kind?: 'proximity-mine' | 'shock-mine'; fuse?: number };
 export type SurvivalFieldDrop = Point & GearStack & { id: string; zone: number };
@@ -59,7 +74,7 @@ export type SurvivalGearSave = {
   bagLayout?: 2;
   items: BagItem[]; quick: (number | null)[]; crates: SurvivalCrate[]; sentries: SurvivalSentry[]; mines: SurvivalMine[];
   special?: { id: SurvivalGun; ammo: number; reserve: number }; selected: boolean; baseAmmo: number; baseReserve: number;
-  scan: number; field?: SurvivalFieldDrop[]; restock?: SurvivalRestock;
+  field?: SurvivalFieldDrop[]; restock?: SurvivalRestock; bindings?: SurvivalBindings;
 };
 
 export const SURVIVAL_RECIPES = {
@@ -69,14 +84,27 @@ export const SURVIVAL_RECIPES = {
   bandage: [['medical-stock', 2]],
   medkit: [['medical-stock', 6]],
   sentry: [['sentry-barrel', 1], ['sentry-bracket', 1], ['sentry-base', 1]],
+  'sentry-barrel': [['mod-cache', 5], ['door-metal', 2], ['tactical-module', 1]],
+  'sentry-bracket': [['door-metal', 4], ['mod-cache', 2]],
+  'sentry-base': [['door-metal', 3], ['mod-cache', 1]],
 } as const satisfies Partial<Record<GearKind, readonly (readonly [GearKind, number])[]>>;
 export type SurvivalRecipe = keyof typeof SURVIVAL_RECIPES;
 export const SURVIVAL_RECIPE_IDS = Object.keys(SURVIVAL_RECIPES) as SurvivalRecipe[];
+export const SURVIVAL_AMMO_RECIPES = {
+  tec9: { cost: [['tactical-stock', 3], ['mod-cache', 1]], rounds: 30 },
+  eagle: { cost: [['tactical-stock', 4], ['door-metal', 1]], rounds: 10 },
+  semishot: { cost: [['tactical-stock', 4], ['mod-cache', 2]], rounds: 12 },
+  doubleshot: { cost: [['tactical-stock', 3], ['door-metal', 1]], rounds: 8 },
+  rapid: { cost: [['tactical-stock', 5], ['mod-cache', 2]], rounds: 42 },
+  drum: { cost: [['tactical-stock', 6], ['mod-cache', 2], ['door-metal', 1]], rounds: 64 },
+} as const satisfies Record<SurvivalGun, { cost: MaterialCost; rounds: number }>;
 export const SURVIVAL_DESCRIPTIONS = {
   bandage: '一段时间内持续恢复生命。', medkit: '使用完成后恢复大量生命。', drink: '短暂提速，并恢复少量生命。',
   'mod-cache': '修复工事挡板，也可用作制作材料。', grenade: '投出后产生范围爆炸，掩体会挡住冲击。',
+  flashbang: '使爆点附近的敌人失去锁定 3 秒，期间只会乱打一气。',
+  molotov: '在落点留下一片火区，持续灼烧并减缓敌人。',
   'shock-mine': '敌人踩近后释放电脉冲，暂时麻痹附近敌人。', mine: '敌人触发后倒数一秒，随后范围爆炸。',
-  scanner: '短时间在小地图标出附近敌人。', 'special-ammo': '为当前携带的特殊武器补充一匣备弹。',
+  scanner: '召唤小鸟支援 30 秒。支援期间再次使用可预约下一架。', 'special-ammo': '为当前携带的特殊武器补充一匣备弹。',
   'medical-stock': '本局制作绷带和医疗包的材料。', 'tactical-stock': '本局制作手雷与地雷的消耗材料。',
   'tactical-module': '本局制作感应地雷与麻痹地雷的稀有材料。',
   'door-wood': '在门位修补木门和包铁门，也可用于换装。', 'door-metal': '修补和换装金属门所需的板材。',
@@ -99,7 +127,7 @@ export const SENTRY_RANGE = 425;
 export const isSurvivalGun = (kind: GearKind): kind is SurvivalGun => Object.prototype.hasOwnProperty.call(SURVIVAL_GUNS, kind);
 export const isSurvivalSupply = (kind: GearKind): kind is SupplyKind => kind === 'bandage' || kind === 'medkit' || kind === 'drink';
 export const canUseSurvivalGear = (kind: GearKind) => isSurvivalGun(kind) || isSurvivalSupply(kind) ||
-  ['mine', 'shock-mine', 'grenade', 'scanner', 'sentry', 'special-ammo'].includes(kind);
+  isSurvivalThrowable(kind) || isSurvivalMine(kind) || ['scanner', 'sentry', 'special-ammo'].includes(kind);
 const TIMED_FOOTPRINTS: Partial<Record<GearKind, readonly [number, number]>> = {
   bandage: [1, 2], drink: [1, 2], medkit: [2, 2], scanner: [2, 2],
   'medical-stock': [1, 2], 'tactical-stock': [1, 2], 'mod-cache': [1, 3], 'special-ammo': [1, 3],
@@ -156,7 +184,7 @@ export class SurvivalBag {
       const id = 1 + this.items.reduce((n, item) => Math.max(n, item.id), 0);
       this.items.push({ kind: stack.kind, ...(stack.rounds === undefined ? {} : { rounds: stack.rounds }), count, id, ...position });
       const quick = this.quick.indexOf(null);
-      if (quick >= 0 && (isSurvivalSupply(stack.kind) || ['mine', 'shock-mine', 'grenade', 'scanner'].includes(stack.kind)) &&
+      if (quick >= 0 && (isSurvivalSupply(stack.kind) || isSurvivalMine(stack.kind) || isSurvivalThrowable(stack.kind) || stack.kind === 'scanner') &&
           !this.quick.some(bound => this.item(bound)?.kind === stack.kind)) this.quick[quick] = id;
       return count;
     }
@@ -200,14 +228,27 @@ export class SurvivalBag {
     item.count -= placed;
     return true;
   }
-  craft(kind: SurvivalRecipe, preview = false): 'ok' | 'materials' | 'space' {
+  planCraft(cost: MaterialCost, kind?: GearKind) {
     const plan = new SurvivalBag(this.rows, this.columns, this.timed);
     plan.items = this.items.map(item => ({ ...item }));
     plan.quick = this.quick.slice();
-    if (!plan.pay(SURVIVAL_RECIPES[kind])) return 'materials';
-    if (plan.give({ kind, count: 1 }) !== 1) return 'space';
-    if (!preview) { this.items = plan.items; this.quick = plan.quick; }
-    return 'ok';
+    if (!plan.pay(cost)) return { status: 'materials' as const };
+    if (kind && plan.give({ kind, count: 1 }) !== 1) return { status: 'space' as const, bag: plan };
+    const output = kind && plan.items.find(item => {
+      if (item.kind !== kind) return false;
+      const before = this.item(item.id);
+      return before?.kind !== kind || item.count > before.count;
+    });
+    return { status: 'ok' as const, bag: plan, output };
+  }
+  commitCraft(plan: SurvivalBag) {
+    this.items = plan.items;
+    this.quick = plan.quick;
+  }
+  craft(kind: SurvivalRecipe, preview = false) {
+    const plan = this.planCraft(SURVIVAL_RECIPES[kind], kind);
+    if (plan.status === 'ok' && !preview) this.commitCraft(plan.bag);
+    return plan.status;
   }
   canPay(cost: MaterialCost) { return cost.every(([kind, count]) => this.count(kind) >= count); }
   pay(cost: MaterialCost) {
@@ -253,13 +294,12 @@ export function readSurvivalGear(raw: unknown, hero: HeroId, timed = false): Sur
   }
   if (!Array.isArray(g.quick) || g.quick.length !== 3 || !g.quick.every(id => id === null || !!bag.item(id)) ||
       !Array.isArray(g.crates) || !g.crates.every(c => point(c) && typeof c.id === 'string' && c.id.length < 80 &&
-        ['medical', 'armory', 'engineering', 'airdrop', 'dropped'].includes(c.kind) && typeof c.opened === 'boolean' &&
+        ['medical', 'armory', 'engineering', 'airdrop', 'dropped', 'evac'].includes(c.kind) && typeof c.opened === 'boolean' &&
         Array.isArray(c.goods) && c.goods.length <= 6 && c.goods.every(stack)) ||
       !Array.isArray(g.mines) || !g.mines.every(m => point(m) && (m.fuse === undefined || finite(m.fuse, 1)) &&
         (m.kind === undefined || m.kind === 'proximity-mine' || m.kind === 'shock-mine')) ||
       !Array.isArray(g.sentries) || !g.sentries.every(s => point(s) && Number.isFinite(s.angle) && finite(s.hp, SENTRY_HP)) ||
-      typeof g.selected !== 'boolean' || !int(g.baseAmmo, 1000) || !int(g.baseReserve, 100000) ||
-      !finite(g.scan, 10)) return;
+      typeof g.selected !== 'boolean' || !int(g.baseAmmo, 1000) || !int(g.baseReserve, 100000)) return;
   if (g.field !== undefined && (!Array.isArray(g.field) || g.field.length > 128 ||
       !g.field.every(item => point(item) && stack(item) && typeof item.id === 'string' && int(item.zone, 6)))) return;
   if (g.restock && (!int(g.restock.cycle, 40) || !Array.isArray(g.restock.zones) || g.restock.zones.length > 3 ||
@@ -267,5 +307,8 @@ export function readSurvivalGear(raw: unknown, hero: HeroId, timed = false): Sur
       !g.restock.pending.every(item => item && int(item.zone, 6) && int(item.slot, 6)))) return;
   if (g.special && (!survivalWeapons(hero).includes(g.special.id) || !int(g.special.ammo, SURVIVAL_GUNS[g.special.id].magazine) ||
       !int(g.special.reserve, 10000))) return;
+  if (g.bindings !== undefined && (!g.bindings || typeof g.bindings !== 'object' ||
+      g.bindings.throw !== undefined && !isSurvivalThrowable(g.bindings.throw) ||
+      g.bindings.mine !== undefined && !isSurvivalMine(g.bindings.mine))) return;
   return g.selected && !g.special ? undefined : g;
 }

@@ -11,7 +11,7 @@ export type OperationStage = {
   reinforcements: Point[];
   interiors: Rect[];
   scenery: Rect[];
-  chapel?: { bounds: Rect; positions: Point[]; runner: Rect };
+  chapel?: { bounds: Rect; approach: Rect; passage: Point; positions: Point[]; runner: Rect };
   drops: Array<[Point, Loot['kind']]>;
 };
 
@@ -23,6 +23,7 @@ export const OPERATION_AIR_DURATION = 20;
 export const OPERATION_AIR_COOLDOWN = 120;
 export const OPERATION_AIR_VISION = 920;
 export const OPERATION_AIR_RANGE = 520;
+export const OPERATION_AIR_CANNON = { interval: .0625, speed: 2200, radius: 57, damage: 16 } as const;
 export const OPERATION_GRENADE_RANGE = 340;
 export const OPERATION_GRENADE_FUSE = 0.5;
 export const OPERATION_INJECTION_DURATION = 1.6;
@@ -173,6 +174,8 @@ export function operationLevel(part: OperationPart): LevelDefinition {
   };
   const chapel = {
     bounds: rect(3080, 890, 665, 700, '旧教堂 · 指挥大厅'),
+    approach: rect(2485, 1029, 595, 381),
+    passage: point(3080, 1198),
     positions: [point(3200, 955), point(3460, 955), point(3628, 1010), point(3480, 1235),
       point(3625, 1450), point(3470, 1526), point(3194, 1526), point(3250, 1235)],
     runner: rect(3130, 1175, 530, 130, 'op-chapel-runner'),

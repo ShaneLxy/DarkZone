@@ -13,11 +13,14 @@ import { DormTutorial, sanitizeTutorial, type TutorialStep } from './Tutorial';
 import { sanitizeIds, recordClue } from './ClueReader';
 import { readAchievementProgress, recordAchievementKills, type AchievementProgress } from './Achievements';
 import { OPERATION_AIR_COOLDOWN, OPERATION_AIR_DURATION, OPERATION_AIR_PODS, OPERATION_AIR_RANGE, OPERATION_AIR_VISION, OPERATION_APPROACH_RADIUS, OPERATION_BOARD_RADIUS, OPERATION_BOSS_NAME, OPERATION_DEPARTURE_SECONDS, OPERATION_COMMAND_RADIUS, OPERATION_ENEMY_CAP, OPERATION_EXTRACT_RADIUS, OPERATION_GRENADE_FUSE, OPERATION_GRENADE_RANGE, OPERATION_HOLD, OPERATION_INJECTION_DURATION, OPERATION_MG, OPERATION_PICKUP_READY, OPERATION_ROPE_FOOT, OPERATION_WEST_DOOR_RADIUS, operationBoardingEnd } from './Operation';
+import { OPERATION_AIR_CANNON, OPERATION_LEADER } from './Operation';
 import { operationExtractionAt } from './OperationArt';
 import { readSurvivalCheckpoint, survivalSearchTuning, SURVIVAL_FIELD_AREAS, SURVIVAL_ITEMS, SURVIVAL_MAP_IDS, type SurvivalCheckpoint, type SurvivalMapId, type SurvivalRun } from './Survival';
 import { CONVOY_ARRIVAL, CONVOY_BOARD, CONVOY_LEAVE, CONVOY_NOTICE, convoyVehicles, EVAC_FUEL_SECONDS, EVAC_PART_IDS, EVAC_PART_WINDOWS, EVAC_VEHICLES, newTimedSurvival, SURVIVAL_DEADLINE, type EvacRoute, type EvacVehicle, type SurvivalVariant } from './SurvivalTimed';
-import { SENTRY_HP, SENTRY_RANGE, SURVIVAL_DOOR_REACH, SURVIVAL_DOORS, SURVIVAL_GEAR, SURVIVAL_GUNS, SURVIVAL_PARTS, SurvivalBag, isSurvivalGun, isSurvivalSupply, survivalBagCols, survivalBagRows, survivalRandom, survivalWeapons, type GearKind, type GearStack, type SurvivalCrate, type SurvivalDoorKind, type SurvivalDoorPlan, type SurvivalFieldDrop, type SurvivalGearSave, type SurvivalMine, type SurvivalRecipe, type SurvivalRestock, type SurvivalSentry } from './SurvivalGear';
-import { harborPoint } from './SurvivalHarbor';
+import { BLOOD_MOON, SURVIVAL_ACTIVE_HUNT, SURVIVAL_AIR_DURATION, SURVIVAL_ESCALATION, SURVIVAL_HIGH_PRESSURE, type TimedSurvivalRun } from './SurvivalTimed';
+import { SENTRY_HP, SENTRY_RANGE, SURVIVAL_AMMO_RECIPES, SURVIVAL_DOOR_REACH, SURVIVAL_DOORS, SURVIVAL_GEAR, SURVIVAL_GUNS, SURVIVAL_PARTS, SURVIVAL_RECIPES, SurvivalBag, isSurvivalGun, isSurvivalSupply, survivalBagCols, survivalBagRows, survivalRandom, survivalWeapons, type GearKind, type GearStack, type SurvivalCrate, type SurvivalDoorKind, type SurvivalDoorPlan, type SurvivalFieldDrop, type SurvivalGearSave, type SurvivalGun, type SurvivalMine, type SurvivalRecipe, type SurvivalRestock, type SurvivalSentry } from './SurvivalGear';
+import { isSurvivalMine, isSurvivalThrowable, SURVIVAL_DISORIENT_SECONDS, SURVIVAL_FIRE, SURVIVAL_THROWABLES, type SurvivalBindings } from './SurvivalGear';
+import { HARBOR_MAP_REGIONS, harborPoint } from './SurvivalHarbor';
 import type { SurvivalStair } from './SurvivalInteriors';
 
 export { DORM_LEVEL };
@@ -378,24 +381,32 @@ export type OperationPhase = 'brief' | 'landing' | 'line1' | 'line2' | 'line3' |
 export type Enemy = Point & { id: number; room: number; type: 'walker' | 'spitter' | 'boss' | 'gunner'; appearance?: number; operationBoss?: 'leader' | 'king'; leaderBurst?: boolean; hp: number; maxHp: number; angle: number; cooldown: number; hit: number; windup: number; attackAngle: number; stun: number; paralysis?: number; charge?: BruteCharge; chargeCooldown?: number; lastSeen?: Point; combatMemory?: number; soundOnly?: boolean; hearingAlert?: boolean; investigate?: Point; investigateTime?: number; alarmInvestigation?: boolean; searchTime?: number; doorBlockId?: number; doorBlockCount?: number; forceOpen?: number; doorClearId?: number; doorClearTime?: number; doorClearPoint?: Point; knockback?: ForcedKnockback; lastHitShot?: number; attackAlly?: Ally; operationSector?: number; muzzle?: number;
   leaderTarget?: Player | Ally; leaderNextRecoil?: number; survivalPursuit?: boolean; survivalVariant?: SurvivalVariant;
   leaderMove?: { point: Point; remaining: number; stalled: number };
-  leaderBlocked?: { point: Point; until: number }; };
+  leaderBlocked?: { point: Point; until: number }; chapelContact?: { point: Point; until: number };
+  disoriented?: { until: number; nextAttack: number }; fireSlowUntil?: number; nextBurnHit?: number; };
+type PendingTactical = Omit<TacticalThrow, 'kind'> & { kind: TacticalKind | 'molotov'; survival?: true };
+type SurvivalFireZone = Point & { until: number; nextDamage: number };
 type BruteGait = { phase: number; traveled: number; updated: number; planted: number; steps: number };
 type OperationBoarder = Point & { id: number; angle: number; rally: Point };
 type OperationExtraction = { pickupTime: number; boarding?: { time: number; actors: OperationBoarder[] } };
 type OperationAirFlight = Point & {
   mode: 'inbound' | 'search' | 'align' | 'sweep' | 'outbound';
   from: Point; to: Point; heading: number; targetHeading: number;
-  time: number; duration: number; onStation?: number; nextBurst: number; nextSearch: number; burst: number; contact?: Enemy; podFlash: [number, number];
+  time: number; duration: number; supportTime: number; onStation?: number; nextBurst: number; nextSearch: number; burst: number; contact?: Enemy; podFlash: [number, number];
+  skipped?: { id: number; until: number };
 };
 export type Ally = Point & { id: number; slot: number; hp: number; maxHp: number; angle: number; cooldown: number; ammo: number; burst: number; hit: number; muzzle: number; retreat?: Point; rethink?: number; footstepTime?: number; knockback?: ForcedKnockback; grenades?: number; regrouping?: boolean;
   aimLock?: { id: number; remaining: number }; detour?: { point: Point; remaining: number }; blockedTime?: number; };
 export type Bullet = Point & { vx: number; vy: number; life: number; damage: number; hostile: boolean; firearm?: boolean; airSupport?: boolean;
-  traveled?: number; range?: number; push?: number; nearPush?: number; shot?: number; trainingAuto?: boolean; support?: boolean };
+  venom?: 'spit' | 'dart'; traveled?: number; range?: number; push?: number; nearPush?: number; shot?: number; trainingAuto?: boolean; support?: boolean };
 export type Particle = Point & { vx: number; vy: number; life: number; max: number; kind: string; owner?: number; size?: number; rotation?: number; spin?: number; z?: number; vz?: number; tint?: string };
 export type BloodStain = Point & { radius: number; seed: number; angle?: number; drops?: number; outline?: Point[]; droplets?: (Point & { radius: number })[] };
 export type ForcedKnockback = { start: Point; end: Point; elapsed: number; duration: number; doorId?: number; exiting?: boolean; keepsAim?: boolean };
-type DamageImpact = { angle: number; distance: number; shot?: number; point?: Point; heavy?: boolean };
+type DamageImpact = { angle: number; distance: number; shot?: number; point?: Point; heavy?: boolean; groundBlast?: boolean };
 const FIREARM_BULLET_SPEED = 1000;
+const SPIT_RANGE = 340;
+const SPIT_LIFE = 1.3;
+const SPIT_START_SPEED = 374;
+const SPIT_END_SPEED = 150;
 // Rifle, SMG, shotgun and suppressed pistol, in roster order.
 const EXPLOSIVE_PUSH = { grenade: 70, 'proximity-mine': 84, flashbang: 0, 'shock-mine': 0, claymore: 85 };
 export type Player = Point & { hp: number; maxHp: number; angle: number; ammo: number; reload: number; fire: number; dash: number; dashTime: number; dashX: number; dashY: number; invulnerable: number; hit: number; stun: number; knockback?: ForcedKnockback };
@@ -491,17 +502,23 @@ export class Battle {
   survivalConvoyAim = new Map<number, { angle: number; shotAt: number; trackingAt: number }>();
   survivalBag?: SurvivalBag;
   survivalCrates: SurvivalCrate[] = [];
+  private survivalEvacCaches: (Point | undefined)[] = [];
   survivalField: SurvivalFieldDrop[] = [];
   survivalRestock?: SurvivalRestock;
   survivalDoorWork?: { id: number; replacement?: SurvivalDoorKind; left: number; duration: number; hp: number; start: Point };
   private survivalRestockTick = 0;
-  private survivalGrenadeCooldown = 0;
+  survivalThrowCooldown = 0;
+  survivalBindings: SurvivalBindings = {};
+  survivalFires: SurvivalFireZone[] = [];
+  private nextFireSample = 0;
   survivalSentries: SurvivalSentry[] = [];
   survivalMines: SurvivalMine[] = [];
   survivalSpecial?: NonNullable<SurvivalGearSave['special']>;
   survivalSpecialActive = false;
   survivalPlacement?: Point & { id: number; duration: number; left: number; angle: number };
-  survivalScan = 0;
+  private survivalAir?: OperationAirFlight;
+  private survivalAirQueue = 0;
+  private survivalAirCover?: { geometry: number; rects: Rect[] };
   private survivalBaseAmmo = 0;
   private survivalBaseReserve = 0;
   private survivalSupplyId?: number;
@@ -584,9 +601,9 @@ export class Battle {
       Math.abs(angleDiff(a, p.angle)) < Math.asin(Math.min(1, 16 / Math.max(1, dist(p, t.target))));
   }
   tactical: TacticalLoadout = newTacticalLoadout();
-  tacticalThrows: TacticalThrow[] = [];
+  tacticalThrows: PendingTactical[] = [];
   plantedMines: Array<Point & { kind: 'shock-mine' | 'claymore'; angle: number; delay: number }> = [];
-  tacticalEffects: Array<Point & { kind: TacticalKind; life: number; max: number }> = [];
+  tacticalEffects: Array<Point & { kind: TacticalKind; life: number; max: number; survival?: true }> = [];
   get grenadeLights() {
     return this.tacticalEffects.filter(effect => effect.kind === 'grenade' && effect.max - effect.life < GRENADE_LIGHT_TIME &&
       lineClear(this.player, effect, this.visionBlockers));
@@ -634,13 +651,22 @@ export class Battle {
     this.purchased[kind] = count - 1;
     this.spendPurchased?.(kind);
   }
-  grenadeAim(angle: number, range: number) {
-    return tacticalPoint(this.player, angle, clamp(range, 0, 230), this.blockers,
-      (p, a, d, blocks) => rayDistance(p, a, d, [...blocks]));
+  grenadeAim(angle: number, range: number, maxRange = 230) {
+    return tacticalPoint(this.player, angle, clamp(range, 0, maxRange), this.blockers,
+      (p, a, d) => rayDistance(p, a, d, this.blockers));
+  }
+  get tacticalInputBlock() {
+    if (!this.canInteract() || this.operationRun?.phase === 'boarding' || this.usingSupply ||
+        this.survivalPlacement || this.survivalDoorWork || this.survivalStairTransit) return '当前动作无法使用';
+    if (this.player.hit > 0) return '受击中，暂时无法使用';
+    return undefined;
+  }
+  get tacticalBlock() {
+    if (!this.tactical.selected || this.tactical.remaining <= 0) return '道具已用完';
+    return this.tacticalInputBlock ?? (this.tactical.cooldown > 0 ? '道具冷却 ' + this.tactical.cooldown.toFixed(1) + ' 秒' : undefined);
   }
   throwTactical(angle = this.player.angle, range = 150): boolean {
-    if (this.tutorial || this.evacuationDrive || this.generatorProgress !== undefined) return false;
-    if (this.status !== 'playing' || this.player.dashTime > 0 || this.player.hit > 0 || this.player.stun > 0 || this.player.knockback) return false;
+    if (this.tacticalBlock) return false;
     const kind = this.tactical.selected;
     if (!kind) return false;
     const mine = isShopMine(kind);
@@ -675,7 +701,7 @@ export class Battle {
     this.advanceOperationGrenade(item, item.delay, bounces);
     return { bounces, impact: { x: item.x, y: item.y } };
   }
-  private advanceOperationGrenade(item: TacticalThrow, dt: number, preview?: Point[]) {
+  private advanceOperationGrenade(item: Omit<TacticalThrow, 'kind'>, dt: number, preview?: Point[]) {
     const flight = item.flight!, radius = 4;
     let remaining = Math.min(dt, item.delay);
     item.delay = item.delay - dt > 1e-8 ? item.delay - dt : 0;
@@ -733,7 +759,7 @@ export class Battle {
   }
   private updateTactical(dt: number) {
     stepTactical(this.tactical, dt);
-    this.survivalGrenadeCooldown = Math.max(0, this.survivalGrenadeCooldown - dt);
+    this.survivalThrowCooldown = Math.max(0, this.survivalThrowCooldown - dt);
     this.survivalMines = this.survivalMines.filter(mine => {
       const kind = mine.kind ?? 'proximity-mine';
       if (mine.fuse === undefined) {
@@ -761,16 +787,37 @@ export class Battle {
       if (item.flight) this.advanceOperationGrenade(item, dt);
       else item.delay -= dt;
       if (item.delay > 0) continue;
+      if (item.kind === 'molotov') {
+        this.survivalFires.push({ x: item.x, y: item.y, until: this.elapsed + SURVIVAL_FIRE.duration, nextDamage: this.elapsed + SURVIVAL_FIRE.tick });
+        this.nextFireSample = this.elapsed;
+        this.events.push('survival-fire-ignite');
+        this.emitSound(item, 'explosion', { ...SOUND_PROFILES.explosion, intensity: .42 });
+        continue;
+      }
       const definition = TACTICAL_DEFINITIONS[item.kind];
+      if (item.survival && item.kind === 'flashbang') {
+        for (const enemy of this.enemies) {
+          if (enemy.hp <= 0 || dist(enemy, item) > definition.radius || !lineClear(item, enemy, this.blockers)) continue;
+          enemy.disoriented = { until: this.elapsed + SURVIVAL_DISORIENT_SECONDS, nextAttack: this.elapsed + .24 + Math.random() * .26 };
+          enemy.windup = 0; enemy.lastSeen = enemy.investigate = undefined; enemy.combatMemory = 0;
+          enemy.attackAlly = undefined; enemy.charge = undefined;
+          this.survivalSearchOrders.delete(enemy);
+        }
+        this.tacticalEffects.push({ x: item.x, y: item.y, kind: 'flashbang', survival: true, life: .45, max: .45 });
+        this.emitSound(item, 'explosion', { ...SOUND_PROFILES.explosion, intensity: .7 });
+        this.events.push('survival-flashbang');
+        continue;
+      }
       const targets = item.kind === 'claymore' ? this.enemies.filter(e => inCone({ ...item, angle: item.angle! }, e)) : this.enemies;
       if (item.kind === 'shock-mine') {
         for (const enemy of targets) {
           if (dist(item, enemy) <= definition.radius && lineClear(item, enemy, this.blockers)) this.paralyze(enemy, definition.stun);
         }
       }
-      resolveTactical(item.kind, item, targets, [], this.blockers, (a, b, blocks) => lineClear(a, b, [...blocks]), (e, damage) => {
+      const push = EXPLOSIVE_PUSH[item.kind];
+      resolveTactical(item.kind, item, targets, [], this.blockers, (a, b) => lineClear(a, b, this.blockers), (e, damage) => {
         const angle = dist(item, e) > 0.01 ? Math.atan2(e.y - item.y, e.x - item.x) : this.player.angle;
-        this.damageEnemy(e as Enemy, damage, { angle, distance: EXPLOSIVE_PUSH[item.kind], heavy: EXPLOSIVE_PUSH[item.kind] >= 52 });
+        this.damageEnemy(e as Enemy, damage, { angle, distance: push, heavy: push >= 52 });
       }, () => {});
       // Test the closest leaf surface with that leaf excluded; other doors and walls still shield it.
       if (definition.doorDamage > 0) for (const door of this.doors) {
@@ -785,6 +832,28 @@ export class Battle {
       this.events.push(blast ? 'grenade-blast' : 'explosion');
     }
     this.tacticalThrows = this.tacticalThrows.filter(item => item.delay > 0);
+  }
+  private stepSurvivalFires() {
+    if (!this.survivalFires.length || this.elapsed + 1e-6 < this.nextFireSample) return;
+    const now = this.elapsed, { radius, tick, damage } = SURVIVAL_FIRE;
+    this.nextFireSample = now + .10;
+    this.survivalFires = this.survivalFires.filter(fire => fire.until + 1e-6 >= now);
+    for (const fire of this.survivalFires) {
+      const burning = now + 1e-6 >= fire.nextDamage;
+      if (burning) fire.nextDamage += tick;
+      for (let y = Math.floor((fire.y - radius) / UNIT_CELL_SIZE); y <= Math.floor((fire.y + radius) / UNIT_CELL_SIZE); y++) {
+        for (let x = Math.floor((fire.x - radius) / UNIT_CELL_SIZE); x <= Math.floor((fire.x + radius) / UNIT_CELL_SIZE); x++) {
+          for (const e of this.unitBuckets.get(x + y * 4096) ?? []) {
+            if (!('type' in e) || e.hp <= 0 || dist(fire, e) > radius || !lineClear(fire, e, this.blockers)) continue;
+            e.fireSlowUntil = Math.max(e.fireSlowUntil ?? 0, Math.min(fire.until, now + .16));
+            if (burning && now + 1e-6 >= (e.nextBurnHit ?? 0)) {
+              e.nextBurnHit = now + tick;
+              this.damageEnemy(e, damage);
+            }
+          }
+        }
+      }
+    }
   }
   get rooms() { return this.stage.rooms; }
   get apartmentShutter(): Rect | undefined {
@@ -946,6 +1015,7 @@ export class Battle {
       this.survivalBag = new SurvivalBag(survivalBagRows(heroId), survivalBagCols(heroId), true);
       this.survivalBag.give({ kind: 'bandage', count: 2 });
       this.prepareSurvivalCrates();
+      this.prepareSurvivalEvacCaches();
       for (let zone = 0; zone < SURVIVAL_FIELD_AREAS.length; zone++) this.placeSurvivalField(zone, zone, 1);
       for (const zone of [2, 3, 5]) {
         const candidates = SURVIVAL_FIELD_AREAS[zone].map(([x, y]) => harborPoint(x, y));
@@ -1090,7 +1160,7 @@ export class Battle {
         candidates.sort((a, b) => dist(a, exit) - dist(b, exit));
         for (const enemy of candidates) this.assignSurvivalSearch(enemy, stair, upper, 1, points);
       }
-      if (this.elapsed < 540 || tuning.scouts === 0 ||
+      if (this.elapsed < BLOOD_MOON || tuning.scouts === 0 ||
           (this.survivalSweepTimes.get(stair) ?? 0) > this.elapsed) continue;
       const building = plan.buildings.find(site => site.stair === stair);
       const door = building?.entries[0];
@@ -1223,6 +1293,13 @@ export class Battle {
   }
   get survivalOccupied() { return this.survivalBag?.used ?? 0; }
   survivalCount(kind: GearKind) { return this.survivalBag?.count(kind) ?? 0; }
+  bindSurvivalTactical(kind: GearKind) {
+    if (!this.survivalCount(kind)) return false;
+    if (isSurvivalThrowable(kind)) this.survivalBindings.throw = kind;
+    else if (isSurvivalMine(kind)) this.survivalBindings.mine = kind;
+    else return false;
+    return true;
+  }
   private updateBagCounts() {
     if (!this.survivalBag || !this.survival) return;
     for (const kind of SURVIVAL_ITEMS) {
@@ -1231,17 +1308,26 @@ export class Battle {
       else this.supplies[kind] = count;
     }
   }
+  private spawnSurvivalWeapon(preferred?: SurvivalGun): GearStack | undefined {
+    const spawned = this.survival!.timed.spawnedWeapons;
+    const candidates = survivalWeapons(this.heroId).filter(gun => !spawned.includes(gun));
+    const kind = preferred && candidates.includes(preferred) ? preferred : candidates[0];
+    if (!kind) return;
+    spawned.push(kind);
+    return { kind, count: 1 };
+  }
   private prepareSurvivalCrates() {
     const plan = this.stage.survival!;
     const pick = survivalRandom(plan.seed ^ 0x6b52cc41);
     const guns = survivalWeapons(this.heroId);
+    const firstGun = guns[pick(guns.length)], secondGun = pick(3) === 0 ? guns[pick(guns.length)] : undefined;
     const points = (names: string[]) => plan.buildings.filter(site => names.includes(site.footprint.kind ?? ''))
       .flatMap(site => site.loot.filter(point => walkable(point, 22, this.blockers, this.rooms)));
     const groups: { kind: SurvivalCrate['kind']; sites: string[]; goods: GearStack[] }[] = [
       { kind: 'medical', sites: ['社区诊所', '红瓦独栋'], goods: [{ kind: 'medkit', count: 1 }, { kind: 'medical-stock', count: 2 }, { kind: 'scanner', count: 1 }] },
       { kind: 'medical', sites: ['诊所西侧住宅', '南街双坡顶住宅', '北巷灰顶住宅'], goods: [{ kind: 'drink', count: 1 }, { kind: 'medical-stock', count: 2 }, { kind: 'bandage', count: 1 }, { kind: 'door-wood', count: 3 }] },
-      { kind: 'armory', sites: ['港区装卸仓库', '一号码头仓', '二号码头仓', '圆顶储运库'], goods: [{ kind: guns[pick(guns.length)], count: 1 }, { kind: 'special-ammo', count: 2 }, { kind: 'grenade', count: 1 }, { kind: 'tactical-module', count: 1 }] },
-      { kind: 'armory', sites: ['街角市场', '路口商行', '红棚商铺'], goods: [{ kind: pick(3) === 0 ? guns[pick(guns.length)] : 'shock-mine', count: 1 }, { kind: 'special-ammo', count: 1 }, { kind: 'tactical-stock', count: 2 }] },
+      { kind: 'armory', sites: ['港区装卸仓库', '一号码头仓', '二号码头仓', '圆顶储运库'], goods: [{ kind: 'special-ammo', count: 2 }, { kind: 'grenade', count: 1 }, { kind: 'flashbang', count: 1 }, { kind: 'tactical-module', count: 1 }] },
+      { kind: 'armory', sites: ['街角市场', '路口商行', '红棚商铺'], goods: [{ kind: 'special-ammo', count: 1 }, { kind: 'tactical-stock', count: 2 }, { kind: 'molotov', count: 1 }] },
       { kind: 'engineering', sites: ['西厂检修库', '红砖维修厂', '西厂动力车间'], goods: [{ kind: SURVIVAL_PARTS[0], count: 1 }, { kind: 'mod-cache', count: 2 }, { kind: 'tactical-stock', count: 1 }, { kind: 'door-metal', count: 3 }, { kind: 'door-brace', count: 1 }] },
       { kind: 'engineering', sites: ['南街红顶住宅', '市场侧库', '路口商行'], goods: [{ kind: SURVIVAL_PARTS[1], count: 1 }, { kind: 'mine', count: 1 }, { kind: 'door-wood', count: 2 }] },
       { kind: 'engineering', sites: ['港区东备货库', '货场备件车间', '港区装卸仓库'], goods: [{ kind: SURVIVAL_PARTS[2], count: 1 }, { kind: 'mod-cache', count: 2 }, { kind: 'door-metal', count: 4 }, { kind: 'door-brace', count: 1 }] },
@@ -1251,33 +1337,89 @@ export class Battle {
       const spots = points(sites).filter(p => !this.survivalCrates.some(c => dist(c, p) < 72));
       const p = spots[pick(spots.length)];
       if (!p) return;
+      if (index === 2 || index === 3) {
+        const preferred = index === 2 ? firstGun : secondGun;
+        const extra = preferred ? this.spawnSurvivalWeapon(preferred) : undefined;
+        goods.unshift(extra ?? { kind: 'shock-mine', count: 1 });
+      }
       this.survivalCrates.push({ x: p.x, y: p.y, id: 'supply-' + index, kind, opened: false, goods });
       const covered = this.loot.find(item => dist(item, p) < 1);
       if (covered) this.loot = this.loot.filter(item => item !== covered);
     });
   }
-  nearbySurvivalCrate(id?: string) {
+  private survivalEvacRegion(point: Point) {
+    const ground = this.survivalGroundPoint(point);
+    const site = this.stage.survival!.buildings.find(building => roomAt(ground, [building.footprint]) >= 0)?.footprint;
+    const center = site ? { x: site.x + site.w / 2, y: site.y + site.h / 2 } : ground;
+    return HARBOR_MAP_REGIONS.reduce((nearest, [name, x, y]) => {
+      const distance = dist(center, harborPoint(x, y));
+      return distance < nearest.distance ? { name, distance } : nearest;
+    }, { name: HARBOR_MAP_REGIONS[0][0] as typeof HARBOR_MAP_REGIONS[number][0], distance: Infinity }).name;
+  }
+  private prepareSurvivalEvacCaches() {
+    const plan = this.stage.survival!;
+    const pick = survivalRandom(plan.seed ^ 0x291bb2c7);
+    const sites = plan.buildings.map(site => {
+      const { footprint, stair } = site;
+      const region = this.survivalEvacRegion({ x: footprint.x + footprint.w / 2, y: footprint.y + footprint.h / 2 });
+      const points = site.loot.flatMap(({ x, y }) => [
+        { x: x + 58, y }, { x: x - 58, y }, { x, y: y + 58 }, { x, y: y - 58 },
+      ]).filter(point => site.rooms.some(r => point.x >= r.x + 24 && point.x <= r.x + r.w - 24 &&
+        point.y >= r.y + 24 && point.y <= r.y + r.h - 24) &&
+        (!stair || !circleRect(this.survivalGroundPoint(point), 35, stair.bounds)) &&
+        walkable(point, 24, this.blockers, site.rooms) && dist(point, this.stage.spawn) > 125 &&
+        !this.loot.some(item => dist(item, point) < 42) && !this.survivalCrates.some(crate => dist(crate, point) < 74));
+      return { region, points, upper: stair ? site.rooms[site.rooms.length - 1] : undefined };
+    }).filter(site => site.points.length);
+    const used = new Set<typeof sites[number]>();
+    const partsPerVehicle = EVAC_VEHICLES.helicopter.parts.length;
+    const regions = new Set<typeof HARBOR_MAP_REGIONS[number][0]>();
+    this.survivalEvacCaches = EVAC_PART_IDS.map((_, index) => {
+      const slot = index % partsPerVehicle;
+      if (slot === 0) regions.clear();
+      const remaining = sites.filter(site => !used.has(site));
+      const freshRegions = remaining.filter(site => !regions.has(site.region));
+      const candidates = freshRegions.length ? freshRegions : remaining;
+      const upper = (site: typeof sites[number], point: Point) => !!site.upper && roomAt(point, [site.upper]) >= 0;
+      const upstairs = slot === 0 ? candidates.filter(site => site.points.some(point => upper(site, point))) : [];
+      const options = upstairs.length ? upstairs : candidates;
+      const site = options[pick(options.length)];
+      if (!site) return;
+      used.add(site); regions.add(site.region);
+      const points = upstairs.length ? site.points.filter(point => upper(site, point)) : site.points;
+      return points[pick(points.length)];
+    });
+  }
+  get survivalEvacLeads() {
+    return this.survivalCrates.flatMap(crate => crate.kind === 'evac' && crate.goods.length
+      ? [{ kind: crate.goods[0].kind, region: this.survivalEvacRegion(crate) }] : []);
+  }
+  nearbySurvivalCrate(id?: string, filter?: 'container' | 'dropped') {
     const p = this.player;
     let best: SurvivalCrate | undefined, distance = 82;
     for (const crate of this.survivalCrates) {
       if (!crate.goods.length || id !== undefined && crate.id !== id) continue;
+      if (filter && (crate.kind === 'dropped') !== (filter === 'dropped')) continue;
       const range = dist(p, crate);
       if (range < distance && lineClear(p, crate, this.blockers)) { best = crate; distance = range; }
     }
     return best;
   }
   openSurvivalCrate() {
-    const crate = this.nearbySurvivalCrate();
+    const crate = this.nearbySurvivalCrate(undefined, 'container');
     if (!crate || !this.canInteract()) return;
     crate.opened = true;
     return crate;
   }
   takeSurvivalCrate(id: string, index: number) {
     const crate = this.nearbySurvivalCrate(id), stack = crate?.goods[index];
-    if (!this.canInteract() || !crate?.opened || !stack || !this.survivalBag) return false;
+    if (!this.canInteract() || !crate || (!crate.opened && crate.kind !== 'dropped') || !stack || !this.survivalBag) return false;
     const count = this.survivalBag.give(stack);
     if (!count) return false;
-    if ((stack.count -= count) === 0) crate.goods.splice(index, 1);
+    if ((stack.count -= count) === 0) {
+      crate.goods.splice(index, 1);
+      if (!crate.goods.length && crate.kind === 'dropped') this.survivalCrates.splice(this.survivalCrates.indexOf(crate), 1);
+    }
     this.updateBagCounts();
     this.events.push('loot');
     return true;
@@ -1286,19 +1428,64 @@ export class Battle {
     const bag = this.survivalBag, item = bag?.item(id);
     if (!bag || !item || !this.canInteract() || this.survivalPlacement?.id === id || this.survivalSupplyId === id) return false;
     const { kind, count, rounds } = item;
-    const { x, y } = this.player;
-    let i = this.survivalCrates.length;
-    while (this.survivalCrates.some(crate => crate.id === 'drop-' + i)) i++;
-    this.survivalCrates.push({ x, y, id: 'drop-' + i, kind: 'dropped', opened: true, goods: [{ kind, count, rounds }] });
+    this.spawnSurvivalDrop(this.player, { kind, count, rounds });
     bag.take(id, count);
     this.updateBagCounts();
     return true;
   }
-  craftSurvival(kind: SurvivalRecipe, preview = false) {
-    if (!this.survivalAtWorkbench || !this.canInteract() || this.survivalPlacement || this.survivalDoorWork || this.usingSupply || !this.survivalBag) return 'location';
-    const result = this.survivalBag.craft(kind, preview);
-    if (result === 'ok' && !preview) this.updateBagCounts();
-    return result;
+  private spawnSurvivalDrop({ x, y }: Point, stack: GearStack) {
+    let i = this.survivalCrates.length;
+    while (this.survivalCrates.some(crate => crate.id === 'drop-' + i)) i++;
+    this.survivalCrates.push({ x, y, id: 'drop-' + i, kind: 'dropped', opened: true, goods: [stack] });
+  }
+  private survivalWorkbenchDropPoint() {
+    const bench = this.stage.survival!.workbench, player = this.player;
+    const facing = Math.atan2(player.y - bench.y, player.x - bench.x);
+    for (const radius of [45, 68]) for (const offset of [0, 1, -1, 2, -2, 3, -3, 4]) {
+      const angle = facing + offset * Math.PI / 4;
+      const point = { x: bench.x + Math.cos(angle) * radius, y: bench.y + Math.sin(angle) * radius };
+      if (dist(player, point) < 82 && walkable(point, 18, this.blockers, this.rooms) && lineClear(player, point, this.blockers) &&
+          !this.survivalCrates.some(crate => crate.goods.length && dist(point, crate) < 26)) return point;
+    }
+    return undefined;
+  }
+  get survivalAmmoRecipe() {
+    const gun = this.survivalSpecial;
+    if (!gun) return;
+    const reserve = this.survivalSpecialActive ? this.reserveAmmo : gun.reserve;
+    return { ...SURVIVAL_AMMO_RECIPES[gun.id], gun: gun.id, title: SURVIVAL_GUNS[gun.id].gun, reserve };
+  }
+  planSurvivalCraft(kind: SurvivalRecipe | 'special-ammo') {
+    const bag = this.survivalBag;
+    if (!this.survivalAtWorkbench || !this.canInteract() || this.survivalPlacement || this.survivalDoorWork || this.usingSupply || !bag) return { status: 'location' as const };
+    if (kind === 'special-ammo') {
+      const recipe = this.survivalAmmoRecipe;
+      if (!recipe) return { status: 'weapon' as const };
+      if (recipe.reserve + recipe.rounds > 10000) return { status: 'full' as const };
+      return { ...bag.planCraft(recipe.cost), rounds: recipe.rounds };
+    }
+    const plan = bag.planCraft(SURVIVAL_RECIPES[kind], kind);
+    return { ...plan, drop: plan.status === 'space' ? this.survivalWorkbenchDropPoint() : undefined };
+  }
+  craftSurvival(kind: SurvivalRecipe | 'special-ammo', preview = false, toGround = false) {
+    const plan = this.planSurvivalCraft(kind);
+    if (preview) return plan.status;
+    if (toGround && plan.status === 'ok') return 'changed';
+    if (plan.status === 'ok' && 'bag' in plan) {
+      this.survivalBag!.commitCraft(plan.bag);
+      if ('rounds' in plan) {
+        if (this.survivalSpecialActive) this.reserveAmmo += plan.rounds;
+        else this.survivalSpecial!.reserve += plan.rounds;
+      }
+      this.updateBagCounts();
+    } else if (plan.status === 'space' && kind !== 'special-ammo' && toGround) {
+      if (!('drop' in plan) || !plan.drop) return 'ground-blocked';
+      this.spawnSurvivalDrop(plan.drop, { kind, count: 1 });
+      this.survivalBag!.commitCraft(plan.bag);
+      this.updateBagCounts();
+      return 'dropped';
+    }
+    return plan.status;
   }
   private survivalDevicePoint(radius: number) {
     const p = this.player, range = radius === 22 ? 46 : 37;
@@ -1350,7 +1537,7 @@ export class Battle {
     this.player.reload = 0;
     this.player.fire = Math.max(this.player.fire, .22);
   }
-  useSurvivalItem(id: number) {
+  useSurvivalItem(id: number, angle = this.player.angle, range = 205) {
     const bag = this.survivalBag, item = bag?.item(id);
     if (!bag || !item || !this.canInteract() || this.survivalPlacement || this.survivalDoorWork) return false;
     const { kind } = item;
@@ -1366,13 +1553,21 @@ export class Battle {
       if (this.survivalSpecialActive) this.reserveAmmo = Math.min(10000, this.reserveAmmo + rounds);
       else gun.reserve = Math.min(10000, gun.reserve + rounds);
     } else if (kind === 'scanner') {
-      this.survivalScan = 8;
-    } else if (kind === 'grenade') {
-      if (this.survivalGrenadeCooldown > 0) return false;
-      this.tacticalThrows.push(this.makeOperationGrenade(this.player, this.player.angle, 205));
-      this.survivalGrenadeCooldown = TACTICAL_DEFINITIONS.grenade.cooldown;
+      if (this.survivalAir) this.survivalAirQueue++;
+      else {
+        this.survivalAir = this.beginAirFlight(SURVIVAL_AIR_DURATION);
+        this.events.push('survival-air-request');
+      }
+    } else if (isSurvivalThrowable(kind)) {
+      if (this.tacticalInputBlock || this.survivalThrowCooldown > 0) return false;
+      const reach = Math.min(range, SURVIVAL_THROWABLES[kind].range);
+      if (kind === 'grenade') this.tacticalThrows.push(this.makeOperationGrenade(this.player, angle, reach));
+      else this.tacticalThrows.push({ ...this.grenadeAim(angle, reach, reach), kind, delay: SURVIVAL_FIRE.flight, survival: true,
+        origin: { x: this.player.x, y: this.player.y } });
+      this.survivalThrowCooldown = SURVIVAL_THROWABLES[kind].cooldown;
       this.events.push('throw');
-    } else if (kind === 'mine' || kind === 'shock-mine') {
+    } else if (isSurvivalMine(kind)) {
+      if (this.tacticalInputBlock) return false;
       const point = this.survivalDevicePoint(11);
       if (!point) return false;
       this.survivalMines.push(kind === 'mine' ? point : { ...point, kind: 'shock-mine' });
@@ -1465,16 +1660,20 @@ export class Battle {
       if (e.windup > 0) return true;
       this.sentryWindups.delete(e);
       if (distance <= reach + 14 && lineClear(e, sentry, this.blockers)) {
-        sentry.hp = Math.max(0, sentry.hp - (ranged ? 13 : 17));
-        this.emit(sentry, 5, 'spark');
-        if (sentry.hp === 0) this.events.push('survival-sentry-lost');
+        if (ranged) this.spitVenom(e, e.attackAngle);
+        else this.damageSurvivalSentry(sentry, 17);
       }
     } else if (distance > reach) this.advanceUnit(e, sentry, 103, dt);
     else if (e.cooldown <= 0) {
-      e.windup = ranged ? .47 : .28; e.cooldown = .87;
+      e.windup = ranged ? .47 : .28; e.cooldown = .87; e.attackAngle = e.angle;
       this.sentryWindups.set(e, sentry);
     }
     return true;
+  }
+  private damageSurvivalSentry(sentry: SurvivalSentry, damage: number) {
+    sentry.hp = Math.max(0, sentry.hp - damage);
+    this.emit(sentry, 5, 'spark');
+    if (sentry.hp === 0) this.events.push('survival-sentry-lost');
   }
   survivalCheckpoint(): SurvivalCheckpoint | undefined {
     const run = this.survival, plan = this.stage.survival;
@@ -1487,12 +1686,14 @@ export class Battle {
         ? { ...this.survivalSpecial, ammo: this.player.ammo, reserve: this.reserveAmmo } : this.survivalSpecial,
       selected: this.survivalSpecialActive, baseAmmo: this.survivalSpecialActive ? this.survivalBaseAmmo : this.player.ammo,
       baseReserve: this.survivalSpecialActive ? this.survivalBaseReserve : this.reserveAmmo,
-      scan: this.survivalScan,
-      field: this.survivalField, restock: this.survivalRestock,
+      field: this.survivalField, restock: this.survivalRestock, bindings: this.survivalBindings,
     };
     const { x, y, hp, angle, ammo } = this.player;
-    const timed = { released: run.timed.released, convoyNotice: run.timed.convoyNotice,
-      rewardedMinutes: run.timed.rewardedMinutes, lastDrop: run.timed.lastDrop, helicopter: { ...run.timed.helicopter }, boat: { ...run.timed.boat } };
+    const activeAir = this.survivalAir?.mode !== 'outbound' ? this.survivalAir : undefined;
+    const timed = { released: run.timed.released, convoyNotice: run.timed.convoyNotice, bloodMoonNotice: run.timed.bloodMoonNotice,
+      airQueue: this.survivalAirQueue || undefined, airRemaining: activeAir ? activeAir.supportTime - (activeAir.onStation ?? 0) : undefined,
+      rewardedMinutes: run.timed.rewardedMinutes, lastDrop: run.timed.lastDrop, spawnedWeapons: [...run.timed.spawnedWeapons],
+      helicopter: { ...run.timed.helicopter }, boat: { ...run.timed.boat } };
     return { version: 2, layout: plan.layout, seed: plan.seed, hero: this.heroId, pool: { ...run.pool },
       elapsed: this.elapsed, kills: this.kills, salvage: run.salvage, parts: run.parts, position: { x, y, hp, angle, ammo },
       reserve: this.reserveAmmo, supplies: { ...this.supplies }, taken: this.loot.filter(item => item.taken).map(item => item.id),
@@ -1506,8 +1707,12 @@ export class Battle {
     const run = this.survival;
     if (!run) return;
     Object.assign(run, { pool: { ...save.pool }, salvage: save.salvage, parts: save.parts });
-    Object.assign(run.timed, save.timed, { helicopter: { ...save.timed.helicopter }, boat: { ...save.timed.boat } });
+    const { spawnedWeapons, helicopter, boat, airQueue, airRemaining, ...clock } = save.timed;
+    Object.assign(run.timed, clock, { helicopter: { ...helicopter }, boat: { ...boat } });
     this.elapsed = save.elapsed; this.kills = save.kills;
+    this.survivalAirQueue = airQueue ?? 0;
+    this.survivalAir = undefined;
+    if (this.elapsed < BLOOD_MOON) run.timed.nextPressure = this.elapsed + 27;
     this.reserveAmmo = save.reserve; this.supplies = { ...save.supplies };
     const relocated = save.layout !== this.stage.survival?.layout;
     this.loot.forEach(item => { item.taken = (!relocated || item.id < 3) && save.taken.includes(item.id); });
@@ -1526,11 +1731,11 @@ export class Battle {
       }
       this.survivalField = restored.field ?? this.survivalField;
       this.survivalRestock = restored.restock;
+      this.survivalBindings = restored.bindings ?? {};
       this.survivalSpecial = restored.special;
       this.survivalBaseAmmo = Math.min(this.baseGun.magazine, restored.baseAmmo);
       this.survivalBaseReserve = restored.baseReserve;
       this.applySurvivalWeapon(restored.selected);
-      this.survivalScan = restored.scan;
     } else {
       bag.items = []; bag.quick = [null, null, null];
       for (const kind of SURVIVAL_ITEMS) {
@@ -1546,6 +1751,21 @@ export class Battle {
         }
       }
     }
+    if (gear) {
+      const recorded = new Set(spawnedWeapons ?? []);
+      const addGun = (id: GearKind) => { if (isSurvivalGun(id)) recorded.add(id); };
+      if (!spawnedWeapons) {
+        const guns = survivalWeapons(this.heroId), pick = survivalRandom(save.seed ^ 0x6b52cc41);
+        const first = guns[pick(guns.length)], second = pick(3) === 0 ? guns[pick(guns.length)] : undefined;
+        if (gear.crates.some(crate => crate.id === 'supply-2')) recorded.add(first);
+        if (second && gear.crates.some(crate => crate.id === 'supply-3')) recorded.add(second);
+        if (gear.crates.some(crate => crate.kind === 'airdrop' && crate.id.startsWith('timed-air-'))) recorded.add(guns[save.seed % guns.length]);
+      }
+      if (gear.special) recorded.add(gear.special.id);
+      gear.items.forEach(item => addGun(item.kind));
+      gear.crates.forEach(crate => crate.goods.forEach(stack => addGun(stack.kind)));
+      run.timed.spawnedWeapons = [...recorded];
+    }
     this.updateBagCounts();
     this.doors.forEach((d, i) => {
       const previous = save.doors[i];
@@ -1555,6 +1775,7 @@ export class Battle {
       Object.assign(d, { hp: clamp(previous.hp, 0, d.maxHp), angle, target: angle, destroyed: previous.destroyed });
     });
     this.syncGeometry();
+    if (airRemaining) this.survivalAir = this.beginAirFlight(airRemaining, this.survivalGroundPoint(save.position));
     if (relocated) { this.updateMinimap(); return; }
     this.enemies = [];
     const safePoint = (position: Point, radius: number, mover?: Player) => {
@@ -1741,10 +1962,15 @@ export class Battle {
   private stepTimedSurvival(dt: number) {
     const run = this.survival!, timed = run.timed!, now = this.elapsed, plan = this.stage.survival!;
     if (now >= SURVIVAL_DEADLINE) { run.outcome = 'fallen'; this.status = 'lost'; return; }
+    if (now >= BLOOD_MOON && !timed.bloodMoonNotice) {
+      timed.bloodMoonNotice = true;
+      timed.nextPressure = Math.min(timed.nextPressure, now);
+      this.events.push('survival-blood-moon');
+    }
     if (now >= CONVOY_NOTICE && !timed.convoyNotice) {
       timed.convoyNotice = true; this.events.push('survival-convoy-radio');
     }
-    const minute = Math.min(23, Math.floor(now / 60));
+    const minute = Math.floor(now / 60);
     if (minute > timed.rewardedMinutes) {
       run.pool.coins += (minute - timed.rewardedMinutes) * 12;
       run.pool.materials += (minute - timed.rewardedMinutes) * 4;
@@ -1756,59 +1982,57 @@ export class Battle {
     if (minute >= 4 && minute % 4 === 0 && timed.lastDrop !== minute) {
       const point = this.survivalAirdropPoint(minute + 2);
       if (point) {
-        const guns = survivalWeapons(this.heroId);
+        const weapon = this.spawnSurvivalWeapon();
         this.survivalCrates.push({ ...point, id: 'timed-air-' + minute, kind: 'airdrop', opened: false, goods: [
-          { kind: guns[(plan.seed + minute) % guns.length], count: 1 }, { kind: 'special-ammo', count: 3 },
+          weapon ?? { kind: 'tactical-stock', count: 3 }, { kind: 'special-ammo', count: 3 },
           { kind: 'evac-fuel', count: 1 }, { kind: SURVIVAL_PARTS[minute % 3], count: 1 }, { kind: 'mine', count: 1 },
+          { kind: minute % 8 === 0 ? 'molotov' : 'flashbang', count: 1 },
         ] });
         this.events.push('survival-airdrop');
       }
       timed.lastDrop = minute;
     }
     this.stepTimedConvoy();
+    this.stepSurvivalEvacSupplies(timed, now);
     if (now < timed.nextPressure) return;
-    timed.nextPressure = now + (now >= CONVOY_LEAVE ? .72 : now >= 900 ? 2.1 : now >= 540 ? 3.1 : now >= 240 ? 4.8 : 8);
-    const stock = SURVIVAL_FIELD_AREAS.flatMap((sites, zone) => sites.map(([x, y]) => ({ ...harborPoint(x, y), zone })));
-    EVAC_PART_IDS.forEach((kind, index) => {
-      if (timed.released & (1 << index)) return;
-      const pick = survivalRandom(plan.seed ^ Math.imul(index + 1, 77431));
-      const [early, late] = EVAC_PART_WINDOWS[index % 5];
-      if (now < early + pick(late - early + 1)) return;
-      const start = pick(stock.length);
-      const point = stock.slice(start).concat(stock.slice(0, start)).find(p => !this.sees(p) &&
-        walkable(p, 18, this.blockers, this.rooms) && !this.survivalField.some(item => dist(item, p) < 55));
-      if (!point) return;
-      timed.released |= 1 << index;
-      this.survivalField.push({ ...point, id: 'evac-' + kind, kind, count: 1 });
-      this.events.push('survival-part-found');
-    });
-    const upper = this.survivalUpperFloor;
-    const p = { x: this.player.x - (upper?.offsetX ?? 0), y: this.player.y };
+    const p = this.survivalGroundPoint(this.player);
     const fuel = (['helicopter', 'boat'] as const).filter(id => (this.survivalVehicleStatus(id).fuel ?? 0) > 0)
       .sort((a, b) => dist(p, EVAC_VEHICLES[a].access) - dist(p, EVAC_VEHICLES[b].access))[0];
     const destination = fuel ? EVAC_VEHICLES[fuel].access : p;
+    const quiet = now < BLOOD_MOON && !fuel;
+    const pick = survivalRandom(plan.seed ^ Math.imul(Math.floor(now * 10), 7949));
+    const escalated = now >= SURVIVAL_ESCALATION, highPressure = now >= SURVIVAL_HIGH_PRESSURE, finalPursuit = now >= CONVOY_LEAVE;
+    timed.nextPressure = now + (quiet ? 25 + pick(11) : fuel ? 2 : finalPursuit ? .72 : highPressure ? 2.1 : escalated ? 3.3 : 6.5);
     const closeToObjective = (e: Point) => dist(e, this.player) < 1450 || dist(e, destination) < 1060 ||
       this.survivalSentries.some(s => s.hp > 0 && dist(s, e) < 460) || this.survivalMines.some(m => dist(m, e) < 105);
-    const limit = Math.min(this.survivalActiveLimit, now >= CONVOY_LEAVE ? 92 : now >= 900 ? 92 : now >= 540 ? 56 : now >= 240 ? 35 : 20);
+    const limit = Math.min(this.survivalActiveLimit, quiet ? 23 : finalPursuit ? 86 : fuel ? 76 : highPressure ? 86 : escalated ? 60 : 38);
     const living = this.enemies.filter(e => e.hp > 0);
     if (living.length >= limit * .65 && now >= 110) {
-      const dormant = living.filter(e => !closeToObjective(e) && !this.sees(e) && e.hp === e.maxHp).slice(0, now >= 900 ? 8 : 3);
+      const dormant = living.filter(e => !closeToObjective(e) && !this.sees(e) && e.hp === e.maxHp).slice(0, now >= SURVIVAL_ACTIVE_HUNT ? 8 : 3);
       for (const e of dormant) e.hp = 0;
     }
     let count = this.enemies.filter(e => e.hp > 0).length;
+    if (count >= limit || quiet && living.filter(e => e.hp > 0 && e.room === plan.streetRoom && dist(e, p) < 1050).length >= 5) return;
+    const stock = SURVIVAL_FIELD_AREAS.flatMap(sites => sites.map(([x, y]) => harborPoint(x, y)));
     const nearSpawns = stock.filter(s => dist(s, destination) <= 1200);
-    const pick = survivalRandom(plan.seed ^ Math.imul(Math.floor(now * 10), 7949));
     const ring = Array.from({ length: 28 }, (_, i) => {
       const angle = (i + pick(24) / 24) * 2.399963;
       const r = (fuel ? 335 : 410) + pick(400);
       return { x: destination.x + Math.cos(angle) * r, y: destination.y + Math.sin(angle) * r };
     });
+    const available = (point: Point) => dist(point, destination) <= 1150 &&
+      !plan.buildings.some(site => circleRect(point, 15, site.footprint)) && this.canSpawn(point, quiet ? 390 : 270);
+    if (quiet) {
+      const point = [...ring, ...nearSpawns].find(available);
+      if (point) this.spawnEnemy([plan.streetRoom, point.x, point.y, 'walker']);
+      return;
+    }
     timed.groups = timed.groups.filter(group => group.expires > now && group.count > 0);
     if (timed.groups.length < 5) {
       const anchor = (nearSpawns.length ? nearSpawns : stock)[pick(nearSpawns.length || stock.length)];
-      timed.groups.push({ point: { x: anchor.x, y: anchor.y }, count: fuel ? 9 : now >= 900 ? 10 : now >= 540 ? 6 : now >= 240 ? 4 : 2, expires: now + 42 });
+      timed.groups.push({ point: { x: anchor.x, y: anchor.y }, count: fuel ? 9 : escalated ? 10 : 5, expires: now + 42 });
     }
-    const batch = now >= CONVOY_LEAVE ? 10 : fuel ? 8 : now >= 900 ? 8 : now >= 540 ? 5 : now >= 240 ? 3 : 1;
+    const batch = finalPursuit ? 10 : fuel || highPressure ? 8 : escalated ? 6 : 3;
     let added = 0;
     for (const group of timed.groups) {
       const delta = dist(group.point, destination);
@@ -1818,13 +2042,13 @@ export class Battle {
       }
       for (const point of [group.point, ...ring, ...nearSpawns]) {
         if (!group.count || added >= batch || count >= limit) break;
-        const indoor = plan.buildings.some(site => circleRect(point, 15, site.footprint));
-        if (indoor || dist(point, destination) > 1150 || !this.canSpawn(point, 270)) continue;
-        const ticket = pick(12), variant = now >= CONVOY_LEAVE && ticket < 8 ? 'overrun' :
-          now >= 540 && ticket === 0 ? 'breaker' : now >= 240 && ticket < 4 ? 'runner' : undefined;
-        const enemy = this.spawnEnemy([plan.streetRoom, point.x, point.y, now >= 240 && ticket === 4 ? 'spitter' : 'walker']);
+        if (!available(point)) continue;
+        const ticket = pick(12), variant = finalPursuit && ticket < 8 ? 'overrun' :
+          now >= BLOOD_MOON && ticket < (escalated ? 2 : 1) ? 'breaker' :
+          now >= BLOOD_MOON && ticket < (escalated ? 6 : 4) ? 'runner' : undefined;
+        const enemy = this.spawnEnemy([plan.streetRoom, point.x, point.y, now >= BLOOD_MOON && ticket === 6 ? 'spitter' : 'walker']);
         this.tuneTimedEnemy(enemy, variant);
-        if (fuel || now >= CONVOY_LEAVE || now >= 900 && ticket < 8) enemy.survivalPursuit = true;
+        if (fuel || finalPursuit || now >= SURVIVAL_ACTIVE_HUNT && ticket < 8) enemy.survivalPursuit = true;
         else if (now >= 240) {
           enemy.investigate = ring[pick(ring.length)];
           enemy.investigateTime = 9;
@@ -1832,6 +2056,23 @@ export class Battle {
         group.count--; count++; added++;
       }
     }
+  }
+  private stepSurvivalEvacSupplies(timed: TimedSurvivalRun, now: number) {
+    if (timed.released === (1 << EVAC_PART_IDS.length) - 1 || now < timed.nextSupplies) return;
+    timed.nextSupplies = now + 1;
+    const seed = this.stage.survival!.seed;
+    const leadsBefore = timed.released;
+    EVAC_PART_IDS.forEach((kind, index) => {
+      if (timed.released & (1 << index)) return;
+      const pick = survivalRandom(seed ^ Math.imul(index + 1, 77431));
+      const [early, late] = EVAC_PART_WINDOWS[index % EVAC_PART_WINDOWS.length];
+      if (now < early + pick(late - early + 1)) return;
+      const point = this.survivalEvacCaches[index];
+      if (!point) return;
+      timed.released |= 1 << index;
+      this.survivalCrates.push({ ...point, id: 'evac-' + kind, kind: 'evac', opened: false, goods: [{ kind, count: 1 }] });
+    });
+    if (timed.released !== leadsBefore) this.events.push('survival-part-found', 'survival-timed-checkpoint');
   }
   private stepTimedConvoy() {
     const timed = this.survival!.timed!, now = this.elapsed;
@@ -2502,7 +2743,7 @@ export class Battle {
   }
   private changeFloor(stage: LevelDefinition) {
     this.bullets = []; this.particles = []; this.bloodStains = []; this.deathFragments = [];
-    this.tacticalThrows = []; this.tacticalEffects = []; this.plantedMines = []; this.sounds = []; this.events = [];
+    this.tacticalThrows = []; this.tacticalEffects = []; this.survivalFires = []; this.plantedMines = []; this.sounds = []; this.events = [];
     this.recoveryFx.clear();
     this.doorForceCooldown.clear(); this.doorAttempts.clear(); this.doorSoundTime.clear();
     this.flowTime = 0; this.perceptionTime = 0; this.footstepTime = 0;
@@ -2527,12 +2768,11 @@ export class Battle {
     }
     return true;
   }
-  private operationAirTarget(origin: Point) {
+  private operationAirTarget(origin: OperationAirFlight) {
     const targets = this.enemies.filter(enemy => enemy.hp > 0 && dist(origin, enemy) <= OPERATION_AIR_VISION && this.operationAirExposed(enemy) &&
-      (this.sees(enemy, 32) || this.allies.some(ally => ally.hp > 0 && dist(ally, enemy) < 460 && lineClear(ally, enemy, this.blockers))));
+      !(origin.skipped?.id === enemy.id && origin.skipped.until > this.elapsed));
     let best: Enemy | undefined, score = -Infinity;
     for (const enemy of targets) {
-      if ([this.player, ...this.allies].some(unit => unit.hp > 0 && dist(enemy, unit) < 85)) continue;
       const value = 105 * targets.filter(other => dist(enemy, other) <= 122).length - 0.36 * dist(origin, enemy);
       if (value > score) { best = enemy; score = value; }
     }
@@ -2542,38 +2782,59 @@ export class Battle {
     const run = this.operationRun;
     if (!run?.airSupport || run.air || run.airCooldown > 0 || this.stage.operation?.interiors.some(room => roomAt(this.player, [room]) >= 0) ||
         run.phase === 'landing' || run.phase === 'boarding' || run.ready || this.status !== 'playing' || this.player.hp <= 0) return false;
-    const from = { x: this.player.x - 960, y: this.player.y + 142 };
-    const to = { x: this.player.x - 55, y: this.player.y + 86 };
-    const heading = Math.atan2(to.y - from.y, to.x - from.x);
-    run.air = { ...from, mode: 'inbound', from, to, time: 0, duration: 3.35, heading, targetHeading: heading,
-      nextBurst: 0, nextSearch: 0, burst: 0, podFlash: [0, 0] };
+    run.air = this.beginAirFlight(OPERATION_AIR_DURATION);
     this.events.push('operation-air-request');
     return true;
+  }
+  private survivalGroundPoint(point: Point): Point {
+    return { x: point.x - (this.harborUpperFloorAt(point)?.offsetX ?? 0), y: point.y };
+  }
+  get airSupportFlight() { return this.survival ? this.survivalAir : this.operationRun?.air; }
+  get pendingAirSupport() { return this.survivalAirQueue; }
+  private get airCover() {
+    if (!this.survival) return this.blockers;
+    if (this.survivalAirCover?.geometry !== this.geometryRevision) {
+      this.survivalAirCover = { geometry: this.geometryRevision, rects: this.blockers.filter(rect => rect.kind !== 'harbor-water') };
+    }
+    return this.survivalAirCover.rects;
+  }
+  private beginAirFlight(supportTime: number, point = this.survivalGroundPoint(this.player)): OperationAirFlight {
+    const from = { x: point.x - 960, y: point.y + 142 };
+    const to = { x: point.x - 55, y: point.y + 86 };
+    const heading = Math.atan2(to.y - from.y, to.x - from.x);
+    return { ...from, mode: 'inbound', from, to, time: 0, duration: 3.35, supportTime, heading, targetHeading: heading,
+      nextBurst: 0, nextSearch: 0, burst: 0, podFlash: [0, 0] };
+  }
+  private operationAirLanes(origin: Point, heading: number, limit: number) {
+    const dx = Math.cos(heading), dy = Math.sin(heading), { forward, side: spacing } = OPERATION_AIR_PODS;
+    const cover = this.airCover;
+    return [-1, 1].map(side => {
+      const from = { x: origin.x + dx * forward + dy * side * spacing, y: origin.y + dy * forward - dx * side * spacing };
+      const path = rayDistance(from, heading, limit, cover);
+      const projectsToLane = (point: Point, padding: number) => {
+        const x = point.x - from.x, y = point.y - from.y, along = x * dx + y * dy;
+        return along >= -padding && along <= path + padding && Math.abs(y * dx - x * dy) <= OPERATION_AIR_CANNON.radius;
+      };
+      return { from, side, path, reaches: (point: Point) => path > 4 && projectsToLane(point, 12) && lineClear(from, point, cover) };
+    });
   }
   private fireOperationAir(air: OperationAirFlight) {
     const dx = Math.cos(air.heading), dy = Math.sin(air.heading);
     const sweep = clamp(air.time / air.duration, 0, 1);
     const burst = air.burst++;
-    const { side: spacing, forward, flashTime } = OPERATION_AIR_PODS;
+    const { forward, flashTime } = OPERATION_AIR_PODS;
     const aimed = air.contact && air.contact.hp > 0 && burst % 2 === 0 ?
-      Math.max(0, (air.contact.x - air.x) * dx + (air.contact.y - air.y) * dy - forward + 20) : 0;
-    const limit = Math.min(OPERATION_AIR_RANGE, Math.max(aimed, 292 + sweep * 246 + (burst % 3) * 18));
+      Math.max(7, (air.contact.x - air.x) * dx + (air.contact.y - air.y) * dy - forward) : undefined;
+    const limit = Math.min(OPERATION_AIR_RANGE, aimed ?? (175 + sweep * 335 + (burst % 3) * 18));
     let fired = false;
-    for (const [index, side] of [-1, 1].entries()) {
-      const from = { x: air.x + dx * forward + dy * side * spacing, y: air.y + dy * forward - dx * side * spacing };
-      const path = rayDistance(from, air.heading, limit, this.blockers);
+    for (const [index, { from, side, path }] of this.operationAirLanes(air, air.heading, limit).entries()) {
       if (path <= 4) continue;
-      const inLane = (point: Point) => {
-        const x = point.x - from.x, y = point.y - from.y, along = x * dx + y * dy;
-        return along >= -32 && along <= path + 32 && Math.abs(y * dx - x * dy) <= 34;
-      };
-      if ([this.player, ...this.allies].some(unit => unit.hp > 0 && inLane(unit) && lineClear(from, unit, this.blockers))) continue;
       air.podFlash[index] = flashTime;
       fired = true;
-      const speed = 1840;
-      this.spawnBullet({ ...from, vx: dx * speed, vy: dy * speed, life: limit / speed,
-        damage: 11, hostile: false, firearm: true, support: true, push: 0, airSupport: true });
-      for (let i = 0; i < 4; i++) {
+      const { speed, damage } = OPERATION_AIR_CANNON;
+      this.spawnBullet({ ...from, vx: dx * speed, vy: dy * speed, life: Math.max(1, path - .7) / speed,
+        damage, hostile: false, firearm: true, support: true, push: 0, airSupport: true });
+      for (let i = 0; i < 2; i++) {
         const drift = 76 + Math.random() * 82, fall = 0.28 + Math.random() * 0.27;
         this.particles.push({ x: from.x - dx * 12, y: from.y - dy * 12,
           vx: dx * (i * 24 - 67) + dy * side * drift, vy: dy * (i * 24 - 67) - dx * side * drift,
@@ -2585,16 +2846,45 @@ export class Battle {
       this.events.push('operation-air-burst');
       this.emitSound(air, 'rifle');
     }
+    return fired;
+  }
+  private impactOperationAir(shell: Bullet, angle: number) {
+    const radius = OPERATION_AIR_CANNON.radius;
+    const player = this.survivalGroundPoint(this.player);
+    const cover = this.airCover;
+    if (Math.abs(shell.x - player.x) < 930 && Math.abs(shell.y - player.y) < 600 && roomAt(shell, this.rooms) >= 0 &&
+        (!this.survival || !nearbyRects(this.blockers, shell.x, shell.y, shell.x, shell.y).some(rect => rect.kind === 'harbor-water' && circleRect(shell, .5, rect)))) {
+      this.emit(shell, 3, 'air-dust');
+      this.emit(shell, 2, 'air-chip');
+    }
+    for (let y = Math.floor((shell.y - radius) / UNIT_CELL_SIZE); y <= Math.floor((shell.y + radius) / UNIT_CELL_SIZE); y++) {
+      for (let x = Math.floor((shell.x - radius) / UNIT_CELL_SIZE); x <= Math.floor((shell.x + radius) / UNIT_CELL_SIZE); x++) {
+        for (const unit of this.unitBuckets.get(x + y * 4096) ?? []) {
+          if (!('type' in unit) || unit.hp <= 0) continue;
+          const distance = dist(shell, unit);
+          if (distance >= radius || !this.operationAirExposed(unit) || !lineClear(shell, unit, cover)) continue;
+          const damage = shell.damage * (1 - .72 * distance / radius);
+          this.damageEnemy(unit, damage, { angle, distance: 0, point: shell, groundBlast: true }, !!this.survival);
+        }
+      }
+    }
   }
   private stepOperationAir(dt: number) {
-    const run = this.operationRun!;
-    run.grenadeDelay = Math.max(0, run.grenadeDelay - dt);
-    run.airCooldown = Math.max(0, run.airCooldown - dt);
-    const air = run.air;
+    const run = this.operationRun;
+    if (run) {
+      run.grenadeDelay = Math.max(0, run.grenadeDelay - dt);
+      run.airCooldown = Math.max(0, run.airCooldown - dt);
+    }
+    if (this.survival && !this.survivalAir && this.survivalAirQueue > 0) {
+      this.survivalAirQueue--;
+      this.survivalAir = this.beginAirFlight(SURVIVAL_AIR_DURATION);
+      this.events.push('survival-air-request');
+    }
+    const air = this.airSupportFlight;
     if (!air) return;
     air.podFlash[0] = Math.max(0, air.podFlash[0] - dt);
     air.podFlash[1] = Math.max(0, air.podFlash[1] - dt);
-    if (air.onStation !== undefined && air.mode !== 'outbound' && (air.onStation = Math.min(OPERATION_AIR_DURATION, air.onStation + dt)) >= OPERATION_AIR_DURATION) {
+    if (air.onStation !== undefined && air.mode !== 'outbound' && (air.onStation = Math.min(air.supportTime, air.onStation + dt)) >= air.supportTime) {
       this.exitOperationAir(air, Math.cos(air.heading) > -0.15 ? 1 : -1);
     }
     air.time = Math.min(air.duration, air.time + dt);
@@ -2607,8 +2897,15 @@ export class Battle {
     if (air.mode === 'sweep') {
       air.nextBurst -= dt;
       if (air.nextBurst <= 0 && Math.abs(angleDiff(air.targetHeading, air.heading)) < 0.12) {
-        this.fireOperationAir(air);
-        air.nextBurst += 0.095;
+        const contact = air.contact;
+        const clear = contact?.hp && this.operationAirLanes(air, air.heading, OPERATION_AIR_RANGE).some(lane => lane.reaches(contact));
+        if (!clear || !this.fireOperationAir(air)) {
+          const target = this.operationAirTarget(air);
+          if (target) this.engageOperationAir(air, target);
+          else this.searchOperationAir(air);
+          return;
+        }
+        air.nextBurst += OPERATION_AIR_CANNON.interval;
       }
     }
     if ((air.mode === 'search' && t >= 0.16) || air.mode === 'sweep') {
@@ -2626,47 +2923,56 @@ export class Battle {
     }
     if (air.time < air.duration) return;
     if (air.mode === 'outbound') {
-      run.air = undefined;
-      run.airCooldown = OPERATION_AIR_COOLDOWN;
+      if (run) {
+        run.air = undefined;
+        run.airCooldown = OPERATION_AIR_COOLDOWN;
+      } else this.survivalAir = undefined;
       return;
     }
     air.onStation ??= 0;
-    const from = { x: air.x, y: air.y };
     const target = this.operationAirTarget(air);
-    if (!target) {
-      const east = Math.max(...this.rooms.map(room => room.x + room.w)) - 130;
-      const x = Math.min(east, air.x + 480);
-      const y = x <= air.x + 50 ? (air.y < this.player.y + 90 ? this.player.y + 420 : this.player.y - 350) :
-        air.y + clamp(this.player.y - air.y, -108, 108);
-      const to = { x, y: clamp(y, 95, Math.max(...this.rooms.map(room => room.y + room.h)) - 95) };
-      Object.assign(air, { mode: 'search', from, to, time: 0, duration: 3.65, nextSearch: 0.12,
-        targetHeading: Math.atan2(to.y - from.y, to.x - from.x) });
-      return;
-    }
-    this.engageOperationAir(air, target);
+    if (target) this.engageOperationAir(air, target);
+    else this.searchOperationAir(air);
+  }
+  private searchOperationAir(air: OperationAirFlight) {
+    const from = { x: air.x, y: air.y };
+    const ground = this.stage.survival ? this.rooms[this.stage.survival.streetRoom] : this.rooms[0];
+    const player = this.survivalGroundPoint(this.player);
+    const east = ground.x + ground.w - 130;
+    const x = Math.min(east, air.x + 480);
+    const y = x <= air.x + 50 ? (air.y < player.y + 90 ? player.y + 420 : player.y - 350) :
+      air.y + clamp(player.y - air.y, -108, 108);
+    const to = { x, y: clamp(y, ground.y + 95, ground.y + ground.h - 95) };
+    Object.assign(air, { mode: 'search', from, to, time: 0, duration: 3.65, nextSearch: 0.12, contact: undefined,
+      targetHeading: Math.atan2(to.y - from.y, to.x - from.x) });
   }
   private engageOperationAir(air: OperationAirFlight, target: Enemy) {
     const from = { x: air.x, y: air.y }, distance = dist(from, target);
     const heading = Math.atan2(target.y - from.y, target.x - from.x);
     const dx = Math.cos(heading), dy = Math.sin(heading);
-    const { side, forward } = OPERATION_AIR_PODS;
-    const hasLane = (point: Point) => [-1, 1].some(sign => {
-      const nose = Math.min(forward, Math.max(0, dist(point, target) - 8));
-      return lineClear({ x: point.x + dx * nose + dy * sign * side, y: point.y + dy * nose - dx * sign * side },
-        { x: target.x + dy * sign * side, y: target.y - dx * sign * side }, this.blockers);
-    });
-    if (distance > OPERATION_AIR_RANGE || Math.abs(angleDiff(heading, air.heading)) >= 0.18 || !hasLane(from)) {
+    const aimFrom = (point: Point) => Math.atan2(target.y - point.y, target.x - point.x);
+    const hasLane = (point: Point) => this.operationAirLanes(point, aimFrom(point), OPERATION_AIR_RANGE)
+      .some(lane => lane.reaches(target));
+    const clear = distance <= OPERATION_AIR_RANGE && hasLane(from);
+    if (!clear || Math.abs(angleDiff(heading, air.heading)) >= 0.12) {
       let to = from;
       if (distance > OPERATION_AIR_RANGE) {
         const advance = distance - OPERATION_AIR_RANGE + 26;
         to = { x: from.x + dx * advance, y: from.y + dy * advance };
-      } else if (!hasLane(from)) {
-        const options = [110, -110, 170, -170].map(offset => ({ x: from.x - dy * offset, y: from.y + dx * offset }));
-        to = options.find(point => roomAt(point, this.rooms) >= 0 && dist(point, target) <= OPERATION_AIR_RANGE && hasLane(point)) ?? from;
+      } else if (!clear) {
+        const options = [90, -90, 155, -155, 215, -215].map(offset => ({ x: from.x - dy * offset, y: from.y + dx * offset }));
+        const offset = options.find(point => roomAt(point, this.rooms) >= 0 && dist(point, target) <= OPERATION_AIR_RANGE && hasLane(point));
+        if (!offset) {
+          air.skipped = { id: target.id, until: this.elapsed + 1.1 };
+          this.searchOperationAir(air);
+          return;
+        }
+        to = offset;
       }
+      const nextHeading = aimFrom(to);
       Object.assign(air, { mode: 'align', from, to, time: 0,
-        duration: Math.max(0.35, Math.abs(angleDiff(heading, air.heading)) / 2.5, dist(from, to) / 240),
-        targetHeading: heading, nextSearch: 0.16 });
+        duration: Math.max(0.35, Math.abs(angleDiff(nextHeading, air.heading)) / 2.5, dist(from, to) / 240),
+        targetHeading: nextHeading, nextSearch: 0.16, contact: target });
       return;
     }
     const advance = clamp((distance - 115) * 0.63, 0, 230);
@@ -2674,7 +2980,7 @@ export class Battle {
       time: 0, duration: 2.18, targetHeading: heading, nextBurst: 0.035, nextSearch: 0.24, burst: 0 });
   }
   private exitOperationAir(air: OperationAirFlight, sign: -1 | 1) {
-    const from = { x: air.x, y: air.y }, edge = this.player.x + sign * 1060;
+    const from = { x: air.x, y: air.y }, edge = this.survivalGroundPoint(this.player).x + sign * 1060;
     const to = { x: sign > 0 ? Math.max(edge, air.x + 500) : Math.min(edge, air.x - 500), y: air.y + 140 };
     air.onStation ??= 0;
     Object.assign(air, { from, to, time: 0, duration: clamp(dist(from, to) / 640, 1.2, 3.25),
@@ -2788,13 +3094,16 @@ export class Battle {
     return this.visited.filter((v, i) => v && i !== spawnRoom).length;
   }
   get operationAirSight() {
-    const air = this.operationRun?.air;
-    if (!air || air.onStation === undefined) return undefined;
+    const air = this.airSupportFlight;
+    if (!air) return undefined;
     const intensity = air.mode === 'outbound' ? clamp(1 - air.time / air.duration, 0, 1) :
-      clamp(air.onStation / 0.26, 0, 1);
+      air.mode === 'inbound' ? .45 + .55 * clamp(air.time / .7, 0, 1) : 1;
     return intensity > 0 ? { x: air.x, y: air.y, radius: OPERATION_AIR_VISION * Math.sqrt(intensity), intensity } : undefined;
   }
   private operationAirExposed(point: Point) {
+    const survival = this.stage.survival;
+    if (survival) return roomAt(point, [this.rooms[survival.streetRoom]]) >= 0 &&
+      !survival.buildings.some(building => circleRect(point, .1, building.footprint));
     const plan = this.stage.operation;
     return !!plan && roomAt(point, this.rooms) >= 0 &&
       !plan.interiors.some(room => circleRect(point, 0.1, room)) &&
@@ -2862,8 +3171,15 @@ export class Battle {
   private spawnBullet(spec: Bullet) {
     const bullet = this.bulletPool.pop();
     const initial = { firearm: undefined, push: undefined, nearPush: undefined, shot: undefined,
-      trainingAuto: undefined, support: undefined, airSupport: undefined, traveled: 0, range: spec.life * Math.hypot(spec.vx, spec.vy) };
+      trainingAuto: undefined, support: undefined, airSupport: undefined, venom: undefined, traveled: 0, range: spec.life * Math.hypot(spec.vx, spec.vy) };
     this.bullets.push(Object.assign(bullet ?? {}, initial, spec));
+  }
+  private spitVenom(e: Enemy, angle: number) {
+    this.spawnBullet({ x: e.x, y: e.y, vx: Math.cos(angle) * SPIT_START_SPEED, vy: Math.sin(angle) * SPIT_START_SPEED,
+      life: SPIT_LIFE, range: SPIT_RANGE, damage: 16, push: 26, hostile: true, venom: 'spit' });
+  }
+  private splashVenom(b: Bullet, angle: number) {
+    this.particles.push({ x: b.x, y: b.y, vx: 0, vy: 0, life: .36, max: .36, kind: 'spit-splash', rotation: angle });
   }
   private updateAlarm(dt: number) {
     const street = this.stage.street;
@@ -3086,9 +3402,25 @@ export class Battle {
   nearbyPickup() {
     const p = this.player, key = this.pickup;
     if (key && dist(p, key) < 72 && lineClear(p, key, this.blockers)) return key;
-    const field = this.survivalField.find(item => dist(p, item) < 58 && lineClear(p, item, this.blockers) && this.sees(item));
-    if (field) return { id: 'survival-loot' as const, field, name: SURVIVAL_GEAR[field.kind][0] + ' · 拾取' };
-    const item = this.loot.find(item => !item.taken && dist(p, item) < 58 && lineClear(p, item, this.blockers) && this.sees(item));
+    let range = 58;
+    const nearest = <T extends Point>(items: T[], available: (item: T) => boolean) => {
+      let best: T | undefined;
+      for (const item of items) {
+        const distance = dist(p, item);
+        if (distance < range && available(item) && lineClear(p, item, this.blockers) && this.sees(item)) {
+          best = item; range = distance;
+        }
+      }
+      return best;
+    };
+    const field = nearest(this.survivalField, () => true);
+    const dropped = this.survival ? this.nearbySurvivalCrate(undefined, 'dropped') : undefined;
+    if (dropped) range = Math.min(range, dist(p, dropped));
+    const item = nearest(this.loot, item => !item.taken);
+    if (!item && dropped && (!field || dist(p, dropped) <= dist(p, field))) {
+      return { id: 'survival-drop' as const, dropped, name: SURVIVAL_GEAR[dropped.goods[0].kind][0] + ' · 拾取' };
+    }
+    if (!item && field) return { id: 'survival-loot' as const, field, name: SURVIVAL_GEAR[field.kind][0] + ' · 拾取' };
     if (item) return { id: 'loot' as const, item, name: item.kind === 'ammo' ? '弹药 · 拾取' : item.kind === 'coins' ? this.survival ? '战利品 · 拾取' : '金币 · 拾取' : item.kind === 'mod-cache' ? this.survival ? '维修件 · 拾取' : '配件箱 · 拾取' : SUPPLY_INFO[item.kind].name + ' · 拾取' };
     const supply = this.streetSupply;
     if (supply && dist(p, supply) < 58 && lineClear(p, supply, this.blockers)) return { id: 'street-supply' as const, name: `${supply.name} · 恢复 35 生命` };
@@ -3134,6 +3466,12 @@ export class Battle {
     if (!this.canInteract() || this.survivalPlacement) return false;
     const target = this.nearbyPickup();
     if (!target) return false;
+    if (target.id === 'survival-drop') {
+      const kind = target.dropped.goods[0].kind;
+      if (this.takeSurvivalCrate(target.dropped.id, 0)) return true;
+      this.reportSurvivalPickupSpace(kind);
+      return false;
+    }
     if (target.id === 'survival-loot') {
       const count = this.survivalBag?.give(target.field);
       if (!count) { this.reportSurvivalPickupSpace(target.field.kind); return false; }
@@ -3392,7 +3730,8 @@ export class Battle {
   private advanceUnit(unit: Enemy | Ally, target: Point, speed: number, dt: number) {
     const length = dist(unit, target);
     if (length < 0.1) return;
-    const startX = unit.x, startY = unit.y, step = Math.min(length, speed * dt);
+    const slow = 'fireSlowUntil' in unit && (unit.fireSlowUntil ?? 0) > this.elapsed ? SURVIVAL_FIRE.speed : 1;
+    const startX = unit.x, startY = unit.y, step = Math.min(length, speed * dt * slow);
     const angle = Math.atan2(target.y - unit.y, target.x - unit.x);
     const radius = unitRadius(unit);
     this.move(unit, Math.cos(angle) * step, Math.sin(angle) * step, radius);
@@ -3565,6 +3904,13 @@ export class Battle {
       const source = playerKill ? this.player : this.allies.find(ally => ally.hp > 0) ?? this.player;
       this.investigateSound(e, source, 'hit', dist(e, source), true);
     }
+    const chapel = this.stage.operation?.chapel;
+    if (e.operationBoss && chapel) {
+      const source = playerKill ? this.player : this.allies.find(ally => ally.hp > 0 && roomAt(ally, [chapel.approach]) >= 0);
+      if (source && roomAt(source, [chapel.approach]) >= 0) {
+        e.chapelContact = { point: { x: source.x, y: source.y }, until: this.elapsed + 4 };
+      }
+    }
     e.hp = Math.max(0, e.hp - damage); e.hit = 0.12; this.events.push('hit');
     if (e.hp <= 0) {
       if (e.operationBoss) { this.resolveOperationBoss(e); return; }
@@ -3578,7 +3924,7 @@ export class Battle {
       e.hit = e.windup = 0; e.knockback = undefined;
       this.emitDeath(e, impact);
       this.events.push('kill');
-    } else if (impact?.shot === undefined || impact.shot !== e.lastHitShot) {
+    } else if (!impact?.groundBlast && (impact?.shot === undefined || impact.shot !== e.lastHitShot)) {
       e.lastHitShot = impact?.shot;
       this.shedBlood(e, impact);
       if (impact) this.pushFromHit(e, impact);
@@ -4294,11 +4640,15 @@ export class Battle {
   }
   private moveChapelLeader(e: Enemy, dt: number, target: Player | Ally, chapel: NonNullable<NonNullable<LevelDefinition['operation']>['chapel']>) {
     if (e.knockback) return;
-    const inside = (point: Point) => roomAt(point, [chapel.bounds]) >= 0;
+    const hall = roomAt(e, [chapel.bounds]) >= 0;
+    const inside = (point: Point) => roomAt(point, [hall ? chapel.bounds : chapel.approach]) >= 0;
+    const positions = hall ? chapel.positions : [-120, -245, -360].flatMap(dx => [-95, 110].map(dy => ({
+      x: chapel.passage.x + dx, y: chapel.passage.y + dy,
+    })));
     if (e.leaderMove && ((e.leaderMove.remaining -= dt) <= 0 || dist(e, e.leaderMove.point) <= 26)) e.leaderMove = undefined;
     if (!e.leaderMove) {
       const avoided = e.leaderBlocked && e.leaderBlocked.until > this.elapsed ? e.leaderBlocked.point : undefined;
-      const choices = chapel.positions.filter(point => point !== avoided && dist(e, point) > 65 && dist(target, point) > 92 &&
+      const choices = positions.filter(point => (!avoided || dist(point, avoided) > 1) && dist(e, point) > 65 && dist(target, point) > 92 &&
         walkable(point, 25, this.blockers, this.rooms) && this.unitSpaceFree(point, 25, e)).map(point => {
         const distance = dist(target, point), canFire = distance < 460 && lineClear(point, target, this.blockers);
         const cost = Math.abs(distance - 245) * 0.4 + dist(e, point) * 0.34 + (canFire ? 0 : 230) +
@@ -4328,15 +4678,37 @@ export class Battle {
     }
     return undefined;
   }
+  private chapelTarget(e: Enemy, chapel: NonNullable<NonNullable<LevelDefinition['operation']>['chapel']>, range: number) {
+    const candidates = [this.player, ...this.allies].filter(unit => unit.hp > 0 &&
+      roomAt(unit, [chapel.bounds, chapel.approach]) >= 0 && dist(e, unit) <= range && lineClear(e, unit, this.blockers));
+    candidates.sort((a, b) => dist(e, a) - dist(e, b));
+    const target = e.windup > 0 && e.leaderTarget && candidates.includes(e.leaderTarget) ? e.leaderTarget : candidates[0];
+    if (target) e.chapelContact = { point: { x: target.x, y: target.y }, until: this.elapsed + 4 };
+    return target;
+  }
+  private moveChapelPursuit(e: Enemy, goal: Point, dt: number, chapel: NonNullable<NonNullable<LevelDefinition['operation']>['chapel']>) {
+    if (e.knockback || dist(e, goal) <= 32) return;
+    const portal = chapel.passage, east = e.x >= portal.x, crossing = east !== (goal.x >= portal.x);
+    let destination = goal;
+    if (crossing) {
+      const side = east ? 1 : -1, approach = { x: portal.x + side * 52, y: portal.y };
+      destination = Math.abs(e.y - portal.y) > 18 || Math.abs(e.x - portal.x) > 65
+        ? approach : { x: portal.x - side * 61, y: portal.y };
+      const heading = Math.atan2(portal.y - e.y, portal.x - e.x);
+      if (dist(e, portal) < 84 && this.investigateDoor(e, portal, heading)) return heading;
+    }
+    const point = this.soundWaypoint(e, destination, 2, unitRadius(e));
+    if (!point) return;
+    const heading = Math.atan2(point.y - e.y, point.x - e.x);
+    if (!this.investigateDoor(e, point, heading)) this.advanceUnit(e, point, e.operationBoss === 'king' ? 166 : 186, dt);
+    return heading;
+  }
   private stepChapelLeader(e: Enemy, dt: number, chapel: NonNullable<NonNullable<LevelDefinition['operation']>['chapel']>) {
     const room = chapel.bounds, range = 460;
     const sight = (unit: Player | Ally) => dist(e, unit) <= range && lineClear(e, unit, this.blockers);
-    const candidates = [this.player, ...this.allies].filter(unit => unit.hp > 0 &&
-      (roomAt(unit, [room]) >= 0 || unit.x >= room.x - 155 && unit.x < room.x && sight(unit)))
-      .sort((a, b) => dist(e, a) - dist(e, b));
     const held = e.leaderTarget;
-    const target = e.windup > 0 && held && candidates.includes(held) && sight(held) ? held : candidates.find(sight);
-    if (!candidates.length) { e.windup = 0; e.leaderTarget = undefined; e.leaderMove = undefined; return; }
+    const seen = this.chapelTarget(e, chapel, 720);
+    const target = seen && sight(seen) ? seen : undefined;
     e.cooldown = Math.max(0, e.cooldown - dt);
     if (!target || target !== held && e.windup > 0) {
       e.windup = 0; e.leaderTarget = undefined; e.leaderBurst = false;
@@ -4344,8 +4716,13 @@ export class Battle {
     if (target && e.windup <= 0 && e.cooldown <= 0) {
       e.leaderTarget = target; e.leaderBurst = true; e.windup = 0.16;
     }
-    const move = !target || e.windup <= 0 && e.cooldown > 0.13 ?
-      this.moveChapelLeader(e, dt, target ?? candidates[0], chapel) : undefined;
+    const outside = roomAt(e, [room]) < 0, contact = e.chapelContact;
+    const goal = contact && contact.until > this.elapsed ? contact.point : outside ? OPERATION_LEADER : undefined;
+    const pursuit = goal && (!target || outside !== (roomAt(goal, [room]) < 0) ||
+      outside && (e.x > chapel.passage.x - 75 || dist(e, goal) > 250));
+    if (pursuit) e.leaderMove = undefined;
+    const move = pursuit ? this.moveChapelPursuit(e, goal, dt, chapel) :
+      target && e.windup <= 0 && e.cooldown > .13 ? this.moveChapelLeader(e, dt, target, chapel) : undefined;
     const aim = target ? Math.atan2(target.y - e.y, target.x - e.x) : undefined;
     const turn = aim ?? move ?? e.angle;
     e.angle += clamp(angleDiff(turn, e.angle), -dt * 12, dt * 12);
@@ -4362,6 +4739,33 @@ export class Battle {
     if (e.leaderBurst) { e.leaderBurst = false; e.windup = 0.12; }
     else { e.windup = 0; e.cooldown = 0.66; e.leaderTarget = undefined; }
   }
+  private stepDisorientedEnemy(e: Enemy, dt: number) {
+    const state = e.disoriented;
+    if (!state) return false;
+    if (this.elapsed >= state.until) {
+      e.disoriented = undefined; e.windup = 0; e.lastSeen = e.investigate = undefined;
+      return false;
+    }
+    if (e.windup > 0) {
+      e.windup = Math.max(0, e.windup - dt);
+      if (e.windup !== 0) return true;
+      const dx = Math.cos(e.attackAngle), dy = Math.sin(e.attackAngle);
+      if (e.type === 'spitter') this.spitVenom(e, e.attackAngle);
+      else if (e.type === 'gunner') {
+        this.spawnBullet({ x: e.x, y: e.y, vx: dx * 240, vy: dy * 240, life: 1.3, damage: 16, hostile: true, push: 26 });
+      } else {
+        const p = this.player, heading = Math.atan2(p.y - e.y, p.x - e.x);
+        if (dist(p, e) <= 48 && Math.abs(angleDiff(heading, e.attackAngle)) < .55 && lineClear(e, p, this.blockers)) {
+          this.hurt(17, { angle: heading, distance: 32 });
+        }
+      }
+    } else if (this.elapsed >= state.nextAttack) {
+      e.angle = e.attackAngle = Math.random() * TAU;
+      e.windup = .19;
+      state.nextAttack = this.elapsed + .74 + Math.random() * .22;
+    }
+    return true;
+  }
   private enemyStep(e: Enemy, dt: number) {
     if (e.hp <= 0) return;
     e.hit = Math.max(0, e.hit - dt);
@@ -4375,6 +4779,7 @@ export class Battle {
       if (!keepsAim) { e.windup = 0; return; }
     }
     if (stunned && e.operationBoss !== 'king') { e.windup = 0; return; }
+    if (this.stepDisorientedEnemy(e, dt)) return;
     if (e.combatMemory !== undefined) e.combatMemory = Math.max(0, e.combatMemory - dt);
     if (this.stepDoorClear(e, dt)) return;
     if (this.stepSurvivalSearch(e, dt)) return;
@@ -4382,9 +4787,16 @@ export class Battle {
     if (e.type === 'gunner' && this.stage.operation) { this.stepOperationGunner(e, dt); return; }
     const chapel = this.stage.operation?.chapel;
     if (e.operationBoss === 'leader' && chapel) { this.stepChapelLeader(e, dt, chapel); return; }
-    if (e.operationBoss === 'king' && chapel &&
-        ![this.player, ...this.allies].some(unit => unit.hp > 0 && roomAt(unit, [chapel.bounds]) >= 0)) {
-      e.charge = undefined; e.windup = 0; return;
+    if (e.operationBoss === 'king' && chapel && this.operationRun!.slam <= 0 && !e.charge) {
+      const target = this.chapelTarget(e, chapel, 720), contact = e.chapelContact;
+      const outside = roomAt(e, [chapel.bounds]) < 0;
+      if (!target || outside !== (roomAt(target, [chapel.bounds]) < 0) || outside && e.x > chapel.passage.x - 75) {
+        e.cooldown = Math.max(0, e.cooldown - dt); e.windup = 0;
+        const point = contact && contact.until > this.elapsed ? contact.point : outside ? OPERATION_LEADER : undefined;
+        const heading = point && this.moveChapelPursuit(e, point, dt, chapel);
+        if (heading !== undefined) e.angle += clamp(angleDiff(heading, e.angle), -dt * 10, dt * 10);
+        return;
+      }
     }
     if (e.operationBoss === 'king' && (this.operationRun!.slam > 0 || this.stepBruteCharge(e, dt))) return;
     const apartment = this.apartment;
@@ -4454,12 +4866,14 @@ export class Battle {
             else this.hurt(damage, impact);
           }
         }
+        else if (e.type === 'spitter') this.spitVenom(e, e.attackAngle);
         else for (let i = 0; i < (e.type === 'boss' && e.operationBoss !== 'leader' ? 9 : 1); i++) {
           const a = e.attackAngle + (e.type === 'boss' && e.operationBoss !== 'leader' ? (i - 4) * 0.16 : 0);
           const firearm = e.type === 'gunner' || e.operationBoss === 'leader';
           if (firearm) e.muzzle = 0.08;
           const speed = firearm ? FIREARM_BULLET_SPEED : 240;
           this.spawnBullet({ x: e.x, y: e.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, hostile: true, firearm,
+            venom: e.operationBoss === 'king' ? 'dart' : undefined,
             life: firearm ? 430 / speed : 3.5, damage: e.type === 'boss' ? 23 : e.type === 'gunner' ? 12 : 16, push: e.type === 'boss' ? 37 : 26 });
         }
       }
@@ -4570,9 +4984,9 @@ export class Battle {
     const speed = e.type === 'boss' ? apartment ? 108 : 55 : e.type === 'spitter' ? 70 : activeOutside ? 98 : pursuing ? 113 : 86;
     if (e.type === 'boss' && apartment) this.advanceBrute(e, { x: tx, y: ty }, speed, dt);
     else {
-      const pace = e.survivalVariant === 'overrun' ? 2 : e.survivalVariant === 'runner' ? 1.57 :
-        e.survivalVariant === 'breaker' ? .9 : this.survival?.timed ? 1 + Math.min(.23, this.elapsed / 4500) : 1;
-      this.advanceUnit(e, { x: tx, y: ty }, speed * pace, dt);
+      const pace = e.survivalVariant === 'overrun' ? 2 : e.survivalVariant === 'runner' ? 1.57 : e.survivalVariant === 'breaker' ? .9 : 1;
+      const moonPace = this.survival && e.survivalVariant !== 'overrun' ? 1 + clamp((this.elapsed - BLOOD_MOON) / 600, 0, 1) * .23 : 1;
+      this.advanceUnit(e, { x: tx, y: ty }, speed * pace * moonPace, dt);
     }
   }
   private bruteGait(e: Enemy) {
@@ -4691,6 +5105,7 @@ export class Battle {
     if (!forced) p.angle = controls.angle;
     this.indexUnits();
     this.updateDoors(dt);
+    this.stepSurvivalFires();
     this.updateAlarm(dt);
     for (const e of this.enemies) if ((e.forceOpen || 0) > 0 && e.doorBlockId !== undefined) this.doors[e.doorBlockId].hit = Math.sin(this.elapsed * 55) > 0 ? 0.12 : 0;
 
@@ -4712,7 +5127,7 @@ export class Battle {
     this.advanceSurvivalStair(previousPosition);
     if (this.survival) {
       this.tickSurvivalDoorWork(dt, controls);
-      this.survivalScan = Math.max(0, this.survivalScan - dt);
+      this.stepOperationAir(dt);
       this.tickSurvivalPlacement(dt, controls);
       this.tickSurvivalSentries(dt);
     }
@@ -4735,18 +5150,31 @@ export class Battle {
     }
     for (const b of this.bullets) {
       if (p.hp <= 0) break;
-      const speed = Math.hypot(b.vx, b.vy), travel = speed * Math.min(dt, b.life), angle = Math.atan2(b.vy, b.vx);
+      const speed = Math.hypot(b.vx, b.vy), time = Math.min(dt, b.life), angle = Math.atan2(b.vy, b.vx);
+      const spit = b.venom === 'spit';
+      const nextSpeed = spit ? Math.max(SPIT_END_SPEED, speed - (SPIT_START_SPEED - SPIT_END_SPEED) * time / SPIT_LIFE) : speed;
+      const travel = spit ? Math.min(SPIT_RANGE - (b.traveled ?? 0), (speed + nextSpeed) * .5 * time) : speed * time;
       let wall = travel, hitBlock: Rect | undefined;
       for (const r of nearbyRects(this.blockers, b.x, b.y, b.x + b.vx / speed * travel, b.y + b.vy / speed * travel)) {
+        if (b.airSupport && r.kind === 'harbor-water') continue;
         const hit = rayRect(b, b.vx / speed, b.vy / speed, r, wall);
         if (hit < wall) { wall = hit; hitBlock = r; }
       }
-      let nearest = wall, target: Unit | null = null;
-      const targets = b.hostile ? [p, ...this.allies] : this.enemies;
+      if (b.airSupport) {
+        const blocked = wall < travel;
+        const advance = blocked ? Math.max(0, wall - .7) : travel;
+        b.x += Math.cos(angle) * advance; b.y += Math.sin(angle) * advance;
+        b.traveled = (b.traveled ?? 0) + advance;
+        b.life = blocked ? 0 : b.life - dt;
+        if (b.life <= 1e-8) { b.life = 0; this.impactOperationAir(b, angle); }
+        continue;
+      }
+      let nearest = wall, target: Unit | SurvivalSentry | null = null;
+      const targets = spit ? [p, ...this.allies, ...this.survivalSentries] : b.hostile ? [p, ...this.allies] : this.enemies;
       for (const t of targets) {
         if (t.hp <= 0 && !('type' in t && this.operationInjecting(t))) continue;
         const dx = t.x - b.x, dy = t.y - b.y, along = (dx * b.vx + dy * b.vy) / speed;
-        const r = b.airSupport ? 32 : t === p ? 16 : (t as Enemy).type === 'boss' ? 29 : 18;
+        const r = 'type' in t && t.type === 'boss' ? 29 : t === p || 'next' in t ? 16 : 18;
         const side2 = dx * dx + dy * dy - along * along;
         if (side2 > r * r || along + r < 0) continue;
         const entry = Math.max(0, along - Math.sqrt(Math.max(0, r * r - side2)));
@@ -4760,12 +5188,13 @@ export class Battle {
         const near = b.traveled <= 160 ? b.nearPush ?? 0 : 0;
         const fade = !b.hostile || b.firearm ? clamp((b.traveled / Math.max(1, range) - 0.22) / 0.56, 0, 1) : 0;
         const impact: DamageImpact = { angle, distance: push * (1 + near) * (1 - fade * fade * (3 - 2 * fade)),
-          shot: b.shot, point: { x: b.x, y: b.y }, heavy: b.airSupport || push * (1 + near) >= 52 };
+          shot: b.shot, point: { x: b.x, y: b.y }, heavy: push * (1 + near) >= 52 };
         if ('type' in target) {
           if (this.operationInjecting(target)) this.emit(b, 5, 'spark');
           else this.damageEnemy(target, b.damage, impact, !b.support);
         }
         else if ('slot' in target) this.hurtAlly(target, b.damage, impact);
+        else if ('next' in target) this.damageSurvivalSentry(target, 13);
         else this.hurt(b.damage, impact);
         b.life = 0;
       }
@@ -4773,11 +5202,15 @@ export class Battle {
         b.life = 0;
         const door = hitBlock?.kind?.startsWith('door:') ? this.doors[Number(hitBlock.kind.slice(5))] : undefined;
         if (door && !b.support) this.damageDoor(door, b.damage);
-        if (!b.airSupport) this.emit(b, 3, door?.material === 'wood' ? 'wood' : 'spark');
+        if (!spit) this.emit(b, 3, door?.material === 'wood' ? 'wood' : 'spark');
       }
-      if (b.airSupport && b.life <= 0 && roomAt(b, this.rooms) >= 0) {
-        this.emit(b, 4, 'air-dust');
-        this.emit(b, 3, 'air-chip');
+      if (spit) {
+        if (b.life <= 1e-8 || b.traveled >= SPIT_RANGE - 1e-8) {
+          b.life = 0;
+          this.splashVenom(b, angle);
+        } else {
+          b.vx *= nextSpeed / speed; b.vy *= nextSpeed / speed;
+        }
       }
     }
     let live = 0;
