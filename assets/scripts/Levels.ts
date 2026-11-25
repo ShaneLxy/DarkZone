@@ -57,6 +57,8 @@ export type LevelDefinition = {
   apartment?: ApartmentFloor;
   operation?: OperationStage;
   survival?: SurvivalStage;
+  frontier?: import('./Frontier').FrontierStage;
+  retrieval?: import('./Retrieval').RetrievalPart;
 };
 
 type Join = { horizontal: boolean; axis: number; from: number; to: number };

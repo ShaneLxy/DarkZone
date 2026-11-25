@@ -1,6 +1,6 @@
 import type { Profile } from './Core';
 import { HERO_IDS, heroes } from './Heroes';
-import { CONSUMABLES, GEAR, modOwner, SHOP_TACTICALS, type ConsumableId, type GearId } from './Shop';
+import { CONSUMABLES, GEAR, modOwner, normalizeSortie, type ConsumableId, type GearId } from './Shop';
 import { fitsWeapon, MODS, modDescription, QUALITY_NAMES, SLOT_NAMES, type Attachment } from './WeaponMods';
 
 export const BACKPACK_FILTERS = {
@@ -64,10 +64,11 @@ export function backpackDetails(profile: Profile, item: BackpackItem) {
     };
   }
   if (item.type === 'consumable') {
-    const info = CONSUMABLES[item.id], tactical = SHOP_TACTICALS.some(id => id === item.id);
-    const carry = tactical ? (armory.tactical === item.id ? '已选为下次行动道具' : '可在装备界面设置下次携行') : '进入行动时从库存自动携带';
+    const info = CONSUMABLES[item.id];
+    const selected = Object.values(normalizeSortie(armory.sortie, armory.counts)).find(entry => entry.id === item.id);
+    const carry = item.id === 'adrenaline' ? '探索倒地时可使用' : selected ? `探索出战已选 ×${selected.count}` : '可在探索模式的出战页面选带';
     return { meta: `类型  ${info.category}`, description: info.description, notes: [carry],
-      action: tactical ? 'carry' as const : undefined };
+      action: item.id === 'adrenaline' ? undefined : 'carry' as const };
   }
   const resource = RESOURCES[item.id];
   return { meta: '类型  资源', description: resource.description, notes: [resource.source], action: undefined };

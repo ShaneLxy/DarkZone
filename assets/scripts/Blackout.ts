@@ -1,44 +1,59 @@
 import { _decorator, AudioClip, AudioSource, Button, Camera, Canvas, Color, Component, EditBox, EffectAsset, EventKeyboard, EventMouse, EventTouch, game, Game, Graphics, input, Input, KeyCode, Label, Layers, Mask, Material, Node, Rect as TextureRect, RenderTexture, ResolutionPolicy, resources, Size, Sprite, SpriteFrame, sys, Texture2D, UITransform, UIOpacity, Vec2, Vec3, Vec4, view } from 'cc';
-import { ALLY_VISION_RANGE, angleDiff, APARTMENT_LINE_SECONDS, Battle, clamp, closestOnRect, DORM_LEVEL, grenadeLightPolygon, GRENADE_LIGHT_TIME, heroRating, heroStats, lineClear, MINIMAP_CELL_SIZE, peripheralRange, Profile, type ProfileIdentity, PROFILE_NAME_LIMIT, profileGrowth, profileName, rayDistance, readProfile, recruit, rectCorners, roomAt, SUPPLY_INFO, SupplyKind, TRAINING_CAP, TrainingKind, trainingCost, upgrade, visibilityPolygon, type Door, type Point, type Rect } from './Core';
+import { ALLY_VISION_RANGE, angleDiff, APARTMENT_LINE_SECONDS, Battle, clamp, closestOnRect, DORM_LEVEL, grenadeLightPolygon, GRENADE_LIGHT_TIME, heroRating, heroStats, lineClear, MINIMAP_CELL_SIZE, peripheralRange, Profile, type ProfileIdentity, PROFILE_NAME_LIMIT, profileGrowth, profileName, rayDistance, readProfile, recruit, rectCorners, roomAt, SUPPLY_INFO, SupplyKind, TRAINING_CAP, TrainingKind, trainingCost, upgrade, visibilityPolygon, type Door, type Point, type Rect, type TacticalSlot } from './Core';
 import { ENGINEER_ID, GHOST_ID, HERO_IDS, HEROINE_ID, heroes, type HeroId } from './Heroes';
-import { box, color, disc, drawActors, drawAmbientAnimal, drawBloodStains, drawDoors, drawHitBlood, drawMap, drawParalysis, drawRecovery, drawTutorialTarget, drawWeaponEffects, line, outline, palette as C, paralyzedModelPosition, polygon } from './Art';
+import { box, color, disc, drawActors, drawAmbientAnimal, drawBloodStains, drawDeathFragments, drawDoors, drawGunFlash, drawHitBlood, drawMap, drawParalysis, drawRecovery, drawTutorialTarget, drawWeaponEffects, drawYellowTracer, line, outline, palette as C, paralyzedModelPosition, polygon } from './Art';
 import { TRAINING_ART, TRAINING_PROFILES, type TrainingImage } from './TrainingArt';
-import { buyProduct, canStock, GEAR, GEAR_IDS, installMod, MAX_STOCK, ownedProduct, productPrice, PRODUCTS, PRODUCT_BY_ID, salvageMod, SHOP_TACTICALS, toggleGear, upgradeMod, upgradeWeapon, workshopMods, type ConsumableId, type GearId, type Product, type ProductId, type ShopCategory } from './Shop';
+import { buyProduct, canStock, CONSUMABLES, GEAR, GEAR_IDS, installMod, MAX_STOCK, normalizeSortie, ownedProduct, PRODUCTS, PRODUCT_BY_ID, salvageMod, SHOP_MOD_ODDS, SORTIE_ITEMS, SORTIE_LIMIT, toggleGear, upgradeMod, upgradeWeapon, workshopMods, type ConsumableId, type GearId, type Product, type ProductId, type ShopCategory, type SortieSlot } from './Shop';
 import { configuredHero, fitsWeapon, installedMods, MODS, MOD_STORAGE_CAP, modDescription, modRange, modText, modUpgradeCost, QUALITY_COLORS, QUALITY_NAMES, salvageValue, SLOT_NAMES, WEAPON_SLOTS, WEAPON_TYPES, weaponUpgradeCost, type Attachment, type ModId, type Quality } from './WeaponMods';
 import { SHOP_ART, type ShopImage } from './ShopArt';
 import { CASE_ART, type CaseImage } from './CaseArt';
 import { BACKPACK_ART, type BackpackImage } from './BackpackArt';
 import { BACKPACK_FILTERS, backpackDetails, backpackItems, type BackpackFilter, type BackpackItem } from './Backpack';
 import { CASE_IDS, CASE_POOLS, CASE_ROLL_TIME, CASES, CLEAR_CASE_KEYS, DAILY_CASE_KEYS, casePrize, caseRollProgress, prepareCaseOpening, type CaseId, type CaseOpening, type CasePrize } from './LootCases';
-import { ActorMotion, ActorPose, CombatFeedback, DARK_BRIGHTNESS, DARK_SATURATION, DOOR_LAMP_RADIUS, doorLampFlicker, FEATHER_PIXELS, PlayerHealthDisplay, VisibilityField, visibleSurfaces, WeaponEffects, weaponMount } from './Presentation';
+import { ActorMotion, ActorPose, CHAPTER_OPENING_SECONDS, chapterOpeningRows, CombatFeedback, DARK_BRIGHTNESS, DARK_SATURATION, DOOR_LAMP_RADIUS, doorLampFlicker, ejectCasing, FEATHER_PIXELS, muzzleOcclusion, PlayerHealthDisplay, stepCasings, VisibilityField, visibleSurfaces, WeaponEffects, weaponMount, type Casing, type LightingSurface } from './Presentation';
 import { claimDailyMilestone, claimDailyMission, dailyActivity, DAILY_MILESTONES, DAILY_MISSIONS, refreshDailyMissions } from './DailyMissions';
 import { CHECK_IN_CHESTS, CHECK_IN_DAYS, CHECK_IN_REWARD_NAMES, checkInRewardText, checkInStatus, claimCheckInChest, claimCheckInDay, refreshCheckIn } from './CheckIn';
-import { grenadeThrowPose, isShopMine, newTacticalLoadout, TACTICAL_DEFINITIONS, type TacticalKind } from './Tactical';
+import { grenadeThrowPose, TACTICAL_DEFINITIONS } from './Tactical';
 import { createApartmentRun, createDormRun, createStreet, type LevelDefinition } from './Levels';
-import { AimAssist } from './AimAssist';
+import { createRetrievalLevels, RETRIEVAL_CAR, RETRIEVAL_CHECK, RETRIEVAL_LANDINGS, RETRIEVAL_LIFT, RETRIEVAL_PAD,
+  RETRIEVAL_ROOF_BOARD, RETRIEVAL_STREET_TEAM } from './Retrieval';
+import { AIM, AimAssist } from './AimAssist';
 import { TUTORIAL_SEED } from './Tutorial';
 import { FLOOR_DETAIL_ART, FLOOR_DETAIL_ATLAS, scatterFloorDetails, type FloorDetailKind } from './FloorDetails';
 import { AmbientWildlife } from './AmbientWildlife';
 import { CLUE_SPECS, closeReader, openReader, turnReader, type ReaderState } from './ClueReader';
 import { TutorialGuide, guideLayout } from './TutorialGuide';
 import { exitGuideAngle } from './ExitGuide';
+import { createFrontierLevel, createFrontierOpening, FRONTIER_ARMOR, FRONTIER_BREACH, FRONTIER_CUT_END, FRONTIER_DEFENSE, FRONTIER_OPENING_STEP, FRONTIER_TROOPS, frontierWithdraw } from './Frontier';
+import { ESCORT_AIR_IMPACT_CAP, ESCORT_AIR_IMPACT_LIFE, ESCORT_AMBUSH_SIZE, ESCORT_BUS, ESCORT_CHECKPOINT, ESCORT_CREW_ART, ESCORT_CREW_BARREL, ESCORT_EFFECT_CAP, ESCORT_END, ESCORT_ENEMY_CAP, ESCORT_GATE_HALF, ESCORT_LOG,
+  ESCORT_MUZZLE_TIME, ESCORT_MUZZLE_VARIANTS, ESCORT_REAR, ESCORT_SHOCK_SPEED, ESCORT_TILE, ESCORT_VEHICLES,
+  ESCORT_TURRET_ANCHOR, ESCORT_TURRETS, ESCORT_VEHICLE_SCALE,
+  FrontierEscort, escortContactPoint, escortShoulder, escortShoulderVariant } from './FrontierEscort';
+import type { Enemy } from './Core';
 import { drawTutorialGuide } from './TutorialGuideArt';
-import { CAMPAIGN_ART, CAMPAIGN_LOCATIONS, satelliteFraming, type CampaignImage } from './CampaignArt';
+import { CAMPAIGN_ART, CAMPAIGN_LOCATIONS, chapterCardWindow, satelliteFraming, type CampaignImage } from './CampaignArt';
 import { operationLevel, OPERATION_AIRCRAFT, OPERATION_AIR_COOLDOWN, OPERATION_AIR_DURATION, OPERATION_AIR_PODS, OPERATION_BOSS_NAME, OPERATION_EXTRACT, OPERATION_EXTRACT_RADIUS, OPERATION_GRENADE_RANGE, OPERATION_LEADER, OPERATION_LZ, OPERATION_PICKUP_READY, operationBoardingEnd } from './Operation';
 import { OPERATION_APPROACH_SECONDS, OPERATION_ART, OPERATION_COAST_LZ, OPERATION_FLYOVERS, OPERATION_FORMATION_SECONDS, OPERATION_GHOST_SIZE, OPERATION_HANDOFF_SECONDS, OPERATION_IMPACT_SECONDS, OPERATION_JETS, OPERATION_LITTLEBIRD_ART, OPERATION_RETURN_JETS, OPERATION_SHORE_STRIPS, OPERATION_SOLDIER_SIZE, OPERATION_STRIKE_END_SECONDS, OPERATION_STRIKE_FADE_SECONDS, OPERATION_STRIKE_FRAMES, OPERATION_STRIKE_GROUPS, OPERATION_UNIT_ART, operationBoarderAt, operationDescentAt, operationExtractionAt, operationFormationAt, operationJetFrame, operationStrikeFrame, operationTakeoffAt } from './OperationArt';
-import { ACHIEVEMENTS, ACHIEVEMENT_CATEGORIES, ACHIEVEMENT_REWARDS, achievementScore, achievementState, claimAchievement, claimAchievementLevel, recordAchievementKills, type AchievementCategory } from './Achievements';
-import { createSurvivalLevel, survivalPayout, SURVIVAL_MAP_IDS, type SurvivalCheckpoint, type SurvivalMapId } from './Survival';
-import { CONVOY_ARRIVAL, CONVOY_BOARD, CONVOY_LEAVE, CONVOY_NOTICE, convoyVehicles, EVAC_BOAT_WIDTH, EVAC_ROUTE_NAME, EVAC_VEHICLES, SURVIVAL_DEADLINE, type EvacVehicle } from './SurvivalTimed';
+import { ACHIEVEMENTS, ACHIEVEMENT_CATEGORIES, ACHIEVEMENT_REWARDS, achievementScore, achievementState, claimAchievement, claimAchievementLevel, type AchievementCategory } from './Achievements';
+import { createSurvivalLevel, SURVIVAL_FIELD_AREAS, SURVIVAL_MAP_IDS, type SurvivalCheckpoint, type SurvivalMapId } from './Survival';
+import { CONVOY_BOARD, CONVOY_SCALE, PAGER_AVAILABLE, convoyAirPosition, EVAC_BOAT_WIDTH, EVAC_ROUTE_NAME, EVAC_VEHICLES, type EvacVehicle } from './SurvivalTimed';
 import { BLOOD_MOON } from './SurvivalTimed';
 import { TIMED_SURVIVAL_ATLAS } from './SurvivalTimedArt';
-import { SENTRY_HP, SURVIVAL_DESCRIPTIONS, SURVIVAL_DOORS, SURVIVAL_DOOR_KINDS, SURVIVAL_GEAR, SURVIVAL_GUNS, SURVIVAL_RECIPES, SURVIVAL_RECIPE_IDS, canUseSurvivalGear, isSurvivalGun, type GearKind, type SurvivalCrate, type SurvivalDoorKind, type SurvivalRecipe } from './SurvivalGear';
+import { SENTRY_HP, SURVIVAL_DESCRIPTIONS, SURVIVAL_DOORS, SURVIVAL_DOOR_KINDS, SURVIVAL_GEAR, SURVIVAL_GUNS, SURVIVAL_RECIPES, SURVIVAL_RECIPE_IDS, canUseSurvivalGear, isSurvivalGun, isSurvivalSupply, type GearKind, type SurvivalCrate, type SurvivalDoorKind, type SurvivalRecipe } from './SurvivalGear';
 import { isSurvivalMine, isSurvivalThrowable, SURVIVAL_FIRE, SURVIVAL_THROWABLES, type SurvivalBindings } from './SurvivalGear';
 import { SURVIVAL_PARTS } from './SurvivalGear';
+import { SENTRY_FLASH_TIME, SENTRY_REPAIR, SENTRY_UPGRADES, SENTRY_UPGRADE_IDS, sentryStats, WORKSHOP_ITEMS, type GearStack, type SurvivalSentry } from './SurvivalGear';
 import { HARBOR_ART_HEIGHT, HARBOR_ART_WIDTH, HARBOR_CHUNKS, HARBOR_MAP_REGIONS, HARBOR_OVERVIEW_MARGIN, HARBOR_REGIONAL_ROOFS, HARBOR_ROOFS, HARBOR_SCALE, harborBuildingRoof, harborDistanceToChunk, harborPoint, SURVIVAL_LAYOUT, type HarborChunk } from './SurvivalHarbor';
 import type { SurvivalBuilding, SurvivalStair } from './SurvivalInteriors';
 
 const { ccclass, property } = _decorator;
 const W = 1280, H = 720, SAVE_KEY = 'blackout.prototype.v1';
+const HARBOR_MAP_VIEW = { x: 48, y: 71, w: 816, h: 541 };
+function harborMapPoint(point: { x: number; y: number }) {
+  const { x, y, w, h } = HARBOR_MAP_VIEW;
+  return { x: x + w * point.x / (HARBOR_ART_WIDTH * HARBOR_SCALE),
+    y: y + h * point.y / (HARBOR_ART_HEIGHT * HARBOR_SCALE) };
+}
 const trainingX = (x: number) => x * W / 1672;
 const trainingY = (top: number) => H - top * H / 941;
 const CONTROL_GUIDE = [
@@ -61,7 +76,7 @@ const TRAINING_AXES = [
 const ENVIRONMENT_LAYER = 1 << 10, ACTOR_LAYER = 1 << 11;
 const OPERATION_ROOF_TILES = new Set(['op-roof-a', 'op-roof-b', 'op-roof-c']);
 const UNLOCK_ALL_CHAPTERS_FOR_TEST: boolean = true;
-type Mode = 'menu' | 'profile-info' | 'chapters' | 'select-hero' | 'achievements' | 'missions' | 'checkin' | 'playing' | 'loading' | 'street-loading' | 'falling' | 'revive' | 'backpack' | 'roster' | 'training' | 'shop' | 'cases' | 'recruit' | 'settings' | 'help' | 'pause' | 'result' | 'operation-cinematic' | 'survival-entry' | 'survival-resume' | 'survival-hero' | 'survival-radio' | 'survival-map';
+type Mode = 'menu' | 'profile-info' | 'chapters' | 'select-hero' | 'achievements' | 'missions' | 'checkin' | 'playing' | 'loading' | 'street-loading' | 'falling' | 'revive' | 'backpack' | 'roster' | 'training' | 'shop' | 'cases' | 'recruit' | 'settings' | 'help' | 'pause' | 'result' | 'operation-cinematic' | 'frontier-escort' | 'survival-entry' | 'survival-resume' | 'survival-hero' | 'survival-map';
 const OPERATION_SPEAKERS = {
   ghost: { name: '幽灵', left: true, frame: '' },
   two: { name: '幽灵二号', left: true, frame: 'op-portrait-two', slot: 0 },
@@ -72,9 +87,37 @@ const OPERATION_SPEAKERS = {
   littlebird: { name: '小鸟二号', left: false, frame: 'op-portrait-pilot' },
   command: { name: '指挥室联络员', left: false, frame: 'op-portrait-liaison' },
   headquarters: { name: '军方总部', left: false, frame: 'survival-headquarters' },
+  demolition: { name: '爆破组', left: true, frame: '' },
   pickup: { name: '接应黑鹰', left: false, frame: 'op-blackhawk' },
+  reception: { name: '前台', left: false, frame: 'retrieval-reception-face' },
+  father: { name: '凛的父亲', left: false, frame: 'retrieval-father-face' },
+  mother: { name: '凛的母亲', left: false, frame: 'retrieval-mother-face' },
+  ground: { name: '幽灵留守组', left: false, frame: 'op-portrait-three' },
 } as const;
 type OperationLine = readonly [speaker: keyof typeof OPERATION_SPEAKERS, text: string];
+const RETRIEVAL_DIALOGUE: Partial<Record<string, OperationLine[]>> = {
+  'retrieval-arrived': [['ghost', '三人留守悍马。二号、三号，跟我进楼接人。']],
+  'retrieval-credentials': [['reception', '九楼，904。电梯在右手边，刚下到六楼，你们稍等一下。']],
+  'retrieval-blackout': [['two', '刚才是什么声音？电梯停了。'], ['ghost', '回门厅看看。']],
+  'retrieval-escape': [
+    ['ground', '车道堵死了，悍马开不出去。我们先往东侧街区疏散。'],
+    ['ghost', '取消地面接应，申请楼顶撤离。跟我走消防楼梯，先把人接到。'],
+  ],
+  'retrieval-landing-1': [['two', '后面有东西上来了！继续走！']],
+  'retrieval-landing-2': [['three', '五楼的门开了，别停！']],
+  'retrieval-landing-3': [['two', '九楼就在前面。我盯着楼下，你们去开门。']],
+  'retrieval-identify': [
+    ['ghost', '两位博士，军方来接你们。楼下的路断了，我们从屋顶撤离。'],
+    ['father', '学校的电话一直打不通。凛还在学校，我们得给她留句话。'],
+    ['mother', '我把邻居提过的避难点写在便条上。她回来会知道往哪找。'],
+    ['command', '黑鹰正在接近。守住 904，接应确认后上楼顶。'],
+  ],
+  'retrieval-door-search': [['three', '听，他们在挨个撞门。两位博士，往里站。']],
+  'retrieval-cover': [['two', '消防楼梯还能走。我守门口，等黑鹰确认。']],
+  'retrieval-roof-ready': [['pickup', '黑鹰已到公寓上空。带两位博士上楼顶！']],
+  'retrieval-board': [['ghost', '两位博士先上！二号、三号跟上。']],
+  'retrieval-airborne': [['pickup', '两位博士已登机，正在返回避难所。']],
+};
 const OPERATION_DIALOGUE_LAYOUT = { y: 80, readDelay: 0.24, charTime: 0.029, hold: 1.18, slideOut: 0.25 };
 const STORY_PANEL_WIDTH = 518, STORY_PANEL_Y = 80;
 type StoryDialogueNodes = { node: Node; label: Label; portrait: Node; speaker: Label; trim: Graphics;
@@ -82,6 +125,8 @@ type StoryDialogueNodes = { node: Node; label: Label; portrait: Node; speaker: L
 const isChapterMenu = (mode: Mode) => mode === 'chapters' || mode === 'select-hero';
 const isSurvivalMenu = (mode: Mode) => mode === 'survival-entry' || mode === 'survival-resume' || mode === 'survival-hero';
 const FOCUS_SECONDS = .58, REVEAL_SECONDS = .56, DEPARTURE_FADE_SECONDS = .42, BRIEF_CHAR_SECONDS = .035, BRIEF_OPEN_SECONDS = .16;
+const BRIEF_BODY_SIZE = 17, BRIEF_LINE_HEIGHT = 22, BRIEF_ROWS = 3;
+const BRIEF_LAYOUT = (inset: boolean) => inset ? { width: 546, bodyWidth: 328 } : { width: 480, bodyWidth: 360 };
 const BAG_COLUMNS = 5, BAG_ROWS = 5, BAG_ROW_HEIGHT = 88, BAG_SWIPE_THRESHOLD = 36;
 const BAG_GRID = { left: 303, right: 834, bottom: 110, top: 571 };
 const WORKSHOP_PAGE_SIZE = 4;
@@ -97,18 +142,91 @@ type DialogAction = { id: string; label: string; run: () => void; enabled?: bool
 const DIALOG_SCALE = 0.5;
 const DIALOG_WIDTH = 1671 * DIALOG_SCALE, DIALOG_HEIGHT = 941 * DIALOG_SCALE;
 const DIALOG_BUTTONS = [[330, 734, 480, 116], [878, 734, 480, 116]] as const;
-const usesDialog = (mode: Mode) => mode === 'pause' || mode === 'settings' || mode === 'result' || mode === 'revive' || mode === 'survival-resume' || mode === 'survival-radio';
+const usesDialog = (mode: Mode) => mode === 'pause' || mode === 'settings' || mode === 'result' || mode === 'revive' || mode === 'survival-resume';
 const CHAPTERS = {
   1: { name: '静默宿舍', location: '学校宿舍楼', cast: [HEROINE_ID], locked: '', lines: ['在二楼找到钥匙，再从楼梯下去。', '避开尸群，从宿舍大门撤离。'] },
   2: { name: '归途', location: '学校东侧街区', cast: [HEROINE_ID], locked: '通关「静默宿舍」后解锁。', lines: ['穿过学校东侧街区，找到回家的路。', '经过公交站往北走，再折向住宅街。'] },
   3: { name: '归巢', location: '凛居住的公寓', cast: [HEROINE_ID], locked: '通关「归途」后解锁。', lines: ['公寓停电了，到一层找维川。', '恢复供电后，乘电梯上九层找家人。'] },
   4: { name: '断翼行动', location: '前传 · 沿岸作战区', cast: [GHOST_ID], locked: '通关「归巢」后解锁。', lines: ['幽灵一组，准备从海岸登陆。', '前往「阀」的指挥部，活捉首领。'] },
+  5: { name: '风沙防线', location: '荒漠镇口 · 车队护送', cast: [GHOST_ID], locked: '通关「断翼行动」后解锁。', lines: ['制作哨械枪，守住镇口。', '操控首车机枪，护送大巴到避难所。'] },
+  6: { name: '最后一班撤离', location: '住宅区 · 紧急接应', cast: [GHOST_ID], locked: '通关「风沙防线」后解锁。', lines: ['前往公寓 904，接应两位病毒学家。', '保护两位博士，乘黑鹰前往避难所。'] },
 } as const;
+const FRONTIER_ART: readonly (readonly [string, readonly (readonly [string, number, number, number, number])[]])[] = [
+  ['escort-road-v1', [['escort-road', 0, 0, 1774, 887]]],
+  ['escort-fleet-v1', [
+    ['escort-humvee', 169, 24, 285, 572], ['escort-bus', 765, 0, 247, 632],
+    ['escort-apc', 757, 668, 265, 624],
+  ]],
+  ['escort-props-v1', [
+    ['escort-log', 12, 109, 488, 306], ['escort-gun', 145, 520, 233, 477],
+    ['escort-dust', 522, 575, 492, 403], ['escort-blast', 10, 1072, 478, 403], ['escort-wreck', 641, 1030, 247, 493],
+  ]],
+  ['escort-littlebird-wreck-v1', [['escort-littlebird-wreck', 0, 0, 186, 528]]],
+  ['escort-gate-v1', [
+    ['escort-debris', 1141, 138, 1008, 440],
+  ]],
+  ['escort-refuge-wall-v1', [['escort-refuge-wall', 0, 0, 1008, 115]]],
+  ['escort-refuge-gate-v1', [['escort-refuge-gate', 0, 0, 512, 59]]],
+  ['escort-refuge-checkpoint-v1', [
+    ['escort-mesh-ruined', 17, 83, 284, 153], ['escort-mesh-hinged', 355, 92, 285, 147],
+    ['escort-checkpoint-sign', 76, 354, 167, 185], ['escort-checkpoint-barrier', 348, 407, 288, 109],
+  ]],
+  ['escort-refuge-yard-v1', [['escort-refuge-yard', 0, 0, 640, 640]]],
+  ['escort-refuge-activity-v1', [
+    ['escort-refuge-tower', 0, 0, 256, 256], ['escort-refuge-tent', 256, 0, 256, 256], ['escort-refuge-checkin', 512, 0, 256, 256],
+  ]],
+  ['escort-refuge-crew-v1', [
+    ['escort-refuge-guide', 0, 0, 128, 128], ['escort-refuge-carrier', 128, 0, 128, 128],
+    ['escort-refuge-clerk', 0, 128, 128, 128], ['escort-refuge-aide', 128, 128, 128, 128],
+  ]],
+  ['escort-humvee-flashes-v1', [
+    ['escort-humvee-flash-0', 0, 0, 192, 96], ['escort-humvee-flash-1', 192, 0, 192, 96],
+    ['escort-humvee-flash-2', 0, 96, 192, 96], ['escort-humvee-flash-3', 192, 96, 192, 96],
+  ]],
+  ['frontier-props-v1', [['frontier-cactus', 106, 82, 393, 448], ['frontier-water-tank', 662, 607, 572, 577]]],
+  ['frontier-town-v2', [
+    ['frontier-roof-rust', 65, 66, 416, 450], ['frontier-roof-olive', 558, 86, 421, 430],
+    ['frontier-roof-pale', 1036, 128, 452, 350], ['frontier-boards', 43, 667, 458, 218],
+    ['frontier-door', 573, 706, 196, 128], ['frontier-town-pumps', 1021, 659, 475, 234],
+  ]],
+  ['frontier-line-v2', [
+    ['frontier-opening-tank', 23, 175, 484, 232], ['frontier-opening-carrier', 544, 193, 449, 198],
+    ['frontier-sandbags', 1026, 242, 486, 101], ['frontier-wire', 24, 689, 486, 144],
+    ['frontier-hedgehog', 531, 667, 468, 173],
+  ]],
+  ['frontier-roadblocks-v3', [['frontier-wreck-pickup', 10, 185, 968, 353], ['frontier-wreck-wagon', 1348, 204, 809, 316]]],
+  ['frontier-detail-v2', [
+    ['frontier-wall', 36, 232, 448, 78], ['frontier-shelf', 553, 191, 440, 179],
+    ['frontier-crates', 1154, 144, 254, 264], ['frontier-flash', 49, 609, 390, 326],
+    ['frontier-porch', 531, 717, 470, 112], ['frontier-dust', 1050, 597, 474, 350],
+  ]],
+  ['frontier-ground-v2', [['frontier-street', 260, 10, 1016, 492], ['frontier-dirt', 260, 522, 1016, 492]]],
+  ['frontier-ranch-v4', [
+    ['frontier-ranch-shed', 44, 83, 435, 437], ['frontier-ranch-fence', 518, 238, 466, 112],
+    ['frontier-ranch-wagon', 1024, 160, 463, 303], ['frontier-ranch-scrub', 32, 610, 431, 334],
+    ['frontier-ranch-windmill', 544, 594, 428, 324], ['frontier-ranch-trough', 1033, 649, 447, 246],
+  ]],
+];
+const ESCORT_AIR_ART = OPERATION_ART.filter(([atlas]) => atlas === 'littlebird-black' || atlas === 'aircraft');
+const RETRIEVAL_PEOPLE_ART: { file: string; crops: readonly (readonly [string, number, number, number, number])[] } = {
+  file: 'retrieval-people-v2',
+  crops: [
+    ['retrieval-father', 73, 32, 369, 457], ['retrieval-mother', 539, 33, 419, 452], ['retrieval-receptionist', 1078, 33, 383, 456],
+    ['retrieval-civilian-1', 33, 527, 419, 482], ['retrieval-civilian-2', 548, 534, 428, 466], ['retrieval-civilian-3', 1086, 530, 392, 476],
+  ],
+};
+const RETRIEVAL_ART = [
+  [RETRIEVAL_PEOPLE_ART.file, RETRIEVAL_PEOPLE_ART.crops],
+  ['retrieval-portraits-v1', [
+    ['retrieval-father-face', 118, 9, 458, 458], ['retrieval-mother-face', 845, 9, 458, 458], ['retrieval-reception-face', 1585, 9, 458, 458],
+  ]],
+] as const;
+const grenadeBlastPhase = (age: number) => age < .045 ? 0 : age < .14 ? 1 : age < .24 ? 2 : age < .39 ? 3 : age < .70 ? 4 : 5;
 type Chapter = keyof typeof CHAPTERS;
 const SURVIVAL_MAPS: Record<SurvivalMapId, { name: string; createLevel: typeof createSurvivalLevel }> = {
   harbor: { name: '港区工事', createLevel: createSurvivalLevel },
 };
-type DeparturePage = { heading?: string; point: { x: number; y: number }; lines: readonly [string, string] };
+type DeparturePage = { heading?: string; point: { x: number; y: number }; lines: readonly string[] };
 type DepartureBrief = DeparturePage & {
   title: string; area: string; pages?: readonly DeparturePage[]; survey?: boolean;
   map: () => SpriteFrame | undefined; avatar: () => SpriteFrame | undefined; inset?: () => SpriteFrame | undefined;
@@ -163,9 +281,9 @@ const MISSION_ICONS = {
 } as const;
 const MISSION_TEXTURES = { panel: 'mission-panel', chest: 'mission-chest', claim: 'mission-claim', go: 'mission-go' } as const;
 type MissionImage = keyof typeof MISSION_ICONS | keyof typeof MISSION_TEXTURES;
-const showsBattle = (mode: Mode, battleSettings = false) => mode === 'playing' || mode === 'loading' || mode === 'falling' || mode === 'revive' || mode === 'pause' || mode === 'result' || mode === 'survival-radio' || mode === 'survival-map' || battleSettings && (mode === 'settings' || mode === 'help');
+const showsBattle = (mode: Mode, battleSettings = false) => mode === 'playing' || mode === 'loading' || mode === 'falling' || mode === 'revive' || mode === 'pause' || mode === 'result' || mode === 'survival-map' || battleSettings && (mode === 'settings' || mode === 'help');
 const SURVIVAL_PROPS = [
-  ['survival-sandbags', 19, 219, 484, 167], ['survival-radio', 608, 18, 333, 474],
+  ['survival-sandbags', 19, 219, 484, 167],
   ['survival-case', 1115, 162, 332, 260], ['survival-counter', 20, 653, 474, 276],
   ['survival-crates', 603, 597, 333, 360], ['survival-pack', 1076, 647, 406, 277],
 ] as const;
@@ -182,7 +300,7 @@ const SURVIVAL_BUILDING_ART = {
   'harbor-furniture': [
     ['survival-shelf', 33, 127, 322, 177], ['survival-checkout', 411, 132, 329, 175],
     ['survival-dining', 819, 92, 282, 248], ['survival-workbench', 33, 472, 320, 222],
-    ['survival-forklift', 392, 453, 361, 239], ['survival-radio-harbor', 781, 438, 353, 265],
+    ['survival-forklift', 392, 453, 361, 239],
   ],
 } as const;
 type SurvivalRoofArt = { bounds: Rect; rooms: Rect[]; opacity: UIOpacity };
@@ -204,10 +322,12 @@ const SURVIVAL_UI_CONTROLS = [
   ['extracted', 224, 128], ['fallen', 128, 128], ['complete', 224, 128],
   ['harbor-mark', 140, 112], ['coin', 112, 112], ['material', 112, 112],
 ] as const;
-const SURVIVAL_QUICK = { x: 959, y: 365, w: 62, h: 48 };
 const SURVIVAL_BAG_BUTTON = { x: 1170, y: 365, w: 75, h: 48 };
-const SURVIVAL_CRATE_PANEL = { x: 942, y: 220, w: 226, h: 295 };
+const SURVIVAL_CRATE_PANEL = { x: 711, y: 65, w: 455, h: 588 };
+const crateTile = (i: number) => ({ x: 736 + i % 3 * 133, y: 413 - Math.floor(i / 3) * 150, w: 124, h: 139 });
 const SURVIVAL_WORKSHOP = { x: 613, y: 172, w: 552, h: 423 };
+const SENTRY_SERVICE = { x: 654, y: 161, w: 496, h: 423 };
+const SURVIVAL_STOCK_PAGE_SIZE = 6;
 const SENTRY_WORKSHOP_RECIPES = ['sentry', ...SURVIVAL_PARTS] as const satisfies readonly SurvivalRecipe[];
 const SUPPLY_WORKSHOP_RECIPES = SURVIVAL_RECIPE_IDS.filter((recipe): recipe is Exclude<SurvivalRecipe, typeof SENTRY_WORKSHOP_RECIPES[number]> =>
   !SENTRY_WORKSHOP_RECIPES.some(sentry => sentry === recipe));
@@ -283,9 +403,14 @@ const HUD = {
   auto: hudRect(877, 535, 115, 44), air: hudRect(805, 330, 64, 64),
   roll: hudRect(713.5, 478, 69, 70), grenade: hudRect(805.5, 498.5, 67, 67),
   door: hudRect(709, 392, 70, 70), pickup: hudRect(623, 392, 70, 70), trap: hudRect(627, 478, 69, 70),
+  extraMine: hudRect(544, 478, 69, 70), storyGrenade: hudRect(544, 392, 69, 70),
 };
+const SURVIVAL_QUICK = { x: HUD.map.x + HUD.map.w - 202, y: HUD.map.y - 58, w: 62, h: 48, pitch: 70 };
+const SORTIE_SLOTS = { throw: '投掷物', mine: '陷阱', supply: '补给' } as const;
 const OBJECTIVE_BUTTON = { x: 24, y: 308, w: 54, h: 75 };
 const OBJECTIVE_BUBBLE = { x: 85, y: 317, w: 352, h: 58 };
+const CHAPTER_LIST = { x: 1060, top: 590, width: 358, pitch: 111, card: 92, height: 4 * 111 + 46 };
+const EXPLORATION_CHAPTERS = [1, 2, 3, 4, 5, 6] as const;
 
 @ccclass('Blackout')
 export class Blackout extends Component {
@@ -302,12 +427,22 @@ export class Blackout extends Component {
   private outputFrame!: SpriteFrame;
   private visibilityTexture!: Texture2D;
   private presentationMaterial?: Material;
+  private muzzleLight?: Point & { radius: number; intensity: number };
   private presentationReady = false;
   private visibilityField = new VisibilityField();
   private allyVisibilityField?: VisibilityField;
   private outdoorAllyLight = new Map<number, {
     source: Point; angle: number; camera: Point; geometry: number; field: VisibilityField;
   }>();
+  private survivalSharedPolygons = new Map<string, {
+    geometry: number; point: Point; range: number; cover: Rect[]; sight: Point[];
+  }>();
+  private frontierSight = new Map<string, {
+    point: Point; angle: number; range: number; doors: string; next: number; sight: Point[];
+    envelope?: Point[]; surfaces?: LightingSurface[];
+    field?: VisibilityField; rasterCamera?: Point; rasterBounds?: { left: number; right: number; bottom: number; top: number };
+  }>();
+  private frontierWorkbenchHighlight?: { node: Node; center: Point; glow: UIOpacity; model: UIOpacity };
   private outdoorLightTick = 0;
   private outdoorLightPending = true;
   private lightCamera?: Point;
@@ -386,17 +521,21 @@ export class Blackout extends Component {
   private survivalBagItemLayer?: Node;
   private survivalBagSkinNodes: Sprite[] = [];
   private survivalBagIcons: Sprite[] = [];
-  private survivalQuickOpen = false;
   private survivalWorkshopOpen = false;
   private survivalDoorPanel?: { id: number; replacement?: SurvivalDoorKind };
   private survivalDoorHold?: { owner: number; id: number; left: number; opened: boolean };
   private survivalRecipe: SurvivalRecipe | 'special-ammo' = 'grenade';
   private survivalHeldItem?: number;
   private survivalCrateId?: string;
-  private survivalDrag?: { id?: number; owner: number | null; x: number; y: number; col?: number; row?: number };
+  private survivalDrag?: { id?: number; crate?: { id: string; index: number; stack: GearStack }; owner: number | null;
+    x: number; y: number; col?: number; row?: number; rotated?: boolean };
+  private survivalSentryPanel?: SurvivalSentry;
+  private workshopStockOpen = false;
+  private workshopPage = 0;
   private survivalRotatePreview?: { id: number; until: number };
   private harborMapFrame?: SpriteFrame;
   private harborMapLayer?: Node;
+  private harborMapPlayer?: { marker: Node; halo: Node; heading: Node; floor: Label };
   private harborGround = new Map<string, { bounds: HarborChunk; frame?: SpriteFrame; node?: Node; retry?: number }>();
   private harborLoads = 0;
   private harborStreamCenter?: { x: number; y: number };
@@ -419,11 +558,25 @@ export class Blackout extends Component {
   private pooledEnemySprites: Sprite[] = [];
   private artFrames = new Map<string, SpriteFrame>();
   private streetFrames = new Map<string, SpriteFrame>();
+  private projectileFrames?: { brass: SpriteFrame; shell: SpriteFrame; pellet: SpriteFrame; dust: SpriteFrame };
+  private readonly supportCasings: Casing[] = [];
+  private readonly groundCasingSprites: Sprite[] = [];
+  private readonly shotgunSprites: Sprite[] = [];
+  private casingSequence = 0;
   private departure?: Departure;
   private lastLaunchedChapter?: Chapter;
+  private retrievalFloors?: ReturnType<typeof createRetrievalLevels>;
+  private retrievalLiftDisplay?: Label;
+  private retrievalHumvee?: Sprite;
+  private chapterOpening?: { chapter: Chapter; time: number; canSkip: boolean; rows: Label[]; opacity: UIOpacity };
   private satelliteMaterial?: Material;
   private operationCinema?: { root: Node; time: number; draw: (time: number) => boolean; finish: () => void };
-  private operationDialogue?: StoryDialogueNodes & { lines: OperationLine[]; index: number; time: number; cinematic: boolean };
+  private frontierEscort?: FrontierEscort;
+  private frontierEscortView?: ReturnType<Blackout['buildFrontierEscortView']>;
+  private frontierEscortOutro = 0;
+  private frontierEscortAirSoundAt = 0;
+  private frontierEscortArrivalShown = false;
+  private operationDialogue?: StoryDialogueNodes & { lines: OperationLine[]; index: number; time: number; cinematic: boolean; hold: number };
   private airborne?: { root: Node; craft: Sprite; rotor: Sprite; rope: Graphics; boarders: Sprite[]; littlebird: Sprite; littleRotor: Sprite; pods: LittlebirdPod[] };
   private operationArrival?: { battle: Battle; time: number };
   private operationBossHud?: { root: Node; fill: Graphics; label: Label; opacity: UIOpacity };
@@ -463,14 +616,13 @@ export class Blackout extends Component {
   private shopFrames = new Map<ShopImage, SpriteFrame>();
   private mineSprites: Sprite[] = [];
   private shopCategory: ShopCategory = 'mod';
-  private shopQuality: Quality = 0;
   private shopFilter = '';
   private shopPage = 0;
   private shopProduct?: ProductId;
   private shopBack: 'menu' | 'training' | 'roster' = 'menu';
   private rosterHero: HeroId = HEROINE_ID;
   private rosterBack: 'menu' | 'training' | 'shop' | 'backpack' = 'menu';
-  private rosterFocus?: GearId | ConsumableId;
+  private rosterFocus?: GearId;
   private trainingBack: 'menu' | 'backpack' = 'menu';
   private recruitBack: 'menu' | 'training' | 'shop' = 'menu';
   private trainingPortraitStage?: Node;
@@ -486,6 +638,9 @@ export class Blackout extends Component {
   private homeBackdrop!: Node;
   private homeArtwork?: Node;
   private chapterMap?: Node;
+  private chapterCards?: Node;
+  private chapterOffset?: number;
+  private chapterDrag?: { id: number; start: Point; offset: number; moved: boolean };
   private profileLayer?: Node;
   private profilePage?: Node;
   private profileTabs?: [Sprite | undefined, Sprite | undefined];
@@ -497,6 +652,7 @@ export class Blackout extends Component {
   private achievementPage = 0;
   private selectedChapter: Chapter = 1;
   private sortieHero: HeroId = HEROINE_ID;
+  private sortieSlot?: SortieSlot;
   private missionLayer?: Node;
   private dialogArtwork?: Node;
   private dialogFrame?: SpriteFrame;
@@ -507,6 +663,7 @@ export class Blackout extends Component {
   private playerHealth = new PlayerHealthDisplay();
   private playerStatus?: { portrait: Node; fill: Sprite; trail: Sprite };
   private noticeHud?: { root: Node; plate: Sprite; icon: Sprite; opacity: UIOpacity };
+  private battleNoticeLayer?: Graphics;
   private promptHud?: { root: Node; plate: Sprite; icon: Sprite; badge: Sprite };
   private objectiveFrame?: SpriteFrame;
   private objectiveNotice?: { battle: Battle; key: string; time: number; pinned: boolean; open: number };
@@ -636,6 +793,7 @@ export class Blackout extends Component {
   private moving = false; private aiming = false;
   private lastFacing = 0.2;
   private aimAssist = new AimAssist();
+  private mobileAimHeading?: number;
   private sweeping = false;
   private uiTick = 0;
   private presentationTime = 0; private sightTick = 0;
@@ -647,7 +805,6 @@ export class Blackout extends Component {
   private storageOkay = true;
   private lastDraw = '';
   private reward = { materials: 0, tickets: 0, coins: 0, keys: 0 };
-  private tacticalChoice: TacticalKind = 'grenade';
 
   onLoad() {
     view.setDesignResolutionSize(W, H, ResolutionPolicy.SHOW_ALL);
@@ -758,6 +915,7 @@ export class Blackout extends Component {
       this.requestArt('checkin', () => this.loadCheckInArt());
     }
     if (mode === 'shop' || mode === 'training' || mode === 'roster') this.requestArt('shop', () => this.loadShopArt());
+    if (mode === 'select-hero') this.requestArt('shop-icons', () => this.loadShopArt(true));
     if (mode === 'shop') this.requestArt('case-key', () => this.loadCaseArt('controls'));
     if (mode === 'cases') this.requestArt('cases', () => this.loadCaseArt());
     if (mode === 'backpack' || mode === 'achievements' || mode === 'cases') {
@@ -782,6 +940,13 @@ export class Blackout extends Component {
     });
   }
   private loadCombatArt() {
+    resources.load('art/projectile-fx-v1/spriteFrame', SpriteFrame, (err, frame) => {
+      if (err || !this.isValid) return;
+      this.projectileFrames = {
+        brass: this.cropUiFrame(frame, 262, 197, 271, 148), shell: this.cropUiFrame(frame, 898, 171, 512, 192),
+        pellet: this.cropUiFrame(frame, 192, 728, 459, 92), dust: this.cropUiFrame(frame, 994, 679, 287, 199),
+      };
+    });
     this.loadBattleArt();
     this.loadGrenadeArt();
     this.requestArt('shop-icons', () => this.loadShopArt(true));
@@ -807,7 +972,8 @@ export class Blackout extends Component {
     this.loadFloorDetailArt();
     this.loadStairArt();
     this.loadFallArt();
-    for (const name of ['shoot', 'shoot-suppressed', 'hurt', 'dash', 'reload', 'hit', 'kill', 'win', 'alarm', 'jet-flyover', 'survival-stair-threat']) resources.load('audio/' + name, AudioClip, (err, clip) => { if (!err && this.isValid) this.clips.set(name, clip); });
+    for (const name of ['shoot', 'shoot-suppressed', 'hurt', 'dash', 'reload', 'hit', 'kill', 'win', 'alarm', 'jet-flyover', 'survival-stair-threat',
+      'escort-metal', 'escort-metal-heavy']) resources.load('audio/' + name, AudioClip, (err, clip) => { if (!err && this.isValid) this.clips.set(name, clip); });
     if (this.visibilityEffect) this.bindPresentation(this.visibilityEffect);
     else resources.load('effects/visibility', EffectAsset, (err, effect) => {
       if (!this.isValid) return;
@@ -891,7 +1057,7 @@ export class Blackout extends Component {
     const sections = {
       profile: ['field-panels', 'account-shell', 'account-dusk', 'atlas'],
       achievements: ['achievement-shell', 'atlas'],
-      exploration: ['satellite-map', 'tanSuo', 'field-panels', 'departure-brief-v1', 'selectHero', 'chapter-4', 'missions', 'hero-ui'],
+      exploration: ['satellite-map', 'tanSuo', 'field-panels', 'departure-brief-v1', 'selectHero', 'chapter-4', 'chapter-5', 'chapter-6', 'missions', 'hero-ui'],
       survival: ['harbor-selection-v2', 'tanSuo', 'field-panels', 'departure-brief-v1', 'selectHero', 'hero-ui'],
     };
     const assets = CAMPAIGN_ART.filter(asset => sections[group].includes(asset.file));
@@ -964,8 +1130,8 @@ export class Blackout extends Component {
     }));
   }
   private loadShopArt(iconsOnly = false) {
-    const assets = iconsOnly ? SHOP_ART.filter(asset => ['ui', 'catalog', 'fixed-weapons', 'mods'].includes(asset.file)) : SHOP_ART;
-    for (const asset of assets) this.requestArt('shop-' + asset.file, () => resources.load(`shop/${asset.file}/spriteFrame`, SpriteFrame, (err, source) => {
+    const assets = iconsOnly ? SHOP_ART.filter(asset => asset.folder || ['ui', 'catalog', 'fixed-weapons', 'mods'].includes(asset.file)) : SHOP_ART;
+    for (const asset of assets) this.requestArt('shop-' + asset.file, () => resources.load(`${asset.folder ?? 'shop'}/${asset.file}/spriteFrame`, SpriteFrame, (err, source) => {
       if (!this.isValid) return;
       if (!err) {
         source.packable = false;
@@ -974,8 +1140,11 @@ export class Blackout extends Component {
             this.shopFrames.set(key as ShopImage, this.cropUiFrame(source, ...crop));
           }
         } else this.shopFrames.set(asset.image, source);
+        if (asset.file === 'tactical-fire-v1') {
+          this.survivalFireFrames = [[264, 8], [8, 264], [264, 264]].map(([x, y]) => this.cropUiFrame(source, x, y, 240, 240));
+        }
       } else console.warn('Shop artwork could not load:', asset.file, err);
-      if (!err && (['shop', 'roster', 'training', 'backpack', 'achievements'].includes(this.mode) || this.mode === 'cases' && !this.caseRoll)) this.scheduleArtRefresh();
+      if (!err && (['shop', 'roster', 'training', 'backpack', 'achievements', 'select-hero'].includes(this.mode) || this.mode === 'cases' && !this.caseRoll)) this.scheduleArtRefresh();
     }));
   }
   private loadCaseArt(group: 'all' | 'icons' | 'controls' = 'all') {
@@ -1121,7 +1290,7 @@ export class Blackout extends Component {
     for (const shot of b.bullets) {
       const frame = shot.venom === 'spit' ? glob : shot.venom === 'dart' ? dart : undefined;
       if (frame) {
-        const height = shot.venom === 'spit' ? 27 : 36;
+        const height = shot.venom === 'spit' ? 54 : 36;
         show(shot, frame, Math.atan2(shot.vy, shot.vx), height * frame.originalSize.width / frame.originalSize.height, height, .7);
       }
     }
@@ -1139,7 +1308,7 @@ export class Blackout extends Component {
       Math.abs(p.x - b.player.x) <= W / 2 + margin && Math.abs(p.y - b.player.y) <= H / 2 + margin;
     for (const item of b.tacticalThrows) {
       const frame = item.kind === 'grenade' ? this.grenadeFrame :
-        item.survival && isSurvivalThrowable(item.kind) ? this.survivalItemFrame(item.kind) : undefined;
+        isSurvivalThrowable(item.kind) ? this.shopFrames.get(item.kind) ?? this.survivalItemFrame(item.kind) : undefined;
       if (!frame || !onScreen(item, OPERATION_GRENADE_RANGE)) continue;
       const pose = grenadeThrowPose(item);
       const { x, y } = pose;
@@ -1205,7 +1374,7 @@ export class Blackout extends Component {
         blast.debris = Array.from({ length: 13 }, (_, i) => rayDistance(effect, i / 13 * Math.PI * 2, damageRadius * (0.59 + (i % 4) * 0.102), cover));
       }
       const age = effect.max - effect.life;
-      const phase = age < 0.045 ? 0 : age < 0.14 ? 1 : age < 0.24 ? 2 : age < 0.39 ? 3 : age < 0.70 ? 4 : 5;
+      const phase = grenadeBlastPhase(age);
       const size = (85 + 143 * (1 - Math.exp(-age * 12))) * damageRadius / TACTICAL_DEFINITIONS.grenade.radius;
       blast.sprite.spriteFrame = this.grenadeBlastFrames[phase];
       blast.sprite.node.setScale(size / 184, size / 184, 1);
@@ -1276,8 +1445,8 @@ export class Blackout extends Component {
     const g = this.survivalDevices, b = this.battle, p = b.player;
     g.clear();
     let count = 0, objects = 0, parked = 0;
-    const near = (point: { x: number; y: number }) => Math.abs(point.x - p.x) < W / 2 + 55 && Math.abs(point.y - p.y) < H / 2 + 55;
-    const prop = (frame: SpriteFrame | undefined, x: number, y: number, size: number, tint = '#ffffff', angle = 0, pivot = .5, scenery = false) => {
+    const near = (point: Point, margin = 55) => Math.abs(point.x - p.x) < W / 2 + margin && Math.abs(point.y - p.y) < H / 2 + margin;
+    const prop = (frame: SpriteFrame | undefined, x: number, y: number, size: number, tint = '#ffffff', angle = 0, pivot = .5, scenery = false, pivotY = .5) => {
       if (!frame) return false;
       const pool = scenery ? this.survivalEvacNodes : this.survivalObjectNodes;
       const parent = scenery ? this.survivalEvacArt : g.node;
@@ -1286,12 +1455,25 @@ export class Blackout extends Component {
       sprite.spriteFrame = frame; sprite.color = color(tint);
       const transform = sprite.node.getComponent(UITransform)!;
       transform.setContentSize(size, size * frame.originalSize.height / frame.originalSize.width);
-      transform.setAnchorPoint(pivot, .5);
+      transform.setAnchorPoint(pivot, pivotY);
       sprite.node.setPosition(x, y);
       sprite.node.angle = angle;
       sprite.node.active = true;
       return true;
     };
+    if (b.frontier && b.stage.frontier) {
+      for (let i = 0; i < 18; i++) {
+        const x = p.x - 640 + ((i * 179 + b.elapsed * 110) % 1280), y = p.y - 370 + i * 43;
+        line(g, x - 54, y - 8, x, y, '#f9ca87', 2 + i % 4, 19);
+      }
+      const plan = b.stage.frontier;
+      const posts = b.frontier.phase === 'search' && b.survivalCount('sentry') ? [plan.trial] :
+        b.frontier.phase === 'ready' ? b.frontierSentryCount >= 2 ? [plan.junction] : plan.defenseSpots : [];
+      for (const { x, y } of posts) {
+        g.strokeColor = color('#f4c673', 172); g.lineWidth = 2;
+        g.circle(x, y, 24 + (b.elapsed % .9) * 18); g.stroke();
+      }
+    }
     if (b.survival?.timed) {
       const helicopter = EVAC_VEHICLES.helicopter.point, boat = EVAC_VEHICLES.boat.point;
       if (near(helicopter)) {
@@ -1301,26 +1483,25 @@ export class Blackout extends Component {
           '#ffffff', b.survivalVehicleStatus('helicopter').fuel === undefined ? 36 : this.presentationTime * 540, .5, true);
       }
       if (near(boat)) prop(this.timedSurvivalFrames.get('boat'), boat.x, boat.y, EVAC_BOAT_WIDTH, '#ffffff', 0, .5, true);
-      for (const vehicle of convoyVehicles(b.elapsed)) {
-        if (!vehicle.visible) continue;
+      for (const vehicle of b.survivalConvoy) {
         const tank = vehicle.kind === 'tank', facing = vehicle.angle;
         const aim = b.survivalConvoyAim.get(vehicle.index);
         const previous = this.convoyTurretAngles.get(vehicle.index) ?? facing;
         const heading = previous + clamp(angleDiff(aim && b.elapsed - aim.trackingAt < 1.4 ? aim.angle : facing, previous), -dt * 4.3, dt * 4.3);
         this.convoyTurretAngles.set(vehicle.index, heading);
-        if (near(vehicle)) {
-          prop(this.timedSurvivalFrames.get(vehicle.kind), vehicle.x, vehicle.y, tank ? 137 : 130, '#ffffff', facing * 180 / Math.PI);
-          prop(this.timedSurvivalFrames.get(tank ? 'tank-turret' : 'carrier-gunner'), vehicle.x, vehicle.y, tank ? 131 : 58,
+        if (near(vehicle, 220)) {
+          prop(this.timedSurvivalFrames.get(vehicle.kind), vehicle.x, vehicle.y, (tank ? 137 : 130) * CONVOY_SCALE, '#ffffff', facing * 180 / Math.PI);
+          prop(this.timedSurvivalFrames.get(tank ? 'tank-turret' : 'carrier-gunner'), vehicle.x, vehicle.y, (tank ? 131 : 58) * CONVOY_SCALE,
             '#ffffff', heading * 180 / Math.PI, .21);
           if (aim && b.elapsed - aim.shotAt < .11) {
-            const length = tank ? 88 : 42;
+            const length = (tank ? 88 : 42) * CONVOY_SCALE;
             const x = vehicle.x + Math.cos(heading) * length, y = vehicle.y + Math.sin(heading) * length;
             disc(g, x, y, tank ? 13 : 7, '#ffbd5d', 220);
             line(g, x, y, x + Math.cos(heading) * 38, y + Math.sin(heading) * 38, '#ffe09a', 2.4, 198);
           }
         }
         if (vehicle.index !== 0 && vehicle.index !== 2) continue;
-        const flight = { x: vehicle.x - Math.sin(facing) * 108, y: vehicle.y + Math.cos(facing) * 108 };
+        const flight = convoyAirPosition(vehicle);
         if (near(flight)) {
           prop(this.streetFrames.get('op-littlebird'), flight.x, flight.y, 47, '#ffffff', facing * 180 / Math.PI - 90);
           prop(this.streetFrames.get('op-rotor'), flight.x, flight.y, 103, '#c7c6b9', this.presentationTime * 700);
@@ -1328,9 +1509,18 @@ export class Blackout extends Component {
       }
     }
     for (const crate of b.survivalCrates) {
-      if (!near(crate) || crate.kind === 'dropped' && !crate.goods.length) continue;
-      const { x, y } = crate, size = crate.kind === 'airdrop' ? 66 : crate.kind === 'dropped' ? 33 : 51;
-      const frame = this.survivalCrateFrames.get(crate.kind === 'evac' ? 'engineering' : crate.kind);
+      if (!near(crate) || !crate.goods.length) continue;
+      const { x, y } = crate;
+      if (crate.kind === 'dropped' && crate.goods.length === 1) {
+        disc(g, x, y, 19, '#d4a972', 60);
+        g.strokeColor = color('#e8ba66', 210); g.lineWidth = 2;
+        g.circle(x, y, 19); g.stroke();
+        prop(this.survivalItemFrame(crate.goods[0].kind), x, y, 33);
+        continue;
+      }
+      const size = crate.kind === 'airdrop' ? 66 : b.frontier ? 58 : 51;
+      const frame = this.survivalCrateFrames.get(crate.kind === 'evac' ? 'engineering' : crate.kind) ??
+        (b.frontier && crate.kind === 'engineering' ? this.streetFrames.get('frontier-crates') : undefined);
       disc(g, x + 2, y - 5, size * .43, '#101618', 145);
       if (frame) {
         const sprite = this.survivalCrateNodes[count++] ??= this.setupSprite(this.makeNode('Supply container', g.node), frame, size, size);
@@ -1372,7 +1562,12 @@ export class Blackout extends Component {
       const { x, y, angle, hp } = sentry;
       const dx = Math.cos(angle), dy = Math.sin(angle);
       disc(g, x + 3, y - 3, 20, '#101417', 170);
-      const drawn = prop(this.survivalItemFrame('sentry'), x, y, 72, hp ? '#ffffff' : '#555851', angle * 180 / Math.PI, .31);
+      const tint = hp ? '#ffffff' : '#555851';
+      const base = this.artFrames.get('sentry-base'), head = this.artFrames.get('sentry-head');
+      const turn = angle * 180 / Math.PI, split = !!base && !!head;
+      if (split) prop(base, x, y, 50, tint, 0, .50, false, .36);
+      const drawn = split ? prop(head, x, y, 72, tint, turn, .26) :
+        prop(this.survivalItemFrame('sentry'), x, y, 72, tint, turn, .31);
       if (!drawn) {
         for (let i = 0; i < 3; i++) {
           const a = i * Math.PI * 2 / 3 + .35, tx = x + Math.cos(a) * 22, ty = y + Math.sin(a) * 22;
@@ -1383,8 +1578,10 @@ export class Blackout extends Component {
         line(g, x + dx * 7, y + dy * 7, x + dx * 44, y + dy * 44, '#728071', 6);
       }
       if (sentry.muzzle > 0) {
-        line(g, x + dx * 50, y + dy * 50, x + dx * 67, y + dy * 67, '#ffd477', 5);
-        disc(g, x + dx * 54, y + dy * 54, 4, '#fff6b2');
+        const reach = split ? 53 : drawn ? 48 : 44;
+        const muzzle = { x: x + dx * reach, y: y + dy * reach };
+        if (lineClear(sentry, muzzle, b.blockers))
+          drawGunFlash(g, { muzzle, angle }, sentry.muzzle / SENTRY_FLASH_TIME, GHOST_ID, sentry.burst, b.visionScale > 1);
       }
       if (hp > 0) {
         box(g, x - 19, y + 28, 38, 4, '#263130');
@@ -1401,10 +1598,10 @@ export class Blackout extends Component {
     for (let i = objects; i < this.survivalObjectNodes.length; i++) this.survivalObjectNodes[i].node.active = false;
     for (let i = parked; i < this.survivalEvacNodes.length; i++) this.survivalEvacNodes[i].node.active = false;
   }
-  private battleSprite(id: BattleImage, rect: { x: number; y: number; w: number; h: number }) {
+  private battleSprite(id: BattleImage, rect: { x: number; y: number; w: number; h: number }, parent = this.battleArtwork) {
     const frame = this.battleFrames.get(id);
-    if (!frame || !this.battleArtwork) return;
-    const node = this.makeNode(id, this.battleArtwork);
+    if (!frame || !parent) return;
+    const node = this.makeNode(id, parent);
     node.setPosition(rect.x + rect.w / 2 - W / 2, rect.y + rect.h / 2 - H / 2);
     this.setupSprite(node, frame, rect.w, rect.h);
     return node;
@@ -1423,7 +1620,7 @@ export class Blackout extends Component {
       });
     }
   }
-  private loadSampleArt(commonOnly: boolean) {
+  private loadSampleArt(commonOnly: boolean, walkerVariants = !commonOnly) {
     for (const [id, file] of [['spitter', 'art/venom-spitter-v1'], ['venom-glob', 'art/venom-glob-v1'], ['venom-dart', 'chapter4/rimelet-venom-dart-v1']]) {
       this.requestArt(file, () => resources.load(file + '/spriteFrame', SpriteFrame, (err, frame) => {
         if (err) { console.warn('Venom art could not load:', file, err); return; }
@@ -1442,7 +1639,7 @@ export class Blackout extends Component {
       const frame = source.clone(); frame.packable = false; frame.rect = new TextureRect(x, y, w, h); frame.originalSize = new Size(w, h); frame.offset = new Vec2(0, 0); this.rollFrames.push(frame); return frame;
     };
     for (const [id, filename] of assets) {
-      if (commonOnly && ['dormWalkers', 'dormKit', 'corridor', 'bedroom'].includes(id)) continue;
+      if (id === 'dormWalkers' && !walkerVariants || commonOnly && ['dormKit', 'corridor', 'bedroom'].includes(id)) continue;
       this.requestArt('art/' + filename, () => resources.load('art/' + filename + '/spriteFrame', SpriteFrame, (err, frame) => {
         if (!this.isValid) return;
         if (err) { this.requestedArt.delete('art/' + filename); console.warn('Game art could not load:', filename, err); return; }
@@ -1755,6 +1952,9 @@ export class Blackout extends Component {
   private rebuildLevel() {
     for (const node of this.mapNodes) { node.active = false; node.destroy(); }
     this.mapNodes = [];
+    this.retrievalLiftDisplay = undefined;
+    this.retrievalHumvee = undefined;
+    this.frontierWorkbenchHighlight = undefined;
     this.survivalRoofs = [];
     this.harborScenery = [];
     this.harborGroundLayer = undefined;
@@ -1773,13 +1973,57 @@ export class Blackout extends Component {
     this.doorArtStage = this.battle.stage;
     this.apartmentShutterSprite = undefined;
     const stage = this.battle.stage, upper = stage.dorm?.number === 2, lower = stage.dorm?.number === 1;
-    this.setBattleRenderBudget(!!stage.survival, !!stage.operation && stage.operation.part !== 'compound');
+    this.setBattleRenderBudget(!!(stage.survival || stage.frontier), !!stage.frontier || !!stage.operation && stage.operation.part !== 'compound');
     this.outdoorAllyLight.clear();
+    this.survivalSharedPolygons.clear();
+    this.frontierSight.clear();
     this.lightCamera = undefined;
     this.outdoorLightTick = 0;
     this.outdoorLightPending = true;
     this.rasterProps.clear(); this.floors.clear(); this.fixtures.clear(); this.bloodArt.clear(); this.lastBloodRevision = -1;
     this.rebuildFloorDetails();
+    if (stage.retrieval) {
+      const signs = this.makeNode('Retrieval architecture', this.propsArt);
+      this.mapNodes.push(signs);
+      const mark = (value: string, x: number, y: number, size: number) => {
+        const node = this.makeNode(value, signs);
+        node.setPosition(x, y);
+        node.getComponent(UITransform)!.setContentSize(220, 44);
+        const label = node.addComponent(Label);
+        label.string = value; label.color = color('#ecd6ac');
+        label.fontSize = size; label.isBold = true; label.horizontalAlign = Label.HorizontalAlign.CENTER;
+        return label;
+      };
+      if (stage.retrieval === 'lobby') {
+        const frame = this.streetFrames.get('escort-humvee');
+        if (frame) {
+          const car = this.makeNode('Retrieval Humvee', signs);
+          car.angle = 180;
+          this.retrievalHumvee = this.setupSprite(car, frame, 85, 173);
+          const blocker = stage.furniture.find(prop => prop.kind === 'retrieval-humvee')!;
+          this.rasterProps.add(`retrieval-humvee:${blocker.x}:${blocker.y}`);
+        }
+        mark('住户前台', 717, 866, 21);
+        mark('消防楼梯', 1968, 879, 19);
+        this.retrievalLiftDisplay = mark('电梯 · 6F', 1550, 937, 18);
+      } else if (stage.retrieval === 'stairs') {
+        for (const point of RETRIEVAL_LANDINGS) mark(point.floor, point.x, point.y, 29);
+        mark('9F', stage.exit.x - 40, stage.exit.y + 40, 27);
+        const up = this.stairFrames.get('up');
+        if (up) {
+          const node = this.makeNode('Second stair flight', signs);
+          node.setPosition(380, 719);
+          this.setupSprite(node, up, 128, 104);
+        }
+      } else if (stage.retrieval === 'roof') {
+        const paint = this.graphics('Helipad markings', signs);
+        paint.strokeColor = color('#ccbc98', 160);
+        paint.lineWidth = 4;
+        paint.circle(RETRIEVAL_PAD.x, RETRIEVAL_PAD.y - 28, 142); paint.stroke();
+        mark('H', RETRIEVAL_PAD.x, RETRIEVAL_PAD.y - 82, 41);
+        mark('屋顶通道', 342, 330, 20);
+      }
+    }
     const operation = stage.operation;
     if (stage.survival) {
       const tile = (id: string, x: number, y: number, w: number, h: number) => {
@@ -1826,16 +2070,36 @@ export class Blackout extends Component {
           }
         }
       }
-      const radio = stage.survival.radio;
       const markings = this.graphics('Fort markings', this.propsArt);
       this.mapNodes.push(markings.node);
-      markings.strokeColor = color('#f3cc80', 175);
       markings.lineWidth = 2;
-      markings.circle(radio.x, radio.y, 42); markings.stroke();
-      const workbench = stage.survival.workbench;
       markings.strokeColor = color('#9bbfa3', 164);
-      markings.circle(workbench.x, workbench.y, 26); markings.stroke();
+      for (const workbench of [stage.survival.workbench, stage.survival.harborWorkbench]) {
+        markings.circle(workbench.x, workbench.y, 26); markings.stroke();
+      }
       this.buildSurvivalRoofs();
+    } else if (stage.frontier) {
+      const workbenchFrame = this.artFrames.get('survival-craft-bench');
+      if (workbenchFrame) this.buildFrontierWorkbenchHighlight(stage.frontier.workbench, workbenchFrame);
+      const town = stage.rooms[stage.rooms.length - 1];
+      const margin = 670, ground = { x: -margin, y: -margin, w: town.w + margin * 2, h: town.h + margin * 2 };
+      box(this.floors, ground.x, ground.y, ground.w, ground.h, '#90683d');
+      const sand = this.streetFrames.get('frontier-dirt'), road = this.streetFrames.get('frontier-street');
+      const boards = this.streetFrames.get('frontier-boards'), porch = this.streetFrames.get('frontier-porch') ?? boards;
+      if (sand) this.tileFloor(ground, sand, 512);
+      if (road) for (const surface of stage.frontier.roads) this.tileFloor(surface, road, 365, 178);
+      if (boards) for (const room of stage.rooms.slice(0, -1)) this.tileFloor(room, boards, 228, 102);
+      if (porch) for (const walkway of stage.frontier.porches) this.tileFloor(walkway, porch, 178, walkway.h);
+      const wall = this.streetFrames.get('frontier-wall');
+      if (wall) for (const solid of stage.walls) {
+        const vertical = solid.h > solid.w;
+        const node = this.makeNode('Town wall', this.propsArt);
+        node.setPosition(solid.x + solid.w / 2, solid.y + solid.h / 2);
+        node.angle = vertical ? 90 : 0;
+        this.setupSprite(node, wall, vertical ? solid.h : solid.w, vertical ? solid.w : solid.h);
+        this.mapNodes.push(node);
+        this.rasterProps.add(solid.kind + ':' + solid.x + ':' + solid.y);
+      }
     } else if (operation) {
       const terrain = (id: string, x: number, y: number, w: number, h: number) => {
         const frame = this.streetFrames.get(id);
@@ -1917,7 +2181,7 @@ export class Blackout extends Component {
       this.setupSprite(node, stairFrame, stairs.w, stairs.h);
       this.mapNodes.push(node);
     }
-    for (const f of [...stage.furniture, ...(operation?.scenery ?? [])]) {
+    for (const f of [...stage.furniture, ...(operation?.scenery ?? stage.frontier?.scenery ?? [])]) {
       if (stage.survival && this.rasterProps.has(f.kind + ':' + f.x + ':' + f.y)) continue;
       const reversed = f.kind === 'garage-sedan-reverse' || f.kind === 'garage-suv-reverse';
       const art = f.kind === 'getaway-car' ? 'garage-suv' : f.kind === 'desk' ? 'lobby-desk' : f.kind === 'locker' || f.kind === 'cabinet' ? 'dorm-locker'
@@ -1997,11 +2261,11 @@ export class Blackout extends Component {
         }
       }
     }
-    const doorFrame = operation ? this.streetFrames.get('op-door') :
+    const doorFrame = stage.frontier ? this.streetFrames.get('frontier-door') : operation ? this.streetFrames.get('op-door') :
       floor === 'home' || floor === 'garage' ? this.streetFrames.get('apartment-wood-door') : undefined;
     if (doorFrame) for (const [index, door] of this.battle.doors.entries()) {
       if (door.material !== 'wood') continue;
-      const node = this.makeNode('Apartment door leaf', this.propsArt);
+      const node = this.makeNode('Door leaf', this.propsArt);
       this.apartmentDoors[index] = this.setupSprite(node, doorFrame, door.length, door.thickness);
       this.mapNodes.push(node);
     }
@@ -2036,12 +2300,14 @@ export class Blackout extends Component {
         if (frame) this.tileFloor(r, frame, r.kind === 'shop-tile' ? 300 : 384);
       }
     }
-    const signedRooms = operation ? [] : stage.survival ? stage.rooms.filter((r, i) => i !== stage.survival!.streetRoom
+    const signedRooms = operation ? [] : stage.frontier ? stage.rooms.slice(0, -1) : stage.survival ? stage.rooms.filter((r, i) => i !== stage.survival!.streetRoom
       && !stage.survival!.buildings.some(building => building.stair && building.rooms.includes(r))) : stage.rooms;
     for (const [i, r] of signedRooms.entries()) {
       const bedroom = upper ? i >= 1 && i <= 3 : !lower && (i === 1 || i === 2);
       const frame = stage.apartment ? this.streetFrames.get('apartment-' + stage.apartment.floors[i]) : this.artFrames.get(lower && (i === 0 || i === 4 || i === 10) ? 'lobby-floor' : bedroom ? 'bedroom' : 'corridor');
-      if (!stage.street && !stage.survival && frame) this.tileFloor(r, frame, floor === 'garage' || floor === 'home' ? 480 : 384, floor === 'garage' || floor === 'home' ? 320 : 384);
+      const surface = stage.retrieval === 'roof' ? this.streetFrames.get('apartment-utility') ?? frame :
+        stage.retrieval === 'stairs' ? this.streetFrames.get('apartment-residential') ?? frame : frame;
+      if (!stage.frontier && !stage.street && !stage.survival && surface) this.tileFloor(r, surface, floor === 'garage' || floor === 'home' ? 480 : 384, floor === 'garage' || floor === 'home' ? 320 : 384);
       const n = this.makeNode('Area sign ' + i, this.signsArt); this.mapNodes.push(n);
       if (stage.survival) this.harborScenery.push({ node: n, bounds: r });
       n.setPosition(r.x + r.w / 2, stage.street ? r.y + r.h - 35 : r.y + (i === 0 && upper ? 104 : 43));
@@ -2096,6 +2362,41 @@ export class Blackout extends Component {
       this.mapNodes.push(lobby.node);
     }
   }
+  private buildFrontierWorkbenchHighlight(bounds: Rect, frame: SpriteFrame) {
+    const node = this.makeNode('Frontier workbench highlight', this.canvas);
+    node.setSiblingIndex(this.outputSprite.node.getSiblingIndex() + 1);
+    node.active = false;
+    this.mapNodes.push(node);
+    const center = { x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h / 2 };
+    const halo = this.graphics('Workbench glow', node);
+    const rx = bounds.w * .69, ry = bounds.h * .55;
+    for (let i = 0; i < 5; i++) {
+      halo.fillColor = color('#ffad47', 12 + i * 4);
+      halo.ellipse(0, 0, rx + 13 - i * 3, ry + 10 - i * 2);
+      halo.fill();
+    }
+    halo.lineWidth = 1.7;
+    halo.strokeColor = color('#ffcf72', 165);
+    halo.ellipse(0, 0, rx, ry);
+    halo.stroke();
+    const sprite = this.setupSprite(this.makeNode('Highlighted workbench model', node), frame, bounds.w, bounds.h);
+    sprite.trim = true;
+    sprite.color = color('#fff0c7');
+    this.frontierWorkbenchHighlight = { node, center, glow: halo.node.addComponent(UIOpacity), model: sprite.node.addComponent(UIOpacity) };
+  }
+  private updateFrontierWorkbenchHighlight(offsetX: number, offsetY: number) {
+    const marker = this.frontierWorkbenchHighlight;
+    if (!marker) return;
+    const { player, status } = this.battle;
+    const x = marker.center.x - player.x + offsetX, y = marker.center.y - player.y + offsetY;
+    marker.node.active = this.mode === 'playing' && status === 'playing' && !this.transition &&
+      Math.abs(x) < W / 2 + 62 && Math.abs(y) < H / 2 + 46;
+    if (!marker.node.active) return;
+    const pulse = .5 - .5 * Math.cos(this.presentationTime * Math.PI * 2 / 1.8);
+    marker.node.setPosition(x, y);
+    marker.glow.opacity = Math.round(82 + 173 * pulse);
+    marker.model.opacity = Math.round(167 + 88 * pulse);
+  }
   private tileFloor(r: { x: number; y: number; w: number; h: number }, frame: SpriteFrame, width: number, height = width) {
     const clip = this.makeNode('Floor texture', this.floorArt);
     clip.setPosition(r.x + r.w / 2, r.y + r.h / 2);
@@ -2114,6 +2415,67 @@ export class Blackout extends Component {
     const size = this.battle.stage.operation && pose.rollFrame < 0 ? OPERATION_GHOST_SIZE / 82 : 1;
     return weaponMount(this.battle.player, pose.scale * size, this.hasPlayerArt(), this.battle.heroId, pose);
   }
+  private updateCasingParticles(dt: number, shots: Battle['casingShots'] | FrontierEscort['casingShots'], scroll?: number) {
+    stepCasings(this.supportCasings, dt, scroll === undefined ? this.battle.blockers : [], scroll);
+    for (const shot of shots) {
+      if (scroll === undefined && (Math.abs(shot.origin.x - this.battle.player.x) > W / 2 + 65 ||
+          Math.abs(shot.origin.y - this.battle.player.y) > H / 2 + 65)) continue;
+      if (shot.source === 'sentry' && this.supportCasings.length >= 32) continue;
+      const origin = shot.source === 'rifle' || shot.source === 'shotgun'
+        ? weaponMount({ ...shot.origin, angle: shot.angle }, 1, shot.source === 'rifle').eject
+        : shot.origin;
+      this.supportCasings.push(ejectCasing(origin, shot.angle, shot.source, this.casingSequence++, shot.side));
+    }
+    if (this.supportCasings.length > 56) this.supportCasings.splice(0, this.supportCasings.length - 56);
+  }
+  private setProjectileSprite(pool: Sprite[], index: number, parent: Node, frame: SpriteFrame,
+    x: number, y: number, w: number, h: number, angle: number, alpha: number) {
+    const sprite = pool[index] ?? (pool[index] = this.setupSprite(this.makeNode('Projectile effect', parent), frame, w, h));
+    if (sprite.spriteFrame !== frame) sprite.spriteFrame = frame;
+    sprite.node.active = true;
+    sprite.node.setPosition(x, y);
+    sprite.node.getComponent(UITransform)!.setContentSize(w, h);
+    sprite.node.angle = angle * 180 / Math.PI;
+    sprite.color = color('#ffffff', alpha);
+  }
+  private drawCasings(parent: Graphics, pool: Sprite[], casings: readonly Casing[], visible: (x: number, y: number) => boolean) {
+    const art = this.projectileFrames;
+    let used = 0;
+    for (const shell of casings) {
+      if (!visible(shell.x, shell.y)) continue;
+      const span = shell.shell ? 12 : 9;
+      const y = shell.y + shell.z * .34, alpha = Math.round(255 * Math.min(1, shell.life / .35));
+      if (art) this.setProjectileSprite(pool, used++, parent.node, shell.shell ? art.shell : art.brass,
+        shell.x, y, span, shell.shell ? 5.4 : 4.5, shell.angle, alpha);
+      else {
+        const dx = Math.cos(shell.angle) * span / 2, dy = Math.sin(shell.angle) * span / 2;
+        line(parent, shell.x - dx, y - dy, shell.x + dx, y + dy, shell.shell ? '#e37b55' : '#f1c06d', 2.2, alpha);
+      }
+    }
+    for (; used < pool.length; used++) pool[used].node.active = false;
+  }
+  private drawShotgunParticles() {
+    const art = this.projectileFrames;
+    if (!art) return;
+    let used = 0;
+    const p = this.battle.player, pool = this.shotgunSprites, parent = this.weaponArt.node;
+    const inView = (point: Point) => Math.abs(point.x - p.x) < W / 2 + 26 && Math.abs(point.y - p.y) < H / 2 + 26;
+    for (const pellet of this.battle.bullets) {
+      if (!pellet.pellet || used >= 48 || !inView(pellet)) continue;
+      const angle = Math.atan2(pellet.vy, pellet.vx);
+      const length = Math.min(9 + Math.abs(Math.sin(angle * 48)) * 6, pellet.traveled ?? 0);
+      if (length < 1) continue;
+      this.setProjectileSprite(pool, used++, parent, art.pellet, pellet.x - Math.cos(angle) * length / 2,
+        pellet.y - Math.sin(angle) * length / 2, length, 2.8, angle, 213);
+    }
+    for (const dust of this.battle.particles) {
+      if (dust.kind !== 'pellet-dust' || used >= 60 || !inView(dust)) continue;
+      const age = 1 - dust.life / dust.max, size = 7 + age * 18;
+      this.setProjectileSprite(pool, used++, parent, art.dust, dust.x, dust.y, size, size * .69, dust.rotation ?? 0,
+        Math.round(174 * (1 - age)));
+    }
+    for (; used < pool.length; used++) pool[used].node.active = false;
+  }
   private rollKey() { return (this.battle.heroId === HEROINE_ID ? 'heroineRoll-' : 'roll-') + this.motion.pose.rollFrame; }
   private setupSprite(node: Node, frame: SpriteFrame, width: number, height: number): Sprite {
     const sprite = node.addComponent(Sprite);
@@ -2121,13 +2483,30 @@ export class Blackout extends Component {
     node.getComponent(UITransform)!.setContentSize(width, height);
     return sprite;
   }
+  private enemyFrame(e: Enemy, injecting: boolean) {
+    if (e.operationBoss) return this.streetFrames.get(injecting ? 'op-rimelet-injection' :
+      e.operationBoss === 'leader' ? 'op-rimelet-human' : 'op-rimelet-mutated');
+    if (e.type === 'spitter') return this.artFrames.get('spitter');
+    if (e.type === 'gunner') return this.streetFrames.get(e.appearance === 1 ? 'op-gunner-helmet' :
+      e.appearance === 2 ? 'op-gunner-scarf' : 'op-gunner') ?? this.streetFrames.get('op-gunner');
+    if (e.survivalVariant) {
+      const frame = this.timedSurvivalFrames.get(e.survivalVariant);
+      if (frame) return frame;
+    }
+    if (e.type === 'boss') return (e.charge && this.streetFrames.get('brute-charge')) || this.streetFrames.get('brute');
+    if (this.battle.stage.operation?.part === 'defense') return this.streetFrames.get('op-infected');
+    return this.artFrames.get('dorm-walker-' + e.appearance) ?? this.artFrames.get('walker');
+  }
   private updateActorSprites() {
     const b = this.battle, active = new Set<string>();
     const boarding = b.operationRun?.phase === 'boarding';
-    const brute = b.apartment && this.streetFrames.get('brute');
+    const retrieval = b.retrieval;
+    const scripted = retrieval?.phase === 'arrive' || retrieval?.phase === 'boarding';
     const injecting = b.operationRun?.phase === 'injection' ? b.operationRun.bossId : undefined;
     const spitter = this.artFrames.get('spitter');
-    const nearby = b.enemies.filter(e => (e.hp > 0 || e.id === injecting) && (e.type === 'walker' || e.type === 'gunner' || e.type === 'spitter' && !!spitter || e.type === 'boss' && (!!brute || !!e.operationBoss)) && (!(b.stage.street || b.stage.operation || b.stage.survival) || b.sees(e, 35)));
+    const nearby = b.enemies.filter(e => (e.hp > 0 || e.id === injecting) &&
+      (!(b.survival || b.frontier) || Math.abs(e.x - b.player.x) < W / 2 + 120 && Math.abs(e.y - b.player.y) < H / 2 + 120) &&
+      (!(b.stage.street || b.stage.operation || b.stage.survival) || b.sees(e, 35)));
     const enemyIds = new Set(nearby.map(e => 'enemy-' + e.id));
     for (const [id, sprite] of this.actorSprites) if (id.startsWith('enemy-') && !enemyIds.has(id)) {
       sprite.node.active = false;
@@ -2154,9 +2533,9 @@ export class Blackout extends Component {
       sprite.color = color(hit ? '#ffd4b4' : '#ffffff');
       return sprite;
     };
-    const player = this.artFrames.get(b.heroId === HEROINE_ID ? 'heroine' : 'operator'), walker = this.artFrames.get('walker');
+    const player = this.artFrames.get(b.heroId === HEROINE_ID ? 'heroine' : 'operator');
     const pose = this.motion.pose, roll = this.artFrames.get(this.rollKey());
-    if (b.player.hp > 0 && !b.evacuationDrive && !boarding) {
+    if (b.player.hp > 0 && !b.evacuationDrive && !boarding && !scripted) {
       if (pose.rollFrame >= 0) { if (roll) show('player-roll', roll, b.player.x, b.player.y, pose.angle, b.player.hit > 0, true, true, pose.scale); }
       else if (player && [0, HEROINE_ID].includes(b.heroId)) {
         const sprite = show('player', player, b.player.x + pose.offsetX, b.player.y + pose.offsetY, pose.angle, b.player.hit > 0, true, false, pose.scale);
@@ -2174,7 +2553,7 @@ export class Blackout extends Component {
       }
     }
     const operator = this.artFrames.get('operator');
-    if (!b.evacuationDrive && !boarding && (operator || b.apartment)) for (const ally of b.allies) if (ally.hp > 0 || ally === b.apartment?.engineer) {
+    if (!b.evacuationDrive && !boarding && !scripted && (operator || b.apartment)) for (const ally of b.allies) if (ally.hp > 0 || ally === b.apartment?.engineer) {
       const pose = this.enemyPoses.get(ally.id);
       const engineer = ally === b.apartment?.engineer;
       const armed = engineer && ally.hp > 0 && b.engineerArmed;
@@ -2193,7 +2572,68 @@ export class Blackout extends Component {
         }
       }
     }
+    if (retrieval) {
+      const showArt = (id: string, frame: SpriteFrame | undefined, point: Point, angle: number, w: number, h: number, hit = false) => {
+        if (!frame) return;
+        const sprite = show('retrieval-' + id, frame, point.x, point.y, angle, hit);
+        const transform = sprite.node.getComponent(UITransform)!;
+        transform.setAnchorPoint(.5, .5);
+        transform.setContentSize(w, h);
+        return sprite;
+      };
+      const soldier = this.streetFrames.get('op-soldier') ?? operator;
+      const ease = (t: number) => { const n = clamp(t, 0, 1); return n * n * (3 - 2 * n); };
+      if (retrieval.part === 'lobby') {
+        const t = retrieval.phase === 'arrive' ? retrieval.time : 4;
+        const car = { ...RETRIEVAL_CAR, y: RETRIEVAL_CAR.y + 302 * (1 - ease(t / 1.55)) };
+        this.retrievalHumvee?.node.setPosition(car.x, car.y);
+        const posts = [...RETRIEVAL_STREET_TEAM, b.player, ...b.allies];
+        const leaving = retrieval.phase === 'escape' ? ease(retrieval.time / 5) : 0;
+        const limit = scripted ? posts.length : leaving === 1 ? 0 : 3;
+        for (let i = 0; i < limit; i++) {
+          const post = posts[i], f = ease((t - 1.55 - i * .13) / .95);
+          if (!f) continue;
+          const start = { x: car.x + (i % 2 ? 38 : -38), y: car.y - 21 + (i % 3) * 28 };
+          showArt('team-' + i, i < 4 ? operator : soldier, {
+            x: start.x + (post.x - start.x) * f + leaving * (290 + i * 23),
+            y: start.y + (post.y - start.y) * f + leaving * (178 + i * 26),
+          }, i === 3 ? -Math.PI / 2 : (leaving ? .7 : Math.atan2(post.y - start.y, post.x - start.x)) -
+            (i > 3 ? Math.PI / 2 : 0), 51, 67);
+        }
+      }
+      if (retrieval.phase !== 'boarding') for (const person of retrieval.people) {
+        if ((!person.hp && retrieval.part === 'lobby') || !b.sees(person, 28)) continue;
+        const prop = this.streetFrames.get('retrieval-' + person.art);
+        const w = 50, h = prop ? w * prop.originalSize.height / prop.originalSize.width : 55;
+        showArt(person.id, prop, person, person.angle + (person.hp > 0 ? 0 : .67), w, h, person.hit > 0);
+        if (!person.hp) disc(this.actors, person.x, person.y, 23 + Math.sin(b.elapsed * 9) * 3, '#ffd278', 85);
+      }
+      if (retrieval.part === 'home' && (retrieval.phase === 'escort' || retrieval.phase === 'hold' && retrieval.time >= 26)) {
+        showArt('note', this.readerFrames.get('clues/paper'), { x: 1830, y: 1064 }, -.1, 20, 15);
+      }
+      if (retrieval.part === 'roof') {
+        const takingOff = retrieval.phase === 'boarding' ? ease((retrieval.time - 3.05) / 2.35) : 0;
+        const arrival = retrieval.phase === 'pad' ? ease(retrieval.time / 3.15) : 1;
+        const at = { x: RETRIEVAL_PAD.x + 370 * (1 - arrival) + 135 * takingOff,
+          y: RETRIEVAL_PAD.y + 295 * (1 - arrival) + 350 * takingOff };
+        const size = 1 + (1 - arrival) * .43 + takingOff * .63;
+        showArt('blackhawk', this.streetFrames.get('op-blackhawk'), at, 0, 133 * size, 286 * size);
+        showArt('rotor', this.streetFrames.get('op-rotor'), { x: at.x, y: at.y + 22 * size }, b.elapsed * 15, 264 * size, 264 * size);
+        for (const [i, rider] of retrieval.boarders.entries()) {
+          const t = retrieval.time - i * .45;
+          if (t >= 1.15) continue;
+          const point = RETRIEVAL_ROOF_BOARD[i], walk = ease(t / .76), inDoor = ease((t - .76) / .39);
+          const x = rider.x + (point.x - rider.x) * walk, y = rider.y + (point.y - rider.y) * walk;
+          const frame = rider.art === 'operator' ? operator : rider.art === 'soldier' ? soldier : this.streetFrames.get('retrieval-' + rider.art);
+          showArt('rider-' + i, frame, { x: x + (at.x - x) * inDoor, y: y + (at.y - y) * inDoor },
+            Math.atan2(point.y - rider.y, point.x - rider.x) - (rider.art === 'soldier' ? Math.PI / 2 : 0),
+            49 * (1 - inDoor * .38), 61 * (1 - inDoor * .38));
+        }
+      }
+    }
     for (const e of nearby) {
+      const frame = this.enemyFrame(e, e.id === injecting);
+      if (!frame) continue;
       const model = paralyzedModelPosition(e, b.elapsed);
       if (e.type === 'spitter' && spitter) {
         const windup = e.windup > 0 && !e.stun && !e.paralysis && !e.disoriented;
@@ -2207,29 +2647,19 @@ export class Blackout extends Component {
         continue;
       }
       if (e.operationBoss) {
-        const leader = e.operationBoss === 'leader';
         const injection = e.id === injecting;
-        const frame = this.streetFrames.get(injection ? 'op-rimelet-injection' : leader ? 'op-rimelet-human' : 'op-rimelet-mutated');
-        if (frame) {
-          const sway = injection ? 0.045 * Math.sin((b.operationRun?.phaseTime ?? 0) * 15) : 0;
-          const slam = leader ? 0 : b.operationRun?.slam ?? 0;
-          const jump = slam > 0 && slam < 0.55 ? 48 * Math.sin(Math.PI * slam / 0.55) : 0;
-          const sprite = show('enemy-' + e.id, frame, model.x, model.y + jump, e.angle - Math.PI / 2 + sway, e.hit > 0);
-          const transform = sprite.node.getComponent(UITransform)!;
-          transform.setContentSize(OPERATION_UNIT_ART.width, OPERATION_UNIT_ART.height);
-          transform.setAnchorPoint(0.5, OPERATION_UNIT_ART.anchorY);
-        }
+        const leader = e.operationBoss === 'leader';
+        const sway = injection ? 0.045 * Math.sin((b.operationRun?.phaseTime ?? 0) * 15) : 0;
+        const slam = leader ? 0 : b.operationRun?.slam ?? 0;
+        const jump = slam > 0 && slam < 0.55 ? 48 * Math.sin(Math.PI * slam / 0.55) : 0;
+        const sprite = show('enemy-' + e.id, frame, model.x, model.y + jump, e.angle - Math.PI / 2 + sway, e.hit > 0);
+        const transform = sprite.node.getComponent(UITransform)!;
+        transform.setContentSize(OPERATION_UNIT_ART.width, OPERATION_UNIT_ART.height);
+        transform.setAnchorPoint(0.5, OPERATION_UNIT_ART.anchorY);
         continue;
       }
-      const chargeFrame = e.charge && this.streetFrames.get('brute-charge');
-      const variant = e.type === 'gunner' && (e.appearance === 1 ? this.streetFrames.get('op-gunner-helmet') :
-        e.appearance === 2 ? this.streetFrames.get('op-gunner-scarf') : undefined);
-      const opFrame = e.type === 'gunner' ? variant || this.streetFrames.get('op-gunner') :
-        b.stage.operation?.part === 'defense' ? this.streetFrames.get('op-infected') : undefined;
-      const timed = e.survivalVariant && this.timedSurvivalFrames.get(e.survivalVariant);
-      const frame = opFrame || timed || (e.type === 'boss' ? chargeFrame || brute : this.artFrames.get('dorm-walker-' + e.appearance) ?? walker);
-      if (!frame) continue;
-      if (opFrame) {
+      if (e.type === 'gunner' || e.type === 'walker' && b.stage.operation?.part === 'defense') {
+        const variant = e.type === 'gunner' && (e.appearance === 1 || e.appearance === 2) && frame !== this.streetFrames.get('op-gunner');
         const sprite = show('enemy-' + e.id, frame, model.x, model.y, e.angle - Math.PI / 2, e.hit > 0, false, false, this.enemyPoses.get(e.id)?.scale || 1);
         const transform = sprite.node.getComponent(UITransform)!;
         transform.setContentSize(variant ? OPERATION_UNIT_ART.width : e.type === 'gunner' ? 52 : 60,
@@ -2237,7 +2667,8 @@ export class Blackout extends Component {
         transform.setAnchorPoint(0.5, variant ? OPERATION_UNIT_ART.anchorY : 0.31);
         continue;
       }
-      if (e.type === 'boss' && brute) {
+      if (e.type === 'boss') {
+        const chargeFrame = frame === this.streetFrames.get('brute-charge');
         const pose = b.bruteStepPose(e);
         const charge = e.charge;
         const load = charge?.phase === 'windup' ? Math.min(1, charge.time / 0.78) : 0;
@@ -2325,7 +2756,7 @@ export class Blackout extends Component {
     button.transition = Button.Transition.NONE;
     // Let Cocos hit-test the real UI node and emit one click on release.
     node.on(Button.EventType.CLICK, () => {
-      if (this.transition || button.interactable === false) return;
+      if (this.transition || this.chapterOpening || button.interactable === false) return;
       if (this.readerLayer && (!id.startsWith('reader-') || this.readerAnimating)) return;
       action();
     }, this);
@@ -2341,9 +2772,19 @@ export class Blackout extends Component {
   }
   private makeBattle(id: HeroId = HEROINE_ID, chapter: Chapter = 1) {
     this.apartmentFloors = undefined;
+    this.retrievalFloors = undefined;
+    if (chapter === 6) {
+      this.lowerFloor = undefined;
+      this.retrievalFloors = createRetrievalLevels(0x06121840);
+      return new Battle(GHOST_ID, this.profile.levels[GHOST_ID], this.retrievalFloors.lobby, profileGrowth(this.profile, GHOST_ID), this.profile.armory);
+    }
     if (chapter === 4) {
       this.lowerFloor = undefined;
       return new Battle(GHOST_ID, 1, operationLevel('city'));
+    }
+    if (chapter === 5) {
+      this.lowerFloor = undefined;
+      return new Battle(GHOST_ID, 1, createFrontierLevel());
     }
     const create = (hero: HeroId, level: LevelDefinition) =>
       new Battle(hero, this.profile.levels[hero], level, profileGrowth(this.profile, hero), this.profile.armory);
@@ -2365,7 +2806,7 @@ export class Blackout extends Component {
     if (s !== this.notice || this.noticeTime <= 0 || kind !== this.noticeKind) this.noticeSince = this.presentationTime;
     this.notice = s; this.noticeTime = duration; this.noticeKind = kind; this.uiTick = 0;
   }
-  private resetInput() { this.survivalDoorHold = undefined; this.operationGrenadeTouch = undefined; this.operationGrenadeKey = false; this.mouseAimInput = false; this.aimAssist.reset(); this.sweeping = false; this.lastFacing = this.battle.player.angle; this.keys.clear(); this.mouseFire = this.mouseQueuedFire = false; this.moveTouch = this.aimTouch = -1; this.moving = this.aiming = false; this.aimRadius = 0; this.aimOuter = false; this.moveVector = { x: 0, y: 0 }; }
+  private resetInput() { this.survivalDoorHold = undefined; this.operationGrenadeTouch = undefined; this.operationGrenadeKey = false; this.mouseAimInput = false; this.aimAssist.reset(); this.mobileAimHeading = undefined; this.sweeping = false; this.lastFacing = this.battle.player.angle; this.keys.clear(); this.mouseFire = this.mouseQueuedFire = false; this.moveTouch = this.aimTouch = -1; this.moving = this.aiming = false; this.aimRadius = 0; this.aimOuter = false; this.moveVector = { x: 0, y: 0 }; }
   private closeReader() {
     if (!this.readerLayer || this.readerClosing) return;
     this.reader = closeReader(this.reader);
@@ -2459,6 +2900,14 @@ export class Blackout extends Component {
   }
   private open(mode: Mode) {
     if (this.readerLayer) return;
+    if (mode === 'playing' && this.frontierEscort) mode = 'frontier-escort';
+    if (this.frontierEscort && !['frontier-escort', 'pause', 'settings', 'help', 'result'].includes(mode)) {
+      this.frontierEscortView?.root.destroy();
+      this.frontierEscort = this.frontierEscortView = undefined;
+    }
+    if (!isChapterMenu(this.mode) && mode === 'chapters') this.chapterOffset = undefined;
+    this.chapterDrag = undefined;
+    this.chapterCards = undefined;
     // A pending scene decision survives hide/pause requests. Only its actions
     // resolve it; unrelated menus must never silently accept or discard it.
     if (this.tutorialPrompt) mode = 'playing';
@@ -2471,6 +2920,8 @@ export class Blackout extends Component {
     else this.profileEditor = undefined;
     this.clearGuide(!showsBattle(mode, this.battleSettings));
     this.mode = mode; this.resetInput(); this.sightTick = 0;
+    if (this.frontierWorkbenchHighlight) this.frontierWorkbenchHighlight.node.active = false;
+    if (mode !== 'select-hero') this.sortieSlot = undefined;
     this.requestModeArt(mode);
     if (this.operationDialogue && (mode === 'operation-cinematic' || mode === 'result' || mode === 'menu' ||
       mode === 'playing' && this.operationDialogue.cinematic)) this.clearOperationDialogue();
@@ -2488,15 +2939,21 @@ export class Blackout extends Component {
     if (mode !== 'street-loading' && !battleView) this.clearHarborStream();
     this.exitArrow.node.active = mode === 'playing';
     if (this.battleArtwork) { this.battleArtwork.active = false; this.battleArtwork.destroy(); this.battleArtwork = undefined; }
+    if (this.battleNoticeLayer) {
+      this.battleNoticeLayer.node.active = false;
+      this.battleNoticeLayer.node.destroy();
+      this.battleNoticeLayer = undefined;
+    }
     this.playerStatus = this.noticeHud = this.promptHud = undefined;
     this.objectiveHud = undefined;
     this.operationBossHud = undefined;
     if (mode !== 'playing' && this.airborne) this.airborne.root.active = false;
     this.battleSticks = []; this.moveCap = undefined; this.capOffset = { x: 0, y: 0 }; this.hudActions = []; this.supplySlotNodes = [];
-    this.homeBackdrop.active = !battleView;
-    this.outputSprite.node.active = battleView;
-    this.environmentCamera.enabled = battleView;
-    this.actorCamera.enabled = battleView;
+    this.homeBackdrop.active = !battleView && mode !== 'frontier-escort';
+    const worldCapture = battleView && !this.frontierEscort;
+    this.outputSprite.node.active = worldCapture;
+    this.environmentCamera.enabled = worldCapture;
+    this.actorCamera.enabled = worldCapture;
     if (mode !== 'playing') { this.feedback.suspend(); this.motion.suspend(); this.weaponEffects.clear(); }
     if (this.homeArtwork) { this.homeArtwork.active = false; this.homeArtwork.destroy(); this.homeArtwork = undefined; }
     if (this.profileLayer) { this.profileLayer.active = false; this.profileLayer.destroy(); this.profileLayer = this.profilePage = undefined; this.profileTabs = undefined; }
@@ -2509,15 +2966,18 @@ export class Blackout extends Component {
     if (mode !== 'checkin') this.checkInClaimFeedback = undefined;
     if (this.dialogArtwork) { this.dialogArtwork.active = false; this.dialogArtwork.destroy(); this.dialogArtwork = undefined; }
     if (this.harborMapLayer) { this.harborMapLayer.active = false; this.harborMapLayer.destroy(); this.harborMapLayer = undefined; }
+    this.harborMapPlayer = undefined;
     if (this.survivalBagLayer) {
       this.survivalBagLayer.active = false; this.survivalBagLayer.destroy();
       this.survivalBagLayer = undefined; this.survivalBagArt = undefined; this.survivalBagIcons = [];
       this.survivalBagSkin = this.survivalBagItemLayer = undefined; this.survivalBagSkinNodes = [];
     }
-    this.survivalQuickOpen = this.survivalWorkshopOpen = false;
+    this.survivalWorkshopOpen = false;
     this.survivalDoorPanel = undefined;
-    if (this.battle.survival) this.suppliesOpen = false;
+    if (this.battle.survivalBag) this.suppliesOpen = false;
     this.survivalHeldItem = undefined; this.survivalCrateId = undefined; this.survivalDrag = undefined;
+    this.survivalSentryPanel = undefined;
+    this.workshopStockOpen = false; this.workshopPage = 0;
     this.survivalVehiclePanel = this.survivalAmmo = this.survivalSwap = undefined;
     this.survivalRotatePreview = undefined;
     if (this.shopLayer) { this.shopLayer.active = false; this.shopLayer.destroy(); this.shopLayer = undefined; }
@@ -2536,6 +2996,12 @@ export class Blackout extends Component {
     this.clearButtons();
     for (const label of this.labels.values()) label.node.destroy(); this.labels.clear();
     this.modalArt.clear(); this.hud.clear(); this.uiTick = 0;
+    if (mode === 'frontier-escort') {
+      this.frontierEscortView?.root.destroy();
+      this.frontierEscortView = this.buildFrontierEscortView();
+      this.drawFrontierEscort();
+      return;
+    }
     if (mode === 'playing') { this.buildHud(); if (this.tutorialPrompt) this.buildTutorialPrompt(); return; }
     if (mode === 'menu' || mode === 'profile-info' || mode === 'checkin' || mode === 'backpack') {
       this.refreshCheckInRewards();
@@ -2565,7 +3031,6 @@ export class Blackout extends Component {
     else if (mode === 'revive') this.buildRevive();
     else if (mode === 'result') this.buildResult();
     else if (isSurvivalMenu(mode)) this.buildSurvivalSelection();
-    else if (mode === 'survival-radio') this.buildSurvivalRadio();
     else if (mode === 'survival-map') this.buildSurvivalMap();
   }
   private panel(title: string, subtitle: string, back = () => this.open('menu')) {
@@ -2640,6 +3105,26 @@ export class Blackout extends Component {
     label.outlineWidth = 1.5;
     return label;
   }
+  private campaignChapterCard(parent: Node, preview: SpriteFrame | undefined, x: number, y: number, w: number, h: number, locked = false) {
+    const hole = chapterCardWindow(x, y, w, h);
+    const frame = this.campaignFrames.get('chapter-card');
+    const backdrop = this.graphics('Chapter card backing', parent);
+    if (!frame) this.missionPlate(backdrop, x - w / 2, y - h / 2, w, h, '#212524', '#987c54', 12);
+    this.sbox(backdrop, hole.x - hole.w / 2, hole.y - hole.h / 2, hole.w, hole.h, '#121618');
+    if (preview) {
+      const clip = this.makeNode('Chapter thumbnail viewport', parent);
+      clip.setPosition(hole.x - W / 2, hole.y - H / 2);
+      clip.getComponent(UITransform)!.setContentSize(hole.w, hole.h);
+      clip.addComponent(Mask).type = Mask.Type.GRAPHICS_RECT;
+      const { width, height } = preview.originalSize;
+      const scale = Math.max(hole.w / width, hole.h / height);
+      const image = this.campaignSprite(clip, preview, W / 2, H / 2, width * scale, height * scale);
+      if (locked && image) image.color = color('#6e7478');
+    }
+    if (frame) this.campaignSprite(parent, frame, x, y, w, h);
+    if (locked) this.campaignSprite(parent, 'lock', hole.x, hole.y, 20, 25, true);
+    return hole.x + hole.w / 2 + 10;
+  }
   private buildChapterMap() {
     const root = this.chapterMap = this.makeNode('Exploration map', this.modal);
     root.setSiblingIndex(0);
@@ -2650,28 +3135,68 @@ export class Blackout extends Component {
       this.campaignLabel(root, 'map-title', '探索地图', 50, 669, 33, 280);
       this.campaignLabel(root, 'map-return', '返回首页', 1238, 674, 20, 180, C.text, Label.HorizontalAlign.RIGHT);
     }
-    for (const chapter of [1, 2, 3, 4] as const) {
+    const list = CHAPTER_LIST;
+    let last: Chapter = 1;
+    for (const chapter of EXPLORATION_CHAPTERS) if (this.chapterUnlocked(chapter)) last = chapter;
+    this.chapterOffset ??= Math.max(0, (last - 1) * list.pitch + list.card - list.height);
+    const viewport = this.makeNode('Chapter list viewport', root);
+    const center = list.top - list.height / 2;
+    viewport.setPosition(list.x - W / 2, center - H / 2);
+    viewport.getComponent(UITransform)!.setContentSize(list.width, list.height);
+    viewport.addComponent(Mask).type = Mask.Type.GRAPHICS_RECT;
+    const cards = this.chapterCards = this.makeNode('Scrollable chapter cards', viewport);
+    this.scrollChapterList(this.chapterOffset);
+    for (const chapter of EXPLORATION_CHAPTERS) {
       const { name, location } = CHAPTERS[chapter];
       const locked = !this.chapterUnlocked(chapter);
-      const y = 544 - (chapter - 1) * 111, tint = locked ? '#babdc0' : '#f4d297';
-      this.campaignSprite(root, 'chapter-card', 1060, y, 344, 92);
-      const preview = this.campaignSprite(root, `chapter-${chapter}`, 949, y, 86, 54);
-      if (locked && preview) preview.color = color('#6e7478');
-      if (locked) this.campaignSprite(root, 'lock', 949, y, 20, 25, true);
-      this.campaignLabel(root, 'map-chapter-' + chapter, name, 1009, y + 13, 24, 196, tint);
-      this.campaignLabel(root, 'map-location-' + chapter, locked ? '尚未解锁' : location, 1009, y - 15, 16, 194, tint);
-      if (this.mode === 'chapters') this.addButton('chapter-' + chapter, 891, y - 46, 340, 92, () => this.showChapter(chapter));
+      const y = list.top - list.card / 2 - (chapter - 1) * list.pitch, tint = locked ? '#babdc0' : '#f4d297';
+      const labelX = this.campaignChapterCard(cards, this.campaignFrames.get(`chapter-${chapter}`), list.x, y, 344, list.card, locked);
+      this.campaignLabel(cards, 'map-chapter-' + chapter, name, labelX, y + 13, 24, 196, tint);
+      this.campaignLabel(cards, 'map-location-' + chapter, locked ? '尚未解锁' : location, labelX, y - 15, 16, 194, tint);
+      if (this.mode === 'chapters') {
+        const hit = this.addButton('chapter-' + chapter, 891, y - list.card / 2, 340, list.card, () => {
+          if (!this.chapterDrag?.moved) this.showChapter(chapter);
+        }, cards);
+        hit.on(Node.EventType.TOUCH_START, this.startChapterDrag, this);
+        hit.on(Node.EventType.TOUCH_MOVE, this.moveChapterDrag, this);
+        hit.on(Node.EventType.TOUCH_END, this.releaseChapterDrag, this);
+        hit.on(Node.EventType.TOUCH_CANCEL, this.releaseChapterDrag, this);
+      }
     }
     if (this.mode === 'chapters') {
+      viewport.on(Node.EventType.MOUSE_WHEEL, (e: EventMouse) =>
+        this.scrollChapterList(this.chapterOffset! - Math.sign(e.getScrollY()) * list.pitch), this, true);
       this.addButton('map-back', 1052, 645, 219, 64, () => this.open('menu'));
     } else {
       this.sbox(this.graphics('Dimmed campaign map', root), 0, 0, W, H, '#000000', 147);
       this.buildSortiePicker(root);
     }
   }
+  private scrollChapterList(offset: number) {
+    const { x, top, height, pitch, card } = CHAPTER_LIST;
+    this.chapterOffset = clamp(offset, 0, Math.max(0, (EXPLORATION_CHAPTERS.length - 1) * pitch + card - height));
+    this.chapterCards?.setPosition(W / 2 - x, H / 2 - top + height / 2 + this.chapterOffset);
+  }
+  private startChapterDrag(e: EventTouch) {
+    const id = e.getID();
+    if (id === null || this.chapterDrag && this.chapterDrag.id >= 0 && this.chapterDrag.id !== id) return;
+    const start = this.pointerPosition(e), { x, width, top, height } = CHAPTER_LIST;
+    if (Math.abs(start.x - x) <= width / 2 && start.y <= top && start.y >= top - height)
+      this.chapterDrag = { id, start, offset: this.chapterOffset!, moved: false };
+  }
+  private moveChapterDrag(e: EventTouch) {
+    const drag = this.chapterDrag;
+    if (!drag || drag.id !== e.getID()) return;
+    const point = this.pointerPosition(e), dy = point.y - drag.start.y;
+    if (Math.abs(dy) > 9 && Math.abs(dy) > Math.abs(point.x - drag.start.x)) drag.moved = true;
+    if (drag.moved) this.scrollChapterList(drag.offset + dy);
+  }
+  private releaseChapterDrag(e: EventTouch) {
+    if (this.chapterDrag?.id === e.getID()) this.chapterDrag!.id = -1;
+  }
   private sortieAllowed(id: HeroId, chapter = this.selectedChapter) {
     const cast: readonly HeroId[] = CHAPTERS[chapter].cast;
-    return cast.includes(id) && (chapter === 4 || this.profile.owned[id]);
+    return cast.includes(id) && (chapter >= 4 || this.profile.owned[id]);
   }
   private closeSurvivalPicker() {
     this.open(this.profile.survivalMaps[this.selectedSurvivalMap] ? 'survival-resume' : 'survival-entry');
@@ -2683,7 +3208,8 @@ export class Blackout extends Component {
   private buildSortiePicker(root: Node, survival = false) {
     const center = Label.HorizontalAlign.CENTER, right = Label.HorizontalAlign.RIGHT;
     const id = survival ? this.survivalHero : this.sortieHero, p = this.profile, hero = heroes[id], kit = p.armory.kits[id];
-    const operation = !survival && this.selectedChapter === 4;
+    const operation = !survival && this.selectedChapter >= 4;
+    const frontier = !survival && this.selectedChapter === 5;
     const allowedHero = (candidate: HeroId) => survival ? p.owned[candidate] : this.sortieAllowed(candidate);
     const art = this.campaignSprite(root, 'hero-frame', 640, 359, 1116, 628);
     const text = (key: string, value: string, x: number, y: number, size: number, w: number, tint = C.text, align = Label.HorizontalAlign.LEFT) =>
@@ -2706,7 +3232,8 @@ export class Blackout extends Component {
       picture.setPosition(0, 166 - height / 2);
       this.setupSprite(picture, portrait, width, height);
     }
-    for (const [i, candidate] of HERO_IDS.entries()) {
+    if (!survival && this.sortieSlot) this.buildSortieItems(root, this.sortieSlot);
+    else for (const [i, candidate] of HERO_IDS.entries()) {
       const x = 482 + i * 148, y = 382, active = id === candidate, allowed = allowedHero(candidate);
       this.campaignSprite(root, active ? 'hero-active' : 'hero-card', x, y, 128, 177);
       const face = this.trainingFrames.get(`${TRAINING_PROFILES[candidate].key}-face`);
@@ -2726,7 +3253,7 @@ export class Blackout extends Component {
         });
       }
     }
-    if (!survival) text('restriction', operation ? '剧情指定  ·  幽灵行动组' : '剧情指定  ·  仅凛可出战', 642, 251, 18, 417, '#e7c891', center);
+    if (!survival && !this.sortieSlot) text('restriction', frontier ? '剧情指定  ·  幽灵行动组使用任务配装' : operation ? '剧情指定  ·  幽灵行动组' : '剧情指定  ·  仅凛可出战', 642, 251, 18, 417, '#e7c891', center);
     text('name', operation ? '幽灵 · 任务配装' : hero.name + '  Lv.' + p.levels[id], 907, 508, 27, 212, '#ffdb96');
     text('role', '定位  ' + hero.role, 908, 470, 17, 208);
     text('weapon', '武器  ' + WEAPON_TYPES[hero.weapon], 908, 443, 17, 208);
@@ -2743,8 +3270,55 @@ export class Blackout extends Component {
     text('lineup', '出战角色', 168, 142, 22, 130, '#f5d498');
     const face = this.trainingFrames.get(`${TRAINING_PROFILES[id].key}-face`);
     if (face) this.campaignSprite(root, face, 347, 150, 62, 62, true);
+    if (!survival && !frontier) {
+      const loadout = normalizeSortie(p.armory.sortie, p.armory.counts);
+      for (const [i, slot] of (Object.keys(SORTIE_SLOTS) as SortieSlot[]).entries()) {
+        const x = 435 + i * 88, entry = loadout[slot];
+        const frame = entry && this.shopFrames.get(entry.id);
+        if (frame) this.campaignSprite(root, frame, x, 158, 47, 39, true);
+        else text('empty-' + slot, entry ? CONSUMABLES[entry.id].title : '+', x, 157, entry ? 12 : 24, 70, '#edcd98', center);
+        text('slot-' + slot, entry ? `${SORTIE_SLOTS[slot]} ×${entry.count}` : SORTIE_SLOTS[slot], x, 124, 13, 75,
+          this.sortieSlot === slot ? C.gold : C.text, center);
+        this.addButton('sortie-slot-' + slot, x - 37, 112, 74, 75, () => {
+          this.sortieSlot = this.sortieSlot === slot ? undefined : slot;
+          this.open('select-hero');
+        });
+      }
+    }
     text('start', '开始战斗  »', 970, 155, 30, 258, '#ffecd0', center);
     if (allowedHero(id)) this.addButton('sortie-start', 838, 122, 270, 65, () => this.dispatchSortie());
+  }
+  private buildSortieItems(root: Node, slot: SortieSlot) {
+    const center = Label.HorizontalAlign.CENTER, armory = this.profile.armory;
+    const loadout = normalizeSortie(armory.sortie, armory.counts), entry = loadout[slot];
+    const text = (key: string, value: string, x: number, y: number, size: number, w: number, tint = C.text, align = center) =>
+      this.campaignLabel(root, 'sortie-picker-' + key, value, x, y, size, w, tint, align);
+    const control = (id: string, value: string, x: number, y: number, w: number, run?: () => void, active = false) => {
+      this.shopArt(active ? 'selected' : 'button', x, y, w, 42, false, root);
+      text(id, value, x, y, 17, w - 6, run ? C.text : C.muted);
+      if (run) this.addButton('sortie-' + id, x - w / 2, y - 21, w, 42, run);
+    };
+    const set = (id: ConsumableId, count: number) => {
+      armory.sortie = normalizeSortie({ ...loadout, [slot]: { id, count } }, armory.counts);
+      this.save();
+      this.open('select-hero');
+    };
+    text('title', `选择${SORTIE_SLOTS[slot]}`, 423, 510, 22, 140, C.gold, Label.HorizontalAlign.LEFT);
+    control('items-close', '完成', 807, 510, 88, () => { this.sortieSlot = undefined; this.open('select-hero'); });
+    for (const [i, id] of SORTIE_ITEMS[slot].entries()) {
+      const y = 452 - i * 53, stock = armory.counts[id] ?? 0, selected = entry?.id === id;
+      this.shopArt(selected ? 'selected' : 'button', 640, y, 430, 47, false, root);
+      this.shopArt(id, 456, y, 36, 33, true, root);
+      text(id, CONSUMABLES[id].title, 487, y, 19, 184, stock ? C.text : C.muted, Label.HorizontalAlign.LEFT);
+      text('stock-' + id, stock ? `库存 ${stock}` : '无库存', 776, y, 15, 117, stock ? '#e9c88e' : C.muted);
+      if (stock && !selected) this.addButton('sortie-item-' + id, 425, y - 23, 430, 46, () => set(id, 1));
+    }
+    const count = entry?.count ?? 0, max = entry ? Math.min(SORTIE_LIMIT, armory.counts[entry.id] ?? 0) : 0;
+    text('quantity', `携带 ${count} / ${SORTIE_LIMIT}`, 491, 259, 18, 144, '#f3d59f');
+    control('count-minus', '−', 600, 259, 51, entry ? () => set(entry.id, count - 1) : undefined);
+    control('count-plus', '+', 660, 259, 51, entry && count < max ? () => set(entry.id, count + 1) : undefined);
+    control('count-clear', '不携带', 788, 259, 114, entry ? () => set(entry.id, 0) : undefined);
+    text('hint', '每栏选一种 · 局内实际使用时扣除库存', 640, 229, 14, 420, '#c9b297');
   }
   private homeSprite(id: HomeImage, x: number, top: number, w: number, h: number, available = true) {
     const frame = this.homeFrames.get(id);
@@ -2969,7 +3543,7 @@ export class Blackout extends Component {
       text('settings-title', '设置', 363, 549, 26, 250, '#f4d8a6').isBold = true;
       const options = [
         ['sound', '音效', '游戏音效'],
-        ['aimAssist', '轻辅助瞄准', '仅手机主动瞄准时生效'],
+        ['aimAssist', '轻辅助瞄准', '手机主动瞄准和自动开火时可辅助对准目标'],
         ['autoFire', '自动开火', '准星对准可见目标时自动射击'],
       ] as const;
       options.forEach(([key, title, hint], i) => {
@@ -3128,19 +3702,6 @@ export class Blackout extends Component {
       title.outlineWidth = 1.5;
     }
 
-    const carried = this.profile.armory.tactical, unlocked = this.profile.tacticalUnlocked;
-    if (carried && this.profile.armory.counts[carried]) {
-      const count = Math.min(2, this.profile.armory.counts[carried]!);
-      this.text('tactical-choice', `行动道具 · ${TACTICAL_DEFINITIONS[carried].title} ×${count}`, 1025, 594, 14, C.gold, this.modal, 300, Label.HorizontalAlign.CENTER);
-      this.addButton('tactical-choice', 875, 570, 300, 34, roster);
-    } else if (unlocked.length) {
-      if (!unlocked.includes(this.tacticalChoice)) this.tacticalChoice = unlocked[0];
-      this.text('tactical-choice', `行动道具：${TACTICAL_DEFINITIONS[this.tacticalChoice].title}（点击切换）`, 1025, 594, 14, C.gold, this.modal, 300, Label.HorizontalAlign.CENTER);
-      this.addButton('tactical-choice', 875, 570, 300, 34, () => {
-        this.tacticalChoice = unlocked[(unlocked.indexOf(this.tacticalChoice) + 1) % unlocked.length];
-        this.labels.get('tactical-choice')!.string = `行动道具：${TACTICAL_DEFINITIONS[this.tacticalChoice].title}（点击切换）`;
-      });
-    }
     for (const mode of MODE_CARDS) {
       const width = 434, height = width * mode.height / mode.width;
       const artwork = this.homeTile(mode.id, mode.art, mode.title, 821, mode.top, width, height,
@@ -3392,7 +3953,7 @@ export class Blackout extends Component {
   private showRecruit(back: 'menu' | 'shop' | 'training') {
     this.recruitBack = back; this.lastDraw = ''; this.open('recruit');
   }
-  private showRoster(back: 'menu' | 'shop' | 'training' | 'backpack', hero: HeroId, focus?: GearId | ConsumableId) {
+  private showRoster(back: 'menu' | 'shop' | 'training' | 'backpack', hero: HeroId, focus?: GearId) {
     this.rosterBack = back; this.rosterHero = hero; this.rosterFocus = focus; this.open('roster');
   }
   private openBackpack() {
@@ -3541,7 +4102,7 @@ export class Blackout extends Component {
     } else if (details.action === 'equipment' && item.type === 'equipment') {
       this.backpackButton('action', '前往装备', 1028, 119, 238, 60, () => this.showRoster('backpack', details.hero, item.id), true);
     } else if (details.action === 'carry' && item.type === 'consumable') {
-      this.backpackButton('action', '设置携行', 1028, 119, 238, 60, () => this.showRoster('backpack', HEROINE_ID, item.id), true);
+      this.backpackButton('action', '前往探索', 1028, 119, 238, 60, () => this.open('chapters'), true);
     }
   }
   private overBackpackGrid(x: number, y: number) {
@@ -3664,7 +4225,7 @@ export class Blackout extends Component {
       this.addButton('case-box-' + boxId, 26, y - 64, 166, 128, () => {
         if (boxId === id) return;
         this.selectedCase = boxId; this.open('cases');
-      });
+      }, this.caseLayer);
     });
     const closed = this.caseArt(`${id}-closed`, 659, 509, 410, 283, true);
     const opened = this.caseArt(`${id}-open`, 659, 509, 410, 283, true);
@@ -3685,7 +4246,7 @@ export class Blackout extends Component {
     this.caseText('open-label-1', '开一次', x, 112, 27, 230);
     this.caseArt('key', x - 21, 82, 24, 19, true);
     this.caseText('cost-1', '×1', x + 20, 82, 16, 56);
-    const button = this.addButton('case-open-1', x - 141, 57, 282, 84, () => this.startCaseOpening());
+    const button = this.addButton('case-open-1', x - 141, 57, 282, 84, () => this.startCaseOpening(), this.caseLayer);
     if (reel.openButtonArt) this.setButtonArtwork(button, reel.openButtonArt);
     this.caseText('key-source', `探索通关 +${CLEAR_CASE_KEYS} 把   /   领取每日任务 +${DAILY_CASE_KEYS} 把`, 732, 38, 15, 660, '#d9c2a1');
     this.setCaseControls(!pending);
@@ -3779,15 +4340,15 @@ export class Blackout extends Component {
     const panel = this.makeNode('Case reward overlay', this.caseLayer!);
     const shade = this.graphics('Reward backdrop', panel);
     this.sbox(shade, 0, 0, W, H, '#080c0e', 100);
-    const single = opening.rewards.length === 1, center = single ? 1040 : W / 2;
+    const single = opening.rewards.length === 1, cx = W / 2, cy = H / 2;
     const text = (id: string, value: string, x: number, y: number, size: number, width: number, tint?: string) =>
       this.caseText(id, value, x, y, size, width, tint, Label.HorizontalAlign.CENTER, panel);
-    this.caseArt('tray', center, single ? 409 : 352, single ? 395 : 1190, single ? 441 : 548, false, panel);
-    text('result-title', '开箱奖励', center, 583, 30, single ? 335 : 555, '#ffdc96');
-    text('result-box', CASES[opening.caseId].name, center, 547, 16, 290, '#d4bc99');
+    this.caseArt('tray', cx, cy, single ? 395 : 1190, single ? 441 : 548, false, panel);
+    text('result-title', '开箱奖励', cx, cy + (single ? 174 : 231), 30, single ? 335 : 555, '#ffdc96');
+    text('result-box', CASES[opening.caseId].name, cx, cy + (single ? 138 : 195), 16, 290, '#d4bc99');
     opening.rewards.forEach((reward, i) => {
       const prize = casePrize(opening.caseId, reward.id)!;
-      const x = single ? center : 186 + i % 5 * 227, y = single ? 405 : 422 - Math.floor(i / 5) * 195;
+      const x = single ? cx : cx + (i % 5 - 2) * 227, y = cy + (single ? -4 : 70 - Math.floor(i / 5) * 195);
       const tint = prize.type === 'mod' ? QUALITY_COLORS[prize.quality] : '#ead9b9';
       this.caseArt(`card-${prize.type === 'mod' ? prize.quality : 0}`, x, y, single ? 333 : 214, single ? 260 : 176, false, panel);
       this.caseIcon(prize, x, y + (single ? 39 : 36), single ? 170 : 143, single ? 106 : 71, panel);
@@ -3796,7 +4357,7 @@ export class Blackout extends Component {
       if (reward.mod) modDescription(reward.mod).split(' · ').forEach((value, line) =>
         text(`reward-stat-${i}-${line}`, value, x, y - (single ? 85 : 54) - 15 * line, single ? 16 : 13, single ? 311 : 199, tint));
     });
-    this.caseButton('done', '确认', center, single ? 231 : 109, 211, 55, () => this.backFromCases(), true, 21, panel);
+    this.caseButton('done', '确认', cx, cy - (single ? 178 : 243), 211, 55, () => this.backFromCases(), true, 21, panel);
     return panel;
   }
   private startCaseOpening() {
@@ -3911,9 +4472,9 @@ export class Blackout extends Component {
       this.shopArt(product.id, x, y + 16, 263, 90, true);
       this.shopText('shop-card-' + product.id, product.title, x - 132, y - 49, 19, 172);
       const owned = ownedProduct(this.profile.armory, product);
-      const price = product.group === 'gear' && owned ? '已拥有' : `${product.price} 金币${product.group === 'mod' && product.id !== 'parts' ? '起' : ''}`;
+      const price = product.group === 'gear' && owned ? '已拥有' : `${product.price} 金币`;
       this.shopText('shop-price-' + product.id, price, x + 130, y - 49, 15, 104, C.gold, Label.HorizontalAlign.RIGHT);
-      this.addButton('product-' + product.id, x - 151, y - 76, 302, 152, () => { this.shopQuality = 0; this.shopProduct = product.id; this.open('shop'); });
+      this.addButton('product-' + product.id, x - 151, y - 76, 302, 152, () => { this.shopProduct = product.id; this.open('shop'); });
     });
     if (pages > 1) {
       this.shopButton('shop-previous', '上一页', 636, 46, 106, 41, page > 0 ? () => { this.shopPage = page - 1; this.open('shop'); } : undefined);
@@ -3931,24 +4492,26 @@ export class Blackout extends Component {
       const kind = product.id as ModId;
       const compatible = HERO_IDS.filter(id => fitsWeapon(id, kind)).map(id => heroes[id].name).join('、');
       this.shopText('shop-compatibility', '适配：' + compatible, 778, 341, 17, 425, C.gold);
-      for (const [i, quality] of QUALITY_NAMES.entries()) this.shopButton('shop-quality-' + i, quality,
-        825 + i * 109, 291, 101, 47, () => { this.shopQuality = i as Quality; this.open('shop'); },
-        this.shopQuality === i ? 'selected' : 'button', 16);
-      const [min, max] = modRange(kind, this.shopQuality);
-      this.shopText('shop-range', modText(kind, min === max ? min : min + '–' + max), 778, 232, 22, 420, QUALITY_COLORS[this.shopQuality]);
-      if (kind === 'tube') this.shopText('shop-tube-bonus', '附带随机换弹速度增益', 778, 197, 15, 400, C.muted);
+      for (const quality of [0, 1] as const) {
+        const [min, max] = modRange(kind, quality);
+        const odds = `${QUALITY_NAMES[quality]} ${SHOP_MOD_ODDS[quality]}%`;
+        this.shopText('shop-odds-' + quality, odds + '  ·  ' + modText(kind, min === max ? min : min + '–' + max),
+          778, 287 - quality * 39, 18, 420, QUALITY_COLORS[quality]);
+      }
+      if (kind === 'tube') this.shopText('shop-tube-bonus', '附带随机换弹速度增益', 778, 209, 15, 400, C.muted);
     }
     const owned = ownedProduct(this.profile.armory, product);
-    const available = canStock(this.profile.armory, product), price = productPrice(product, this.shopQuality);
+    const available = canStock(this.profile.armory, product), price = product.price;
     const canBuy = available && this.profile.coins >= price;
     this.shopText('shop-stock', product.group === 'gear' ? (owned ? '已拥有' : '未购买') :
       product.group === 'item' ? `库存 ${owned} / ${MAX_STOCK}` : `已持有 ${owned}`, 333, 111, 18, 220, C.gold);
     this.shopButton('shop-buy', !available ? (product.group === 'gear' ? '已拥有' : '库存已满') :
       canBuy ? `购买  ${price} 金币` : `${price} 金币 · 余额不足`,
     1081, 105, 242, 49, canBuy ? () => {
-      if (!buyProduct(this.profile, product.id, this.shopQuality)) return;
+      if (!buyProduct(this.profile, product.id)) return;
+      const bought = isMod ? this.profile.armory.mods.at(-1) : undefined;
       this.save(); this.open('shop');
-      if (this.storageOkay) this.toast(`已购买 ${product.title}`);
+      if (this.storageOkay) this.toast(bought ? `获得 ${QUALITY_NAMES[bought.quality]} · ${product.title} · ${modDescription(bought)}` : `已购买 ${product.title}`);
     } : undefined, canBuy ? 'purchase' : 'button');
     this.shopButton('shop-list', '返回列表', 608, 105, 147, 47, () => {
       this.shopProduct = undefined; this.open('shop');
@@ -3977,17 +4540,6 @@ export class Blackout extends Component {
       const equipped = kit.gear.includes(piece), owned = p.armory.gear.includes(piece);
       this.shopButton('gear-' + piece, GEAR[piece].category + (equipped ? ' · 已装备' : owned ? ' · 装备' : ' · 未购买'), 453 + i * 265, 209, 251, 45,
         p.owned[id] && owned ? () => { if (toggleGear(p, id, piece)) { this.save(); this.open('roster'); } } : undefined, equipped ? 'selected' : this.rosterFocus === piece ? 'purchase' : 'button');
-    });
-    this.shopText('roster-tactical-label', '下次行动的战术道具', 321, 150, 20, 305, C.gold);
-    this.shopText('roster-tactical-hint', '从库存携带最多 2 件，医疗补给自动携带', 610, 150, 15, 465, C.muted);
-    const selected = p.armory.tactical;
-    const options = [null, ...SHOP_TACTICALS] as const;
-    options.forEach((kind, i) => {
-      const count = kind ? p.armory.counts[kind] ?? 0 : 0;
-      const label = kind ? `${TACTICAL_DEFINITIONS[kind].title} ×${count}` : '关卡配发';
-      this.shopButton('carry-' + (kind ?? 'default'), label, 390 + i * 187, 105, 172, 47, (!kind || count || kind === selected) ? () => {
-        p.armory.tactical = kind; this.save(); this.open('roster');
-      } : undefined, kind === selected ? 'selected' : kind === this.rosterFocus ? 'purchase' : 'button', 15);
     });
   }
   private statNumber(n: number) { return n.toFixed(1).replace(/\.0$/, ''); }
@@ -4441,9 +4993,11 @@ export class Blackout extends Component {
     this.text('help-tip', '木门可被子弹打坏，锁住的铁门需要钥匙。宿管室门上的警报会引来丧尸。Esc / P 暂停。', 146, 123, 16, C.muted);
   }
   private loadSurvivalUi() {
-    const sheets = ['frame', 'bag', 'controls', 'landscapes'] as const;
+    const sheets = ['frame', 'bag', 'controls', 'landscapes', 'harbor-map', 'service-panels'] as const;
     let remaining = sheets.length;
-    for (const sheet of sheets) resources.load(`survival/survival-ui-${sheet}-v3/spriteFrame`, SpriteFrame, (err, frame) => {
+    for (const sheet of sheets) resources.load(sheet === 'harbor-map' ? 'survival/harbor-map-hud-v1/spriteFrame' :
+      sheet === 'service-panels' ? 'survival/survival-service-panels-v1/spriteFrame' :
+      `survival/survival-ui-${sheet}-v3/spriteFrame`, SpriteFrame, (err, frame) => {
       if (!this.isValid) return;
       if (err) console.warn('Survival interface artwork could not load:', sheet, err);
       else {
@@ -4456,10 +5010,19 @@ export class Blackout extends Component {
         } else if (sheet === 'landscapes') {
           this.survivalUiFrames.set('port', this.cropUiFrame(frame, 0, 0, 1152, 648));
           this.survivalUiFrames.set('base', this.cropUiFrame(frame, 0, 648, 1152, 648));
+        } else if (sheet === 'service-panels') {
+          const { width, height } = frame.originalSize;
+          ['loot-panel', 'workshop-panel', 'sentry-panel'].forEach((name, index) => {
+            const panel = this.cropUiFrame(frame, Math.round(width * .007), Math.round(height * (.019 + index / 3)),
+              Math.round(width * .986), Math.round(height * .30));
+            panel.insetLeft = panel.insetRight = 68;
+            panel.insetTop = panel.insetBottom = 38;
+            this.survivalUiFrames.set(name, panel);
+          });
         } else this.survivalUiFrames.set(sheet, frame);
       }
       if (--remaining === 0) {
-        if (this.mode === 'survival-resume' || this.mode === 'result' && this.battle.survival) this.open(this.mode);
+        if (this.mode === 'survival-resume' || this.mode === 'survival-map' || this.mode === 'result' && this.battle.survival) this.open(this.mode);
         else this.uiTick = 0;
       }
     });
@@ -4544,14 +5107,11 @@ export class Blackout extends Component {
     if (!frame) this.campaignLabel(root, 'map-return', '返回首页', 1238, 674, 20, 180, C.text, Label.HorizontalAlign.RIGHT);
     for (const [index, id] of SURVIVAL_MAP_IDS.entries()) {
       const y = 531 - index * 112, save = this.profile.survivalMaps[id];
-      if (!this.campaignSprite(root, 'chapter-card', 1043, y, 380, 98)) {
-        this.missionPlate(this.graphics('Survival map card', root), 853, y - 49, 380, 98, '#212524', '#987c54', 12);
-      }
       const overview = draft ?? this.harborOverviewFrame();
-      if (overview) this.campaignSprite(root, overview, 918, y, 93, 62);
-      this.campaignLabel(root, 'survival-name-' + id, SURVIVAL_MAPS[id].name, 981, y + 17, 25, 230, '#f4d297');
+      const labelX = this.campaignChapterCard(root, overview, 1043, y, 380, 98);
+      this.campaignLabel(root, 'survival-name-' + id, SURVIVAL_MAPS[id].name, labelX, y + 17, 25, 218, '#f4d297');
       this.campaignLabel(root, 'survival-status-' + id, save ? '可继续 · 已存活 ' + this.time(save.elapsed) : '沿岸港口 · 搜刮与撤离',
-        981, y - 17, 17, 230);
+        labelX, y - 17, 17, 218);
       if (this.mode === 'survival-entry') this.addButton('survival-map-' + id, 853, y - 49, 380, 98, () => {
         this.selectedSurvivalMap = id;
         this.survivalHero = HEROINE_ID;
@@ -4595,6 +5155,9 @@ export class Blackout extends Component {
     this.loadHarborMapArt();
     this.loadSurvivalGearArt();
     this.loadTimedSurvivalArt();
+    if (!this.streetFrames.has('brute')) resources.load('common/environment/apartment-brute-v2/spriteFrame', SpriteFrame, (err, frame) => {
+      if (!err && this.isValid) this.streetFrames.set('brute', this.cropUiFrame(frame, 13, 130, 1060, 1010));
+    });
     for (const [name, parts] of OPERATION_ART) {
       if (name !== 'aircraft' && name !== 'littlebird-black' || parts.every(([key]) => this.streetFrames.has(key))) continue;
       resources.load('chapter4/' + name + '/spriteFrame', SpriteFrame, (err, frame) => {
@@ -4603,22 +5166,13 @@ export class Blackout extends Component {
         }
       });
     }
-    if (!this.survivalCrateFrames.size) resources.load('survival/gear-crates/spriteFrame', SpriteFrame, (err, source) => {
-      if (err || !this.isValid || this.survivalCrateFrames.size) return;
-      const crops = [[69, 147, 466, 347], [675, 144, 505, 350], [72, 743, 464, 312], [631, 649, 570, 454]] as const;
-      (['medical', 'armory', 'engineering', 'airdrop'] as const).forEach((kind, i) => {
-        const [x, y, w, h] = crops[i];
-        this.survivalCrateFrames.set(kind, this.cropUiFrame(source, x, y, w, h));
-      });
-      this.survivalCrateFrames.set('dropped', this.survivalCrateFrames.get('engineering')!);
-    });
     this.streamHarbor(point, true);
     for (const atlas of ['harbor-floors', 'harbor-furniture', 'interior-furniture'] as const) this.loadSurvivalBuildingArt(atlas);
   }
   private loadSurvivalGearArt() {
     if (this.survivalGearArtPending || this.survivalGearArtReady) return;
     this.survivalGearArtPending = true;
-    let left = 8;
+    let left = 10;
     const load = (name: string, mount: (frame: SpriteFrame) => void) => {
       resources.load('survival/' + name + '/spriteFrame', SpriteFrame, (error, frame) => {
         if (!this.isValid) return;
@@ -4654,10 +5208,20 @@ export class Blackout extends Component {
     load('fort-workbench', frame => {
       this.artFrames.set('survival-craft-bench', this.cropUiFrame(frame, 92, 51, 1595, 796));
     });
+    load('gear-crates', frame => {
+      const crops = [[69, 147, 466, 347], [675, 144, 505, 350], [72, 743, 464, 312], [631, 649, 570, 454]] as const;
+      (['medical', 'armory', 'engineering', 'airdrop'] as const).forEach((kind, i) =>
+        this.survivalCrateFrames.set(kind, this.cropUiFrame(frame, ...crops[i])));
+      this.survivalCrateFrames.set('dropped', this.survivalCrateFrames.get('engineering')!);
+    });
     load('gear-scanner', frame => this.survivalGearFrames.set('scanner', this.cropUiFrame(frame, 174, 36, 672, 1415)));
     load('gear-sentry-overhead', frame => {
       this.survivalGearFrames.set('sentry-barrel', this.cropUiFrame(frame, 77, 273, 936, 210));
       this.survivalGearFrames.set('sentry', this.cropUiFrame(frame, 1204, 38, 901, 630));
+    });
+    load('sentry-parts-v2', frame => {
+      this.artFrames.set('sentry-base', this.cropUiFrame(frame, 94, 73, 698, 656));
+      this.artFrames.set('sentry-head', this.cropUiFrame(frame, 942, 352, 802, 272));
     });
     load('door-leaves', frame => {
       const crops = [[72, 92, 2033, 94], [73, 257, 2031, 100], [72, 424, 2033, 97], [72, 586, 2033, 97]] as const;
@@ -4704,23 +5268,23 @@ export class Blackout extends Component {
     const mapPoint = ({ x, y }: { x: number; y: number }) => ({
       x: x / (HARBOR_SCALE * HARBOR_ART_WIDTH), y: y / (HARBOR_SCALE * HARBOR_ART_HEIGHT),
     });
-    const convoyWindow = `第 ${CONVOY_ARRIVAL / 60} 分钟到南门，第 ${CONVOY_LEAVE / 60} 分钟撤离。`;
+    const convoyWindow = `第 ${PAGER_AVAILABLE / 60} 分钟起搜寻呼器，呼叫后等 3 分钟。`;
     const routes: DeparturePage[] = [
       { heading: '01 / 05　装甲车队', point: mapPoint(CONVOY_BOARD),
-        lines: ['三条路线，完成任意一条即可撤离。', '车队' + convoyWindow] },
+        lines: [convoyWindow, '车队会在工事南门等候上车。'] },
       { heading: '02 / 05　黑鹰直升机', point: mapPoint(EVAC_VEHICLES.helicopter.point),
         lines: ['按地图线索，到各街区室内搜集五个黑鹰部件。', '回营地装好后加油，守住停机坪就能登机。'] },
       { heading: '03 / 05　港口快艇', point: mapPoint(EVAC_VEHICLES.boat.access),
         lines: ['按地图线索，到各街区室内搜集五个快艇部件。', '到港口木桥尽头装好，守到加油完成后登船。'] },
       { heading: '04 / 05　搜刮与血月', point: mapPoint(harborPoint(968, 588)),
-        lines: [`血月第 ${BLOOD_MOON / 60} 分钟开始，趁早搜集补给、加固工事。`, `尸群会进楼搜人，最迟第 ${SURVIVAL_DEADLINE / 60} 分钟撤离。`] },
+        lines: [`第 ${BLOOD_MOON / 60} 分钟起尸潮分区轮换，查看港区地图，趁间歇搜物资。`, '补给在本局使用，撤离时机由你决定。'] },
       { heading: '05 / 05　工事工作台', point: mapPoint(level.survival!.workbench),
         lines: ['在工作台制作弹药、道具和哨械枪。', '架枪守入口，房门要到门边加固。'] },
     ];
     const load = this.beginDeparture({
       title: SURVIVAL_MAPS[mapId].name, area: save ? '港区 · 已存活 ' + this.time(save.elapsed) : '沿岸港口',
       heading: '撤离路线速览 · 三选一', point: mapPoint(CONVOY_BOARD),
-      lines: ['车队' + convoyWindow, '黑鹰 / 快艇：装齐五个部件，加油后登乘。'],
+      lines: [convoyWindow, '黑鹰 / 快艇：装齐五个部件，加油后登乘。'],
       pages: save ? undefined : routes,
       map: () => this.campaignFrames.get('harbor-selection'),
       avatar: () => this.timedSurvivalFrames.get('headquarters') ?? this.campaignFrames.get('liaison'),
@@ -4738,7 +5302,7 @@ export class Blackout extends Component {
     });
     const groups = [this.presentationReady && this.artFrames.has(art) && this.artFrames.has('walker'),
       this.harborArtReady, this.survivalGearArtReady, nearbyReady, this.artFrames.has('harbor-floor-house'),
-      this.artFrames.has('survival-radio-harbor'), this.artFrames.has('survival-couch'),
+      this.artFrames.has('survival-couch'),
       this.timedSurvivalFrames.has('carrier') && this.streetFrames.has('op-blackhawk') && this.streetFrames.has('op-littlebird')];
     return groups.filter(Boolean).length / groups.length;
   }
@@ -4753,7 +5317,7 @@ export class Blackout extends Component {
     this.fallTime = 0; this.suppliesOpen = false; this.replayTutorial = false;
     this.enterBattleScene(1);
     if (save && save.layout !== SURVIVAL_LAYOUT) {
-      if (this.saveSurvivalCheckpoint()) this.toast('已转入港区工事 · 保留奖励和背包', 5);
+      if (this.saveSurvivalCheckpoint()) this.toast('已转入港区工事 · 保留本局背包', 5);
     }
     return true;
   }
@@ -4775,32 +5339,16 @@ export class Blackout extends Component {
     this.profile = next;
     return true;
   }
-  private buildSurvivalRadio() {
-    const b = this.battle, run = b.survival!;
-    const close = () => this.open('playing');
-    this.dialog('工事电台', [
-      { id: 'survival-evac-map', label: '打开港区地图', run: () => this.open('survival-map') },
-      { id: 'survival-save-exit', label: '暂停本局', run: () => {
-        if (b.survivalAtRadio && this.saveSurvivalCheckpoint()) this.open('menu');
-      } },
-    ], close);
-    this.dialogText('survival-pool', `当前奖励池　金币 ${run.pool.coins}　材料 ${run.pool.materials}`, W / 2, 443, 23, 690, '#ffd282');
-    this.dialogText('survival-extract-payout', '撤离路线 · 工事黑鹰 / 港口快艇 / 装甲车队', W / 2, 405, 20, 680);
-    b.doors.slice(0, 2).forEach((door, i) => this.dialogText('survival-gate-' + i,
-      `${door.name}　${SURVIVAL_DOORS[door.fortification ?? 'wood'].title}　${door.destroyed ? '已破坏' : Math.ceil(door.hp) + ' / ' + door.maxHp}`,
-      W / 2, 370 - i * 27, 18, 680, door.destroyed ? '#ef987f' : '#ecd4ae'));
-    this.button('survival-deposit', run.salvage ? `存入战利品 · +${run.salvage} 金币` : '存入战利品', 522, 281, 236, () => {
-      if (b.depositSurvivalSalvage()) { this.saveSurvivalCheckpoint(); this.open('survival-radio'); }
-    }, false, run.salvage > 0, 42, '背包里没有可存入的战利品');
-  }
   private buildPause() {
     const resume = () => this.open('playing');
     if (this.battle.survival) {
       this.dialog('生存行动暂停', [
         { id: 'resume', label: '继续行动', run: resume },
-        { id: 'survival-console', label: '工事电台', enabled: this.battle.survivalAtRadio, run: () => this.open('survival-radio') },
+        { id: 'survival-save-exit', label: '保存并退出', run: () => {
+          if (this.saveSurvivalCheckpoint()) this.open('menu');
+        } },
       ], resume);
-      this.dialogText('pause-tip', '回到工事电台可撤离或保存后离开。', W / 2, 391, 22, 660);
+      this.dialogText('pause-tip', '保存后可从当前位置继续本局。', W / 2, 391, 22, 660);
       return;
     }
     this.dialog('行动暂停', [
@@ -4832,69 +5380,128 @@ export class Blackout extends Component {
     return this.setupSprite(node, frame, w, h);
   }
   private buildSurvivalMap() {
-    this.panel('港区地图', '北 ↑', () => this.open('playing'));
+    const b = this.battle;
+    if (!b.stage.survival) return;
     const layer = this.harborMapLayer = this.makeNode('Harbor map', this.modal);
-    const x = 132, y = 104, w = 648, h = 432;
-    const project = (east: number, south: number) => ({
-      x: x + east * w / HARBOR_ART_WIDTH,
-      y: y + h - south * h / HARBOR_ART_HEIGHT,
-    });
-    this.harborMapSprite(layer, x, y, w, h);
-    const markers = this.graphics('Harbor map markers', layer);
-    this.soutline(markers, x, y, w, h, C.line);
-    for (const [name, east, south] of HARBOR_MAP_REGIONS) {
-      const q = project(east, south);
-      const supplied = this.battle.survivalRestock?.zones.includes(HARBOR_MAP_REGIONS.findIndex(region => region[0] === name));
-      disc(markers, q.x - W / 2, q.y - H / 2, supplied ? 4 : 3, supplied ? C.jade : C.gold);
-      this.dialogText('harbor-region-' + name, supplied ? name + ' · 补给' : name, q.x, q.y + 14, 16, 125, supplied ? '#b9ebdb' : '#ffdda0', true);
-    }
-    const b = this.battle, p = b.player;
-    const drops = b.survivalCrates.filter(crate => crate.kind === 'airdrop' && crate.goods.length);
-    if (b.survival?.timed) {
-      const pins = [{ ...EVAC_VEHICLES.helicopter.access, name: '黑鹰' }, { ...EVAC_VEHICLES.boat.access, name: '快艇' },
-        { ...CONVOY_BOARD, name: '车队' }];
-      for (const pin of pins) {
-        const q = project(pin.x / HARBOR_SCALE, HARBOR_ART_HEIGHT - pin.y / HARBOR_SCALE);
-        disc(markers, q.x - W / 2, q.y - H / 2, 4, '#ffc98a');
-        this.dialogText('harbor-evac-' + pin.name, pin.name, q.x + 25, q.y + 8, 13, 60, '#ffc98a', true);
+    this.sbox(this.graphics('Harbor screen backdrop', layer), 0, 0, W, H, '#081b20');
+    this.survivalUiSprite(layer, 'harbor-map', W / 2, H / 2, W, H);
+    const { x, y, w, h } = HARBOR_MAP_VIEW;
+    const overview = this.harborMapSprite(layer, x, y, w, h);
+    if (overview) overview.color = color('#a9c0bd');
+    const marks = this.graphics('Harbor map markers', layer);
+    this.soutline(marks, x, y, w, h, '#9c8151', 170);
+    const heading = (id: string, value: string, px: number, py: number, size: number, width: number, tint = '#ebdfc8') =>
+      this.campaignLabel(layer, id, value, px, py, size, width, tint);
+    heading('harbor-map-title', '港区行动地图', 106, 669, 30, 340);
+    heading('harbor-map-timer', this.survivalClockText(), 878, 669, 19, 244, '#dbbb83');
+    this.survivalDialogButton(layer, { id: 'harbor-map-close', label: '关闭', run: () => this.open('playing') }, 1122, 648, 106, 40);
+    heading('harbor-map-north', '↑ N', 62, 594, 16, 45, '#ebdfc8');
+
+    const horde = b.survivalHorde;
+    if (horde) {
+      const points = SURVIVAL_FIELD_AREAS[horde.region].map(([east, south]) => harborMapPoint(harborPoint(east, south)));
+      for (const point of points) {
+        const px = point.x - W / 2, py = point.y - H / 2;
+        if (horde.active) disc(marks, px, py, 24, '#971a21', 185);
+        marks.strokeColor = color(horde.active ? '#ff6757' : '#f39271', horde.active ? 210 : 145);
+        marks.lineWidth = 1.6;
+        if (horde.active) marks.circle(px, py, 24);
+        else for (let segment = 0; segment < 8; segment++) marks.arc(px, py, 18, segment * Math.PI / 4, (segment + .55) * Math.PI / 4, false);
+        marks.stroke();
       }
-      for (const part of b.survivalField.filter(item => item.id.startsWith('evac-') || item.kind === 'evac-fuel')) {
-        const q = project(part.x / HARBOR_SCALE, HARBOR_ART_HEIGHT - part.y / HARBOR_SCALE);
-        this.sbox(markers, q.x - 3, q.y - 3, 6, 6, '#f5ad75');
-      }
-      this.text('harbor-parts-legend', '■ 燃油 / 地面部件', 817, 469, 15, '#f5ad75');
     }
-    if (b.stage.survival) {
-      const workbench = b.stage.survival.workbench, mark = project(workbench.x / HARBOR_SCALE, HARBOR_ART_HEIGHT - workbench.y / HARBOR_SCALE);
-      this.sbox(markers, mark.x - 4, mark.y - 4, 8, 8, '#98e0ca');
-      this.dialogText('harbor-workbench-pin', '工作台', mark.x - 31, mark.y + 13, 14, 66, '#b7f3df', true);
+    for (const [i, [name, east, south]] of HARBOR_MAP_REGIONS.entries()) {
+      const point = harborMapPoint(harborPoint(east, south));
+      const supplied = b.survivalRestock?.zones.includes(i), threatened = horde?.region === i && horde?.active;
+      const tint = threatened ? '#ff977b' : supplied ? '#acffe7' : '#f9d999';
+      disc(marks, point.x - W / 2, point.y - H / 2, 3.5, tint);
+      this.campaignLabel(layer, 'harbor-region-' + i, name, point.x, point.y + 14, 15, 114, tint, Label.HorizontalAlign.CENTER);
     }
-    for (const [i, point] of drops.entries()) {
-      const q = project(point.x / HARBOR_SCALE, HARBOR_ART_HEIGHT - point.y / HARBOR_SCALE);
-      this.sbox(markers, q.x - 3, q.y - 3, 6, 6, '#f6a967');
-      this.dialogText('harbor-airdrop-' + i, '空投', q.x, q.y - 14, 13, 110, '#ffc182', true);
+
+    const pins = [{ ...EVAC_VEHICLES.helicopter.access, name: '黑鹰' }, { ...EVAC_VEHICLES.boat.access, name: '快艇' },
+      { ...CONVOY_BOARD, name: '车队', active: b.survivalConvoyETA !== undefined }];
+    for (const pin of pins) {
+      const point = harborMapPoint(pin);
+      const px = point.x - W / 2, py = point.y - H / 2;
+      if (pin.active) disc(marks, px, py, 13, '#6fe7ad', 100);
+      polygon(marks, [{ x: px - 6, y: py }, { x: px, y: py + 6 }, { x: px + 6, y: py }, { x: px, y: py - 6 }], pin.active ? '#96ffd3' : '#ffd27f');
+      heading('harbor-evac-' + pin.name, pin.name, point.x + 8, point.y + 4, 13, 52, '#ffd898');
     }
-    const q = project((p.x - (b.survivalUpperFloor?.offsetX ?? 0)) / HARBOR_SCALE, HARBOR_ART_HEIGHT - p.y / HARBOR_SCALE);
-    disc(markers, q.x - W / 2, q.y - H / 2, 7, '#122022');
-    disc(markers, q.x - W / 2, q.y - H / 2, 4, C.jade);
-    this.text('harbor-position-key', '● 你的位置', 817, 503, 18, C.jade);
-    this.text('harbor-loot-title', '撤离配件线索', 817, 433, 23, C.gold);
+    for (const part of b.survivalField.filter(item => item.id.startsWith('evac-') || item.kind === 'evac-fuel')) {
+      const point = harborMapPoint(part);
+      this.sbox(marks, point.x - 3, point.y - 3, 6, 6, '#f8bc77');
+    }
+    for (const [i, crate] of b.survivalCrates.filter(item => item.kind === 'airdrop' && item.goods.length).entries()) {
+      const point = harborMapPoint(crate);
+      this.sbox(marks, point.x - 4, point.y - 4, 8, 8, '#c9b6ff');
+      heading('harbor-airdrop-' + i, '空投', point.x + 7, point.y + 5, 13, 50, '#dfd0ff');
+    }
+    for (const [id, point] of [['camp', b.stage.survival.workbench], ['harbor', b.stage.survival.harborWorkbench]] as const) {
+      const workbench = harborMapPoint(point);
+      this.sbox(marks, workbench.x - 4, workbench.y - 4, 8, 8, '#9dd8ec');
+      heading('harbor-workbench-pin-' + id, id === 'camp' ? '营地工作台' : '港口工作台', workbench.x + 8, workbench.y, 13, 78, '#9dd8ec');
+    }
+
+    const floor = heading('harbor-position-key', '', 902, 580, 23, 295, '#81ffdf');
+    heading('harbor-risk', horde ? (horde.active ? '尸潮经过  ' : '下一波  ') + HARBOR_MAP_REGIONS[horde.region][0] : '血月前  ·  零散巡逻',
+      902, 538, 20, 300, horde?.active ? '#ff9d80' : '#ebc08c');
+    if (horde) heading('harbor-risk-clock', (horde.active ? '转移约 ' : '抵达约 ') + Math.ceil(horde.seconds) + ' 秒',
+      902, 510, 16, 285, '#dbb696');
+    this.sline(marks, 902, 483, 1207, 483, '#50706c', 1, 190);
+    heading('harbor-loot-title', '撤离配件线索', 902, 455, 23, 274);
     const leads = b.survivalEvacLeads;
-    this.text('harbor-loot-route', leads.length ? '在所示街区的建筑内查找配件箱。' : '收到新配件线索后将在此显示。', 817, 400, 17, C.text, this.modal, 320);
+    if (!leads.length) heading('harbor-loot-empty', '暂无线索', 902, 417, 17, 280, '#9ab2ae');
     leads.forEach(({ kind, region }, i) => {
-      const y = 368 - i * 25;
-      this.text('harbor-part-name-' + i, SURVIVAL_GEAR[kind][0], 817, y, 17, C.text, this.modal, 224);
-      this.text('harbor-part-region-' + i, region, 1135, y, 16, '#ffc182', this.modal, 93, Label.HorizontalAlign.RIGHT);
+      const row = 418 - i * 29;
+      heading('harbor-part-name-' + i, SURVIVAL_GEAR[kind][0], 902, row, 17, 182);
+      this.campaignLabel(layer, 'harbor-part-region-' + i, region, 1204, row, 16, 119, '#e6c28b', Label.HorizontalAlign.RIGHT);
     });
+    if (b.elapsed >= PAGER_AVAILABLE) {
+      const region = b.survivalPagerRegion;
+      const hint = b.survivalConvoyETA !== undefined ? '接应点 · 工事南门' : b.survivalCount('convoy-pager') ?
+        '寻呼器已装入背包' : region ? '寻呼器线索 · ' + region : '寻呼器 · 等待房间补给刷新';
+      heading('harbor-pager-hint', hint, 902, 111, 17, 294, '#96ffd3');
+    }
+    heading('harbor-map-evac-key', '◆ 撤离点', 64, 39, 15, 111, '#ffd27f');
+    heading('harbor-map-supply-key', '■ 燃料 / 部件', 199, 39, 15, 156, '#f8bc77');
+    heading('harbor-map-airdrop-key', '■ 空投', 380, 39, 15, 100, '#dfd0ff');
+    heading('harbor-map-bench-key', '■ 工作台', 486, 39, 15, 125, '#9dd8ec');
+    heading('harbor-map-horde-key', '● 尸潮区域', 628, 39, 15, 133, '#ff9d80');
+    heading('harbor-map-pause', '地图开启时暂停战斗', 886, 39, 15, 300, '#9bb6b0');
+
+    const marker = this.makeNode('Current player on harbor map', layer);
+    const halo = this.graphics('Player locator ring', marker);
+    halo.strokeColor = color('#83ffdf', 175); halo.lineWidth = 2;
+    halo.circle(0, 0, 13); halo.stroke();
+    const arrow = this.graphics('Player bearing', marker);
+    disc(arrow, 0, 0, 9, '#123938');
+    polygon(arrow, [{ x: 14, y: 0 }, { x: -6, y: 7 }, { x: -2, y: 0 }, { x: -6, y: -7 }], '#9bffdf');
+    this.harborMapPlayer = { marker, halo: halo.node, heading: arrow.node, floor };
+    this.updateHarborMapPlayer();
+  }
+  private updateHarborMapPlayer() {
+    const locator = this.harborMapPlayer;
+    if (!locator) return;
+    const b = this.battle, point = harborMapPoint(b.survivalMapPosition);
+    locator.marker.setPosition(point.x - W / 2, point.y - H / 2);
+    locator.heading.angle = b.player.angle * 180 / Math.PI;
+    const pulse = 1 + 0.23 * (1 + Math.sin(this.presentationTime * 5));
+    locator.halo.setScale(pulse, pulse, 1);
+    const view = b.survivalFloorView;
+    const plan = b.stage.survival!;
+    const indoors = roomAt(b.player, [plan.fort]) >= 0 || plan.buildings.some(building => roomAt(b.player, building.rooms) >= 0);
+    const floor = view?.moving ? '楼梯间' : view?.upstairs ? '二楼' : indoors ? '一楼' : '室外';
+    locator.floor.string = '当前位置  ·  ' + floor;
   }
   private buildResult() {
     if (this.battle.survival) { this.buildSurvivalResult(); return; }
     const won = this.battle.status === 'won';
     const street = !!this.battle.stage.street;
     const operation = !!this.battle.stage.operation;
-    const nextChapter = won && (street ? '归巢' : this.battle.stage.dorm?.number === 1 || this.battle.stage.id === DORM_LEVEL.id ? '归途' : this.unlockedEngineer ? '断翼行动' : '');
+    const nextChapter = won && (operation ? '风沙防线' : street ? '归巢' : this.battle.stage.dorm?.number === 1 || this.battle.stage.id === DORM_LEVEL.id ? '归途' : this.unlockedEngineer ? '断翼行动' : '');
     const back = () => { this.battle = this.makeBattle(); this.open('menu'); };
-    this.dialog(won ? operation ? '断翼行动 · 完成' : street ? '已抵达住宅街' : '撤离成功' : '行动结束', [
+    const escort = this.frontierEscort;
+    this.dialog(won ? escort ? '已抵达临时避难所' : operation ? '断翼行动 · 完成' : street ? '已抵达住宅街' : '撤离成功' : '行动结束', [
       { id: 'retry', label: '选择关卡', run: () => this.open('chapters') },
       { id: 'base', label: '返回整备', run: back },
     ], back);
@@ -4907,6 +5514,8 @@ export class Blackout extends Component {
     this.dialogText('saved', this.storageOkay ? '奖励已保存至本机' : '奖励暂存在内存，浏览器未能保存', W / 2, 304, 17, 650, '#d7c8b2');
     if (nextChapter) this.dialogText('next-chapter', `「${nextChapter}」已解锁，可在探索地图选择。`, W / 2, 269, 17, 650, '#ffd282');
     if (this.unlockedEngineer) this.dialogText('engineer-unlocked', '维川已加入，可在角色培养中提升属性。', W / 2, 243, 17, 650, '#ffd282');
+    if (escort) this.dialogText('escort-result', won ? '载民大巴安全抵达' : '载民大巴失守 · 护送中断',
+      W / 2, 269, 18, 650, '#ffd282');
     if (operation && this.profile.operationArchive) this.dialogText('operation-debrief',
       '剧情档案 · 接应队已撤离。里姆雷特在空袭后仍然存活，样本已扩散。', W / 2, 215, 16, 700, '#d7c8b2');
   }
@@ -4922,8 +5531,8 @@ export class Blackout extends Component {
       this.open('menu');
     };
     const ending = {
-      extracted: { title: '安全撤离', rate: '撤离奖励  ·  100%', message: '已安全撤离至基地。', tone: '#ffda89' },
-      fallen: { title: '行动员阵亡', rate: '阵亡结算  ·  50%', message: '本次行动结束。', tone: '#ecc1a1' },
+      extracted: { title: '安全撤离', tone: '#ffda89' },
+      fallen: { title: '行动员阵亡', tone: '#ecc1a1' },
     }[outcome];
     if (saved) this.survivalDialogClose(root, SURVIVAL_RESULT_PANEL, back);
     const crestWidth = outcome === 'extracted' ? 377 : 138;
@@ -4935,16 +5544,7 @@ export class Blackout extends Component {
     caption('survival-result-kills', '击败 ' + b.kills, 640, 445, 26, 192);
     caption('survival-result-time', '用时 ' + this.time(b.elapsed), 895, 445, 26, 245);
     for (const [i, x] of [516, 767].entries()) caption('survival-stat-divider-' + i, '│', x, 445, 31, 35, '#b19a76');
-    this.survivalDialogPlate(root, 640, 367, 401, 55, '#f6be70');
-    caption('survival-result-rate', ending.rate, 640, 366, 27, 390, '#ffdb85');
-    const tickets = this.reward.tickets > 0;
-    const coinX = tickets ? 375 : 493, materialX = tickets ? 624 : 800;
-    this.survivalUiSprite(root, 'coin', coinX - 102, 290, 44, 44, true);
-    this.survivalUiSprite(root, 'material', materialX - 102, 290, 43, 43, true);
-    caption('result-reward', '金币 +' + this.reward.coins, coinX, 290, 29, 174);
-    caption('survival-material-reward', '材料 +' + this.reward.materials, materialX, 290, 29, 174);
-    if (tickets) caption('survival-ticket-reward', '招募券 +' + this.reward.tickets, 874, 290, 29, 210);
-    caption('saved', saved ? ending.message : '存档写入失败，请重试保存。', 640, 216, 22, 640, saved ? '#ddcdb2' : '#f0a989');
+    caption('saved', saved ? '物资仅在本局使用' : '存档写入失败，请重试保存。', 640, 333, 22, 640, saved ? '#ddcdb2' : '#f0a989');
     this.survivalDialogButton(root, { id: 'survival-result-main', label: saved ? '返回基地' : '重试保存', run: back }, 225, 92, 368, 80, true);
     this.survivalDialogButton(root, { id: 'survival-result-extra', label: '继续挑战', enabled: saved, run: () => this.open('survival-entry') }, 687, 92, 368, 80);
   }
@@ -4963,33 +5563,46 @@ export class Blackout extends Component {
   }
   private chapterUnlocked(chapter: Chapter) {
     if (this.unlockAllChapters) return true;
+    if (chapter === 6) return !!this.profile.frontierCleared;
+    if (chapter === 5) return !!this.profile.operationArchive;
     return chapter === 1 || (chapter === 2 ? this.profile.streetUnlocked : chapter === 3 ? this.profile.apartmentUnlocked : this.profile.owned[ENGINEER_ID]);
   }
   private loadChapterArt(chapter: Chapter, returnTo: Mode) {
     this.loadCampaignArt('chapters');
     this.requestArt('combat', () => this.loadCombatArt());
-    this.loadSampleArt(chapter === 4);
-    const neighbors = chapter === 1 ? [] : chapter === 2 ? STREET_ART : chapter === 3 ? APARTMENT_ART : OPERATION_ART;
+    this.loadSampleArt(chapter >= 4, chapter !== 4);
+    if (chapter >= 5) {
+      this.loadTimedSurvivalArt(); this.loadSurvivalGearArt();
+      this.requestArt('survival-ui', () => this.loadSurvivalUi());
+      this.loadTrainingArt(GHOST_ID);
+    }
+    const neighbors = chapter === 6 ? [...APARTMENT_ART, ...RETRIEVAL_ART, ...FRONTIER_ART.filter(([atlas]) => atlas === 'escort-fleet-v1'),
+      ...OPERATION_ART.filter(([atlas]) => ['aircraft', 'dialogue-portraits', 'radio-portraits', 'actors-v2'].includes(atlas))] :
+      chapter === 1 ? [] : chapter === 2 ? STREET_ART : chapter === 3 ? APARTMENT_ART : chapter === 4 ? OPERATION_ART :
+      [...FRONTIER_ART, ...ESCORT_AIR_ART, ...APARTMENT_ART.filter(([id]) => id === 'apartment-brute-v2' || id === 'apartment-brute-charge')];
     const info = CHAPTERS[chapter];
     const avatar = () => chapter === 4 ? this.streetFrames.get('op-portrait-rimelet') ?? this.campaignFrames.get('liaison') :
+      chapter >= 5 ? this.trainingFrames.get('ghost-face') ?? this.ghostPortrait :
       chapter === 3 ? this.trainingFrames.get('weichuan-face') : this.trainingFrames.get('lin-face');
     const load = this.beginDeparture({
       title: info.name, area: info.location, point: CAMPAIGN_LOCATIONS[chapter], lines: info.lines,
       heading: chapter === 4 ? '任务目标 · ' + OPERATION_BOSS_NAME : undefined,
       map: () => this.campaignFrames.get('satellite-map'),
       avatar: () => avatar() ?? this.campaignFrames.get(`chapter-${chapter}`),
-      inset: chapter < 3 ? () => this.campaignFrames.get(`chapter-${chapter}`) : undefined,
+      inset: chapter < 3 || chapter >= 5 ? () => this.campaignFrames.get(`chapter-${chapter}`) : undefined,
       repeated: chapter === this.lastLaunchedChapter, returnTo,
     }, () => this.loadChapterArt(chapter, returnTo), () => {
       this.lastLaunchedChapter = chapter;
-      this.launchChapter(chapter);
+      this.beginChapterOpening(chapter);
       return true;
     });
     let done = 0;
     load.progress = () => (done + Number(this.chapterBaseArtReady(chapter))) / (neighbors.length + 1);
     for (const [atlas, parts] of neighbors) {
       if (parts.every(([id]) => this.streetFrames.has(id))) { done++; continue; }
-      resources.load((chapter === 4 ? 'chapter4/' : 'common/environment/') + atlas + '/spriteFrame', SpriteFrame, (err, source) => {
+      const directory = chapter === 4 || chapter >= 5 && OPERATION_ART.some(([id]) => id === atlas)
+        ? 'chapter4/' : 'common/environment/';
+      resources.load(directory + atlas + '/spriteFrame', SpriteFrame, (err, source) => {
         if (!this.isValid || this.departure !== load) return;
         if (err) { load.failed = '场景素材加载失败'; return; }
         source.packable = false;
@@ -5012,10 +5625,27 @@ export class Blackout extends Component {
     briefRoot.addComponent(UIOpacity).opacity = 0;
     briefRoot.active = false;
     const fade = this.graphics('Satellite blackout', root);
-    const load: Departure = { brief, time: 0, typed: 0, waiting: 0, page: 0, pageTime: 0,
+    const pages = (brief.pages ?? [brief]).flatMap(page => this.wrapDeparturePage(page, BRIEF_LAYOUT(!!brief.inset).bodyWidth));
+    const load: Departure = { brief: { ...brief, pages }, time: 0, typed: 0, waiting: 0, page: 0, pageTime: 0,
       progress: () => 0, retry, launch, briefRoot, overlay, fade };
     this.departure = load;
     return load;
+  }
+  private wrapDeparturePage(page: DeparturePage, width: number): DeparturePage[] {
+    const lines: string[] = [];
+    for (const paragraph of page.lines) {
+      let line = '';
+      for (const char of paragraph) {
+        if (line && (char === '\n' || this.hudTextWidth(line + char, BRIEF_BODY_SIZE) > width - 12)) {
+          lines.push(line.trimEnd());
+          line = '';
+        }
+        if (char !== '\n') line += line ? char : char.trimStart();
+      }
+      if (line) lines.push(line.trimEnd());
+    }
+    return Array.from({ length: Math.max(1, Math.ceil(lines.length / BRIEF_ROWS)) }, (_, i) =>
+      ({ ...page, lines: lines.slice(i * BRIEF_ROWS, (i + 1) * BRIEF_ROWS) }));
   }
   private backFromDeparture() {
     const load = this.departure;
@@ -5029,7 +5659,7 @@ export class Blackout extends Component {
   }
   private departureTextTime(load: Departure) {
     const { lines } = this.departurePage(load);
-    return (lines[0].length + lines[1].length) * BRIEF_CHAR_SECONDS;
+    return lines.join('\n').length * BRIEF_CHAR_SECONDS;
   }
   private updateDeparture(dt: number) {
     const load = this.departure;
@@ -5149,7 +5779,8 @@ export class Blackout extends Component {
   }
   private renderDepartureBrief(load: Departure, x: number, y: number, reveal: number) {
     const { brief, briefRoot: root, overlay } = load;
-    const width = brief.inset ? 546 : 480, height = 118;
+    const { width, bodyWidth: available } = BRIEF_LAYOUT(!!brief.inset);
+    const height = 144;
     const right = W - x >= width + 72;
     const bx = clamp(right ? x + 56 : x - 56 - width, 30, W - width - 30);
     const by = clamp(y + 38, 168, H - height - 34);
@@ -5179,17 +5810,21 @@ export class Blackout extends Component {
       const icon = this.campaignSprite(root, inset, (W + width) / 2 - 59, H / 2, 83, 66, true)!;
       icon.node.name = 'Brief location';
     }
-    const textX = (W - width) / 2 + 104, available = width - (brief.inset ? 218 : 120);
+    const textX = (W - width) / 2 + 104;
     const page = this.departurePage(load);
-    this.campaignLabel(root, 'satellite-brief-heading', page.heading ?? brief.area, textX, H / 2 + 32, 19, available, '#f5d29a');
-    let count = Math.floor(load.typed / BRIEF_CHAR_SECONDS + .0001);
-    for (const [i, line] of page.lines.entries()) {
-      this.text('satellite-brief-' + i, line.slice(0, Math.max(0, count)), textX, H / 2 + 3 - i * 24, 17, '#f1e7d1', root, available);
-      count -= line.length;
-    }
+    this.campaignLabel(root, 'satellite-brief-heading', page.heading ?? brief.area, textX, H / 2 + 49, 19, available, '#f5d29a');
+    const count = Math.floor(load.typed / BRIEF_CHAR_SECONDS + .0001);
+    const body = this.text('satellite-brief-body', page.lines.join('\n').slice(0, count), textX, H / 2 + 29,
+      BRIEF_BODY_SIZE, '#f1e7d1', root, available);
+    body.lineHeight = BRIEF_LINE_HEIGHT;
+    body.verticalAlign = Label.VerticalAlign.TOP;
+    body.enableWrapText = false;
+    const textBox = body.node.getComponent(UITransform)!;
+    textBox.setContentSize(available, BRIEF_LINE_HEIGHT * BRIEF_ROWS + 3);
+    textBox.setAnchorPoint(0, 1);
     if (brief.pages) this.text('satellite-brief-next',
       this.departureHasNext(load) && load.typed >= this.departureTextTime(load) ? '点击继续 ›' : '',
-      textX + available - 102, H / 2 - 44, 14, '#e2b46c', root, 100, Label.HorizontalAlign.RIGHT);
+      textX + available, H / 2 - 48, 14, '#e2b46c', root, 100, Label.HorizontalAlign.RIGHT);
   }
   private drawLoading(title: string, progress: number, failed = false, background = true) {
     if (background) this.sbox(this.modalArt, 0, 0, W, H, '#03070a');
@@ -5203,26 +5838,77 @@ export class Blackout extends Component {
     this.loadChapterArt(chapter, this.mode);
   }
   private chapterBaseArtReady(chapter: Chapter) {
-    const requiredArt = chapter === 4 ? ['operator', 'walker'] :
+    const requiredArt = chapter >= 4 ? ['operator', 'walker'] :
       ['heroine', 'heroineRoll-0', 'heroineRoll-1', 'heroineRoll-2', 'dormKit', 'lobby-desk', 'corridor', 'bedroom'];
     if (chapter === 2) requiredArt.push('operator');
-    const fallArt = this.fallFrames.has(chapter === 4 ? 'operator' : 'lin');
-    return this.presentationReady && fallArt && requiredArt.every(id => this.artFrames.has(id));
+    if (chapter === 5) for (let i = 0; i < 4; i++) requiredArt.push('dorm-walker-' + i);
+    const fallArt = this.fallFrames.has(chapter >= 4 ? 'operator' : 'lin');
+    const frontierArt = chapter !== 5 || this.artFrames.has('survival-craft-bench') &&
+      this.artFrames.has('spitter') && this.artFrames.has('sentry-head') && this.timedSurvivalFrames.has('runner');
+    return this.presentationReady && fallArt && frontierArt && requiredArt.every(id => this.artFrames.has(id));
+  }
+  private beginChapterOpening(chapter: Chapter) {
+    const canSkip = this.profile.viewedChapterOpenings.includes(chapter);
+    this.departure = undefined;
+    this.resetInput();
+    const shade = this.transitionShade;
+    shade.node.setSiblingIndex(9999);
+    shade.node.active = true;
+    this.blackFade(shade, 1);
+    const root = this.makeNode('Chapter opening', shade.node);
+    root.addComponent(Button).transition = Button.Transition.NONE;
+    root.on(Button.EventType.CLICK, () => this.skipChapterOpening(), this);
+    const opacity = root.addComponent(UIOpacity);
+    const lines = chapterOpeningRows(chapter, 0);
+    const rows = lines.map((line, i) => this.campaignLabel(root, 'opening-row-' + i,
+      line, 64, (lines.length === 3 ? 133 : 112) - i * 38, i === 0 ? 32 : i === 1 ? 25 : 19, 660,
+      i === 0 ? '#f4ead9' : i === 1 ? '#d3cbbc' : '#b79a75'));
+    if (canSkip) this.text('opening-skip', '点按跳过', W - 64, 41, 19, '#aaa396', root, 200, Label.HorizontalAlign.RIGHT);
+    this.chapterOpening = { chapter, time: 0, canSkip, rows, opacity };
+  }
+  private stepChapterOpening(dt: number) {
+    const opening = this.chapterOpening!;
+    opening.time += dt;
+    if (opening.time >= CHAPTER_OPENING_SECONDS) {
+      this.finishChapterOpening(opening);
+      return;
+    }
+    const rows = chapterOpeningRows(opening.chapter, opening.time);
+    for (const [i, label] of opening.rows.entries()) if (label.string !== rows[i]) label.string = rows[i];
+    opening.opacity.opacity = Math.round(255 * clamp((CHAPTER_OPENING_SECONDS - opening.time) / .2, 0, 1));
+  }
+  private skipChapterOpening() {
+    const opening = this.chapterOpening;
+    if (opening?.canSkip) this.finishChapterOpening(opening);
+  }
+  private finishChapterOpening(opening: NonNullable<Blackout['chapterOpening']>) {
+    this.chapterOpening = undefined;
+    const root = opening.opacity.node;
+    root.active = false;
+    if (!opening.canSkip) {
+      this.profile.viewedChapterOpenings.push(opening.chapter);
+      this.save();
+    }
+    this.launchChapter(opening.chapter);
+    root.destroy();
   }
   private launchChapter(chapter: Chapter) {
     this.battle = this.makeBattle(this.sortieHero, chapter); this.fallTime = 0;
     this.objectiveNotice = undefined;
-    if (chapter === 4) {
-      this.beginOperationCinematic('flight');
-      return;
-    }
-    this.battle.tactical = newTacticalLoadout(this.profile.tacticalUnlocked.includes(this.tacticalChoice) ? this.tacticalChoice : this.profile.tacticalUnlocked[0] || null);
-    this.battle.preparePurchasedItems(this.profile.armory, id => {
+    if (chapter !== 5) this.battle.preparePurchasedItems(this.profile.armory, id => {
       const count = this.profile.armory.counts[id] ?? 0;
       if (count <= 1) delete this.profile.armory.counts[id];
       else this.profile.armory.counts[id] = count - 1;
       this.save();
     });
+    if (chapter === 4) {
+      this.beginOperationCinematic('flight');
+      return;
+    }
+    if (chapter === 5) {
+      this.beginFrontierCinematic();
+      return;
+    }
     this.replayTutorial = false;
     const prompt = chapter === 1 && this.battle.stage.dorm?.number === 2 ?
       this.profile.tutorial === 'done' ? 'replay' : this.profile.tutorialSeen ? 'resume' : 'first' : null;
@@ -5233,6 +5919,7 @@ export class Blackout extends Component {
     this.clearOperationEscape();
     this.tutorialPrompt = null;
     this.feedback.reset(); this.motion.reset(this.battle.player); this.weaponEffects.clear();
+    this.supportCasings.length = 0;
     this.motionBattle = undefined;
     this.objectiveNotice = undefined;
     if (!fromLanding) this.rebuildLevel();
@@ -5244,6 +5931,208 @@ export class Blackout extends Component {
     this.operationGuideHeading = undefined;
     this.applyTransitionVisuals(fromLanding ? 1 : 0, fromLanding ? 0 : 1);
     if (fromLanding) this.transitionShade.node.active = false;
+  }
+  private beginFrontierCinematic() {
+    this.open('operation-cinematic');
+    this.homeBackdrop.active = false;
+    const root = this.makeNode('Frontier opening', this.modal);
+    const scene = this.makeNode('Forward line', root);
+    const prop = (id: string, x: number, y: number, w: number, h: number, angle = 0) => {
+      const sprite = this.campaignSprite(scene, this.streetFrames.get(id)!, x, y, w, h)!;
+      sprite.node.angle = angle;
+      return sprite;
+    };
+    const place = (sprite: Sprite, x: number, y: number) => sprite.node.setPosition(x - W / 2, y - H / 2);
+    for (let x = -215; x <= W + 300; x += 440) for (let y = -48; y <= H + 330; y += 350) {
+      const ground = prop('frontier-dirt', x, y, 441, 351);
+      ground.node.setScale(x < W / 2 ? 1 : -1, y < H / 2 ? 1 : -1, 1);
+    }
+    const worldGraphics = (name: string) => {
+      const g = this.graphics(name, scene);
+      g.node.setPosition(-W / 2, -H / 2);
+      return g;
+    };
+    const blood = worldGraphics('Frontier blood stains');
+    for (const [kind, x, y, w, h, angle] of [
+      ['shed', 1198, 593, 201, 213, -5], ['wagon', 1102, 503, 131, 81, -13],
+      ['windmill', 1053, 618, 105, 79, 15], ['trough', 1108, 683, 123, 65, -5],
+      ['fence', 143, 579, 220, 44, -8], ['fence', 346, 551, 195, 37, -8],
+      ['fence', 1073, 257, 178, 37, 6], ['fence', 1237, 276, 156, 31, 6],
+      ['scrub', 121, 91, 71, 51, -28], ['scrub', 318, 137, 55, 38, 11],
+      ['scrub', 182, 643, 81, 57, 17], ['scrub', 420, 622, 56, 41, 54],
+      ['scrub', 989, 685, 76, 51, -17], ['scrub', 1172, 104, 94, 67, 0],
+      ['scrub', 26, 212, 73, 51, 175], ['scrub', 1035, 176, 60, 44, 34],
+    ] as const) prop('frontier-ranch-' + kind, x, y, w, h, angle);
+    const fortifications = FRONTIER_DEFENSE.map(part => prop(part.kind, part.x, part.y, part.w, part.h, 90));
+    const broken = FRONTIER_DEFENSE.flatMap((part, i) => 'breaks' in part && part.breaks ? [{ ...part, sprite: fortifications[i] }] : []);
+    const armor = FRONTIER_ARMOR.map(vehicle => ({ ...vehicle,
+      nextShot: vehicle.firstShot as number, lastShot: -10,
+      body: prop(vehicle.kind, vehicle.x, vehicle.y, vehicle.w, vehicle.h, vehicle.angle * 180 / Math.PI),
+      flash: prop('frontier-flash', vehicle.x, vehicle.y, vehicle.w * .47, vehicle.h * .64) }));
+    const soldiers = FRONTIER_TROOPS.map((post, i) => {
+      const model = this.campaignSprite(scene, this.artFrames.get('operator')!, post.x, post.y, 68, 68)!;
+      model.node.getComponent(UITransform)!.setAnchorPoint(.36, .5);
+      const motion = new ActorMotion(); motion.reset(post);
+      return { post, model, motion, nextShot: .67 + i % 5 * .12, lastShot: -10 };
+    });
+    const crowd = new Battle(GHOST_ID, 1, createFrontierOpening());
+    const modelGroup = (enemy: Enemy) => enemy.type === 'boss' ? 3 : enemy.type === 'spitter' ? 2 : enemy.id % 4 === 1 ? 1 : 0;
+    const horde = [...crowd.enemies].sort((a, b) => modelGroup(a) - modelGroup(b)).map(enemy => {
+      const grunt = this.artFrames.get('dorm-walker-' + enemy.appearance) ?? this.artFrames.get('walker')!;
+      const variant = enemy.type === 'boss' ? this.streetFrames.get('brute') :
+        enemy.type === 'spitter' ? this.artFrames.get('spitter') :
+        enemy.id % 4 === 1 ? this.timedSurvivalFrames.get('runner') : undefined;
+      const frame = variant ?? grunt, size = enemy.type === 'boss' ? 115 : enemy.type === 'spitter' ? 56 : 72;
+      const height = enemy.type === 'spitter' ? size * frame.originalSize.height / frame.originalSize.width : size;
+      const model = this.campaignSprite(scene, frame, enemy.x, enemy.y, size, height)!;
+      model.node.getComponent(UITransform)!.setAnchorPoint(enemy.type === 'boss' ? .39 : enemy.type === 'spitter' ? .50 : .42, enemy.type === 'spitter' ? .46 : .50);
+      const motion = new ActorMotion(); motion.reset(enemy);
+      return { enemy, model, motion, position: { x: enemy.x, y: enemy.y, angle: 0, hp: enemy.hp } };
+    });
+    const shots = worldGraphics('Frontier fire and fragments');
+    const flashFrames = this.grenadeBlastFrames;
+    const blastPool = Array.from({ length: 5 }, (_, i) => {
+      const blast = this.campaignSprite(scene, flashFrames[0] ?? this.streetFrames.get('frontier-dust')!, 0, 0, 184, 184)!;
+      blast.node.name = 'Frontier explosion ' + i;
+      blast.node.active = false;
+      return { sprite: blast, born: -10, radius: 0 };
+    });
+    const shells: { from: Point; at: Point; launched: number; travel: number; cannon: boolean }[] = [];
+    const grenades = [
+      { time: 2.57, x: 338, y: 349 }, { time: 4.75, x: 423, y: 622 },
+      { time: 6.08, x: 459, y: 240 }, { time: 7.68, x: 448, y: 405 },
+    ];
+    const launch = (time: number, from: Point, x: number, y: number, cannon: boolean) => {
+      const target = crowd.enemies.reduce<Enemy | undefined>((closest, e) => e.hp > 0 && e.x > 92 && e.x < 530 &&
+        Math.hypot(e.x - x, e.y - y) < (closest ? Math.hypot(closest.x - x, closest.y - y) : 155) ? e : closest, undefined);
+      shells.push({ from, at: target ? { x: target.x + (cannon ? 10 : 28), y: target.y } : { x, y },
+        launched: time, travel: cannon ? .14 : .58, cannon });
+    };
+    const dust = prop('frontier-dust', 557, 352, 247, 199);
+    const wind = [prop('frontier-dust', 480, 99, 520, 205), prop('frontier-dust', 330, 687, 560, 151)];
+    const fade = this.graphics('Frontier scene fade', root);
+    let called = false, lastFrame = 0, bloodRevision = -1;
+    const draw = (time: number) => {
+      const dt = time - lastFrame;
+      const retreat = Math.max(0, time - FRONTIER_BREACH);
+      if (retreat > .34 && !called) {
+        called = true;
+        this.speakOperation([['headquarters', '防线失守！全队撤离！']], true);
+      }
+      shots.clear();
+      while (crowd.elapsed + FRONTIER_OPENING_STEP <= time) {
+        crowd.stepFrontierOpening(FRONTIER_OPENING_STEP, crowd.elapsed + FRONTIER_OPENING_STEP > FRONTIER_BREACH);
+      }
+      let shake = 0;
+      for (const [i, vehicle] of armor.entries()) {
+        const cannon = i < 2, drift = Math.max(0, retreat - 1.1) ** 2 * (cannon ? 8 : 29);
+        const muzzle = { x: vehicle.x + drift - vehicle.w * .50, y: vehicle.y - Math.sin(vehicle.angle) * vehicle.w * .36 };
+        if (time >= vehicle.nextShot && retreat < (cannon ? .65 : 1.1)) {
+          vehicle.lastShot = time;
+          vehicle.nextShot += vehicle.cadence;
+          this.play(cannon ? 'grenade-blast' : 'support-shot');
+          if (cannon) launch(time, muzzle, 340 + (vehicle.nextShot % 2) * 75, vehicle.y, true);
+        }
+        const age = time - vehicle.lastShot, kick = clamp(1 - age / (cannon ? .26 : .08), 0, 1);
+        if (cannon) shake += 11 * kick ** 2;
+        place(vehicle.body, vehicle.x + drift + kick * (cannon ? 6 : 1.8), vehicle.y);
+        vehicle.flash.node.active = age < (cannon ? .105 : .065);
+        place(vehicle.flash, muzzle.x - vehicle.w * .14, muzzle.y);
+        if (vehicle.flash.node.active && !cannon)
+          line(shots, muzzle.x - 28, muzzle.y, muzzle.x - 154, muzzle.y + 9, '#ffcf8e', 1.5, 185);
+      }
+      for (const [i, soldier] of soldiers.entries()) {
+        const actor = { ...frontierWithdraw(soldier.post, i, Math.max(0, retreat - .58)), hp: 1 };
+        if (!actor.moving && time >= soldier.nextShot && retreat < .36) {
+          soldier.nextShot += 1.04 + i % 4 * .17;
+          soldier.lastShot = time;
+          soldier.motion.shoot(actor, GHOST_ID);
+          if (i % 4 === 0) this.play('support-shot');
+        }
+        soldier.motion.step(dt, actor);
+        const pose = soldier.motion.pose, flash = 1 - (time - soldier.lastShot) / .08;
+        place(soldier.model, actor.x + pose.offsetX, actor.y + pose.offsetY);
+        soldier.model.node.angle = pose.angle * 180 / Math.PI;
+        soldier.model.node.setScale(pose.scale, pose.scale, 1);
+        if (flash > 0) {
+          const mount = weaponMount(actor, .83, true, GHOST_ID, pose);
+          drawGunFlash(shots, mount, flash, GHOST_ID, i, true);
+          line(shots, mount.muzzle.x - 15, mount.muzzle.y, mount.muzzle.x - 102 - i % 3 * 14, mount.muzzle.y + Math.sin(i) * 10, '#ffe0a5', 1.4, 170);
+        }
+      }
+      for (const nade of grenades) if (lastFrame < nade.time && time >= nade.time)
+        launch(time, { x: 683, y: nade.y }, nade.x, nade.y, false);
+      for (let i = shells.length - 1; i >= 0; i--) {
+        const shell = shells[i], progress = (time - shell.launched) / shell.travel;
+        const at = (t: number) => ({
+          x: shell.from.x + (shell.at.x - shell.from.x) * t,
+          y: shell.from.y + (shell.at.y - shell.from.y) * t + (shell.cannon ? 0 : Math.sin(t * Math.PI) * 33),
+        });
+        if (progress < 1) {
+          const point = at(progress), trail = at(Math.max(0, progress - (shell.cannon ? .22 : .08)));
+          if (shell.cannon) line(shots, trail.x, trail.y, point.x, point.y, '#ffe4aa', 3.5, 230);
+          else disc(shots, point.x, point.y, 3.4, '#393b29', 240);
+          continue;
+        }
+        shells.splice(i, 1);
+        const radius = shell.cannon ? 97 : 69;
+        const effect = blastPool.reduce((a, b) => a.born <= b.born ? a : b);
+        effect.born = time; effect.radius = radius;
+        place(effect.sprite, shell.at.x, shell.at.y);
+        crowd.blastFrontierOpening(shell.at, radius, shell.cannon);
+        this.play('grenade-blast');
+      }
+      if (bloodRevision !== crowd.bloodRevision) {
+        bloodRevision = crowd.bloodRevision;
+        drawBloodStains(blood, crowd.bloodStains, crowd);
+      }
+      drawDeathFragments(shots, crowd.deathFragments);
+      for (const effect of blastPool) {
+        const age = time - effect.born;
+        effect.sprite.node.active = age < .93;
+        if (!effect.sprite.node.active) continue;
+        const scale = (.48 + .63 * (1 - Math.exp(-10 * age))) * effect.radius / 77;
+        effect.sprite.node.setScale(scale, scale, 1);
+        effect.sprite.spriteFrame = flashFrames[grenadeBlastPhase(age)] ?? this.streetFrames.get('frontier-dust')!;
+        effect.sprite.color = color('#ffffff', Math.round(255 * (1 - clamp((age - .24) / .69, 0, 1))));
+        shake += Math.max(0, 1 - age / .28) ** 2 * (effect.radius > 70 ? 7 : 3);
+      }
+      for (const { enemy, model, motion, position } of horde) {
+        model.node.active = enemy.hp > 0 && enemy.x > -72 && enemy.y > -73 && enemy.y < H + 73;
+        if (!model.node.active) continue;
+        const blend = 1 - Math.exp(-20 * dt);
+        position.x += (enemy.x - position.x) * blend; position.y += (enemy.y - position.y) * blend;
+        position.angle += angleDiff(enemy.angle, position.angle) * blend;
+        motion.step(dt, position);
+        const heavy = enemy.type === 'boss' ? crowd.bruteStepPose(enemy) : undefined;
+        model.node.angle = position.angle * 180 / Math.PI + (enemy.type === 'spitter' ? -90 : 0) + (heavy?.lean ?? 0) * 3;
+        model.node.setScale(motion.pose.scale * (1 - (heavy?.compression ?? 0) * .07), motion.pose.scale, 1);
+        model.color = enemy.hit > 0 ? color('#f4ad87') : color('#ffffff');
+        place(model, position.x, position.y);
+      }
+      for (const part of broken) {
+        const wire = part.kind === 'frontier-wire';
+        part.sprite.node.angle = 90 + (wire ? -1 : 1) * Math.min(retreat * 86, 43);
+        place(part.sprite, part.x + Math.min(retreat * 72, 37), part.y + (wire ? -1 : 2) * Math.min(retreat * 62, 32));
+      }
+      dust.node.active = retreat > 0 && retreat < 1.25;
+      if (dust.node.active) {
+        const scale = .35 + retreat * .8;
+        dust.node.setScale(scale, scale, 1);
+        dust.color = color('#ffffff', Math.round(255 * (1 - retreat / 1.25)));
+        shake += Math.max(0, 7 - retreat * 17);
+      }
+      for (const [i, haze] of wind.entries()) {
+        place(haze, (i ? 176 : 585) + time * (i ? 84 : 56) % 820, i ? 672 : 84);
+        haze.color = color('#e8bd89', Math.round(38 + 11 * Math.sin(time * 1.8 + i)));
+      }
+      scene.setPosition(Math.sin(time * 99) * Math.min(13, shake), Math.cos(time * 74) * Math.min(9, shake * .68));
+      this.blackFade(fade, Math.max(1 - time / .54, (time - FRONTIER_CUT_END + .65) / .65));
+      lastFrame = time;
+      return time >= FRONTIER_CUT_END;
+    };
+    this.operationCinema = { root, time: 0, draw, finish: () => this.enterBattleScene(5) };
+    draw(0);
   }
   private beginOperationCinematic(part: 'flight' | 'mutate' | 'strike') {
     this.open('operation-cinematic');
@@ -5533,11 +6422,765 @@ export class Blackout extends Component {
   }
   private applyTransitionVisuals(hudAlpha: number, blackAlpha: number) {
     const opacity = Math.round(clamp(hudAlpha, 0, 1) * 255);
-    const nodes = [this.hud.node, this.battleArtwork, this.modal, ...Array.from(this.labels.values()).filter(label => label.node.parent === this.canvas).map(label => label.node), ...Array.from(this.itemHudNodes.values())];
+    const nodes = [this.hud.node, this.battleArtwork, this.battleNoticeLayer?.node, this.modal, ...Array.from(this.labels.values()).filter(label => label.node.parent === this.canvas).map(label => label.node), ...Array.from(this.itemHudNodes.values())];
     for (const node of nodes) if (node) (node.getComponent(UIOpacity) || node.addComponent(UIOpacity)).opacity = opacity;
     this.transitionShade.node.active = true;
     this.transitionShade.node.setSiblingIndex(9999);
     this.blackFade(this.transitionShade, blackAlpha);
+  }
+  private beginFrontierEscort() {
+    this.clearOperationDialogue();
+    this.frontierEscort = new FrontierEscort();
+    this.supportCasings.length = 0;
+    this.frontierEscortOutro = 0;
+    this.frontierEscortAirSoundAt = 0;
+    this.frontierEscortArrivalShown = false;
+    this.open('frontier-escort');
+    this.speakOperation([
+      ['headquarters', '幽灵，载民大巴已经上路。接管首车机枪，护送大巴到临时避难所。'],
+      ['ghost', '收到。把大巴护在中间，尾车注意两翼。'],
+    ]);
+  }
+  private buildFrontierEscortView() {
+    const root = this.makeNode('Frontier convoy', this.canvas);
+    root.setSiblingIndex(this.modal.getSiblingIndex());
+    const world = this.makeNode('Escort terrain and convoy', root);
+    const sprite = (id: string, parent: Node, w: number, h: number) =>
+      this.setupSprite(this.makeNode(id, parent), this.streetFrames.get(id)!, w, h);
+    const roads = [0, 1, 2, 3].map(() => sprite('escort-road', world, W + 28, ESCORT_TILE + .6));
+    const shoulders = roads.map(() => [-1, 1].map(() => sprite('escort-wreck', world, 63, 105)));
+    const landmarks = roads.map(() => [-1, 1].map(() => sprite('frontier-ranch-scrub', world, 156, 140)));
+    const checkpoint = this.makeNode('Ruined checkpoint', world);
+    const refuge = this.makeNode('Stone refuge', world);
+    const prop = (id: string, parent: Node, x: number, y: number, w: number, h: number, angle = 0) => {
+      const item = sprite(id, parent, w, h);
+      item.node.setPosition(x, y);
+      item.node.angle = angle;
+      return item;
+    };
+    for (const side of [-1, 1]) {
+      prop('escort-mesh-ruined', checkpoint, side * 342, side * 5, 279, 145, side * 4);
+      prop('escort-mesh-hinged', checkpoint, side * 149, -28, 165, 85, side * -48);
+      prop('escort-checkpoint-barrier', checkpoint, side * 166, -109, 110, 41, side * 16);
+    }
+    prop('escort-checkpoint-sign', checkpoint, 127, 55, 46, 51, -16);
+    for (const column of [-1, 0, 1]) {
+      const paving = prop('escort-refuge-yard', refuge, column * W / 3, H / 4, W / 3 + 1, H / 2 + 2);
+      paving.node.setScale(column ? -1 : 1, 1, 1);
+      paving.color = color('#b5aa99');
+    }
+    const gate = [-1, 1].map(side => {
+      const blade = sprite('escort-refuge-gate', refuge, ESCORT_GATE_HALF + 6, 25);
+      blade.node.setScale(side, 1, 1);
+      return blade;
+    });
+    const refugeHalf = W / 2 + 10;
+    for (const side of [-1, 1]) {
+      prop('escort-refuge-wall', refuge, side * (refugeHalf + ESCORT_GATE_HALF) / 2, 0, refugeHalf - ESCORT_GATE_HALF + 5, 53);
+      prop('escort-refuge-tower', refuge, side * 153, 67, 80, 80, side * 90);
+      for (const x of [363, 460]) prop('escort-refuge-tent', refuge, x * side, 157, 91, 91);
+    }
+    prop('escort-refuge-checkin', refuge, 250, 159, 109, 109);
+    prop('frontier-crates', refuge, -514, 64, 39, 41, -6);
+    const refugeGuide = sprite('escort-refuge-guide', refuge, 37, 37);
+    const refugeStaff = [
+      { id: 'carrier', x: -433, y: 76, dx: 141, dy: 9, leg: 3.45, offset: 1.4 },
+      { id: 'clerk', x: 245, y: 90, dx: 115, dy: -8, leg: 2.9, offset: .65 },
+      { id: 'aide', x: 474, y: 84, dx: 54, dy: -23, leg: 2.5, offset: 0 },
+    ].map(route => ({ ...route, sprite: sprite('escort-refuge-' + route.id, refuge, 35, 35) }));
+    const fallen = sprite('escort-log', world, 436, 162);
+    const debris = [-1, 1].map(() => sprite('escort-debris', world, 174, 68));
+    const airDust = Array.from({ length: ESCORT_AIR_IMPACT_CAP }, () => sprite('escort-dust', world, 108, 80));
+    const roadside = this.frontierEscort!.roadside.map(() => ({
+      car: sprite('escort-wreck', world, 55, 103),
+      smoke: [0, 1, 2].map(() => sprite('escort-dust', world, 75, 69)),
+      flame: sprite('escort-blast', world, 54, 54),
+    }));
+    const engineers = [-1, 1].map(() => {
+      const { width, height, anchorX } = ESCORT_CREW_ART;
+      const unit = this.setupSprite(this.makeNode('Road crew', world), this.artFrames.get('operator')!, width, height);
+      unit.node.getComponent(UITransform)!.setAnchorPoint(anchorX, .5);
+      return unit;
+    });
+    const crewFlashes = engineers.map(() => {
+      const flash = sprite('frontier-flash', world, 27, 20);
+      flash.node.getComponent(UITransform)!.setAnchorPoint(.8, .5);
+      return flash;
+    });
+    const aftermath = this.makeNode('Escort casualties', world);
+    const downed = Array.from({ length: ESCORT_EFFECT_CAP }, () =>
+      this.setupSprite(this.makeNode('Falling infected', aftermath), this.artFrames.get('walker')!, 47, 47));
+    const fleet = this.makeNode('Escort vehicles', world);
+    const dust = ESCORT_VEHICLES.map(() => sprite('escort-dust', fleet, 111, 102));
+    const vehicles = ESCORT_VEHICLES.map(vehicle => sprite(vehicle.art, fleet, vehicle.width, vehicle.length));
+    const [turret, rearTurret] = ESCORT_TURRETS.map(({ width, height }) => {
+      const gun = sprite('escort-gun', fleet, width, height);
+      gun.node.getComponent(UITransform)!.setAnchorPoint(.5, ESCORT_TURRET_ANCHOR);
+      return gun;
+    });
+    const crowd = this.makeNode('Convoy attackers', world);
+    const units = Array.from({ length: ESCORT_ENEMY_CAP }, () => this.setupSprite(this.makeNode('Escort infected', crowd), this.artFrames.get('walker')!, 47, 47));
+    const crewAmbushers = Array.from({ length: ESCORT_AMBUSH_SIZE }, () =>
+      this.setupSprite(this.makeNode('Demolition ambush infected', crowd), this.artFrames.get('walker')!, 47, 47));
+    const blast = sprite('escort-blast', world, 405, 214);
+    const wreckEffects = {
+      blast: sprite('escort-blast', world, 168, 168),
+      flames: [0, 1, 2].map(() => sprite('escort-blast', world, 62, 62)),
+      smoke: [0, 1, 2, 3].map(() => sprite('escort-dust', world, 106, 97)),
+    };
+    const impacts = Array.from({ length: ESCORT_EFFECT_CAP }, () => sprite('escort-dust', world, 42, 39));
+    const flashes = Array.from({ length: ESCORT_MUZZLE_VARIANTS }, (_, i) => this.streetFrames.get('escort-humvee-flash-' + i)!);
+    const flash = sprite('escort-humvee-flash-0', world, 58, 29);
+    flash.node.getComponent(UITransform)!.setAnchorPoint(16 / 192, .5);
+    const rearFlash = sprite('escort-blast', world, 38, 20);
+    rearFlash.node.getComponent(UITransform)!.setAnchorPoint(.24, .5);
+    const vehicleHitDust = ESCORT_VEHICLES.map(() => sprite('escort-dust', world, 58, 52));
+    const fire = this.graphics('Escort fire and threats', world);
+    const incidentEffects = this.makeNode('Escort blast effects', world);
+    const shock = Array.from({ length: 20 }, () => sprite('escort-dust', incidentEffects, 108, 60));
+    const air = this.makeNode('Little Bird support', world);
+    const littlebird = OPERATION_LITTLEBIRD_ART;
+    const aircraft = [0, 1, 2].map(() => {
+      const shadow = sprite('op-littlebird', air, littlebird.width, littlebird.height);
+      shadow.color = color('#1d1918', 110);
+      const body = sprite('op-littlebird', air, littlebird.width, littlebird.height);
+      const rotor = sprite('op-rotor', air, 166, 166);
+      rotor.color = color('#e2ded1', 173);
+      const flash = sprite('frontier-flash', air, 37, 24);
+      flash.node.getComponent(UITransform)!.setAnchorPoint(.8, .5);
+      flash.color = color('#ffe2a4', 225);
+      return { shadow, body, rotor, flash };
+    });
+    const leaperFrame = this.streetFrames.get('brute-charge') ?? this.streetFrames.get('brute')!;
+    const leaperShadow = this.setupSprite(this.makeNode('Giant shadow', world), leaperFrame, 84, 96);
+    leaperShadow.color = color('#291e18', 92);
+    leaperShadow.node.setSiblingIndex(air.getSiblingIndex());
+    const leaper = this.setupSprite(this.makeNode('Giant grabbing the aircraft', air), leaperFrame, 84, 96);
+    const crashSmoke = Array.from({ length: 8 }, () => sprite('escort-dust', air, 95, 86));
+    const crashFire = [0, 1].map(() => sprite('escort-blast', air, 72, 72));
+    const incidentBlast = sprite('escort-blast', world, 270, 270);
+    const incidentSparks = this.graphics('Flying fragments from convoy blasts', world);
+    const status = this.makeNode('Escort status', root);
+    const hud = this.graphics('Escort status meters', status);
+    const threatHud = this.graphics('Off-screen escort threat', root);
+    const title = this.campaignLabel(status, 'escort-title', '', 32, 668, 25, 333);
+    const hint = this.campaignLabel(status, 'escort-hint', '', 33, 631, 17, 365, '#e1ceb1');
+    const passengers = this.campaignLabel(status, 'escort-bus-status', ESCORT_VEHICLES[ESCORT_BUS].name, 32, 558, 16, 320);
+    this.battleSprite('button_pause', HUD.pause, root);
+    this.addButton('escort-pause', HUD.pause.x, HUD.pause.y, HUD.pause.w, HUD.pause.h, () => {
+      if (!this.frontierEscort?.outcome) this.open('pause');
+    });
+    const stick = sys.isMobile ? this.battleSprite('joystick_fire', HUD.fire, root) : undefined;
+    const shade = this.graphics('Escort transition', root);
+    return { root, world, roads, shoulders, landmarks, checkpoint, refuge, gate, refugeGuide, refugeStaff, aircraft, fallen, debris,
+      casingSprites: [] as Sprite[],
+      roadside, airDust, shock, incidentBlast, incidentSparks, leaper, leaperShadow, crashSmoke, crashFire,
+      engineers, crewFlashes, crewAmbushers, downed, dust, vehicles, turret, rearTurret, units, blast, wreckEffects,
+      impacts, flash, flashes, rearFlash, vehicleHitDust, fire, status, hud, threatHud, title, hint, passengers, stick, shade };
+  }
+  private drawFrontierEscort() {
+    const run = this.frontierEscort!, view = this.frontierEscortView!;
+    const camera = run.camera(H);
+    const tile = Math.floor(run.distance / ESCORT_TILE);
+    view.roads.forEach((sprite, i) => {
+      const segment = tile + i - 1;
+      sprite.node.setPosition(0, (segment + .5) * ESCORT_TILE - run.distance);
+      sprite.node.setScale(1, segment % 2 ? -1 : 1, 1);
+      view.shoulders[i].forEach((wreck, j) => {
+        const side = j ? 1 : -1;
+        const point = escortShoulder(segment, side);
+        const variant = escortShoulderVariant(segment, side);
+        const art = ['escort-wreck', 'frontier-ranch-wagon', 'frontier-ranch-scrub'][variant];
+        const frame = this.streetFrames.get(art)!;
+        if (wreck.spriteFrame !== frame) {
+          wreck.spriteFrame = frame;
+          const size = frame.originalSize;
+          const scale = 103 / Math.max(size.width, size.height);
+          wreck.node.getComponent(UITransform)!.setContentSize(size.width * scale, size.height * scale);
+        }
+        wreck.node.setPosition(point.x, point.y - run.distance);
+        wreck.node.angle = ((segment * 67 + j * 49) % 153) - 65;
+        const landmark = view.landmarks[i][j];
+        const setting = segment <= 3 ? j ? 'windmill' : 'fence' : segment <= 7 ? j ? 'scrub' : 'wagon' : j ? 'fence' : 'shed';
+        const landmarkFrame = this.streetFrames.get('frontier-ranch-' + setting)!;
+        if (landmark.spriteFrame !== landmarkFrame) {
+          landmark.spriteFrame = landmarkFrame;
+          const size = landmarkFrame.originalSize, scale = (setting === 'shed' ? 175 : 158) / Math.max(size.width, size.height);
+          landmark.node.getComponent(UITransform)!.setContentSize(size.width * scale, size.height * scale);
+        }
+        landmark.node.active = (segment + j * 2) % 3 !== 1;
+        landmark.node.setPosition(side * (520 + (j ? 12 : 0)), point.y - run.distance + (j ? -117 : 138));
+        landmark.node.angle = side * (5 + ((segment % 4 + 4) % 4) * 11);
+        landmark.color = color('#d9bfa6');
+      });
+    });
+    const logY = ESCORT_LOG - run.distance, gateY = run.gateY;
+    const checkpointY = ESCORT_CHECKPOINT - run.distance;
+    view.checkpoint.active = Math.abs(checkpointY) < 640;
+    if (view.checkpoint.active) view.checkpoint.setPosition(0, checkpointY);
+    view.refuge.active = gateY < 600;
+    if (view.refuge.active) {
+      view.refuge.setPosition(0, gateY);
+      view.gate.forEach((panel, i) => panel.node.setPosition((i ? 1 : -1) * ESCORT_GATE_HALF * (.5 + run.gateOpen), 0));
+      const easeWalk = (value: number) => { const t = clamp(value, 0, 1); return t * t * (3 - 2 * t); };
+      for (const { sprite, x, y, dx, dy, leg, offset } of view.refugeStaff) {
+        const clock = (run.time + offset) / leg, phase = clock % 1;
+        const returnLeg = Math.floor(clock) % 2 === 1;
+        const walking = easeWalk((phase - .13) / .74);
+        const progress = returnLeg ? 1 - walking : walking;
+        const turn = 180 * easeWalk(phase / .16);
+        const bob = Math.sin(run.time * 19 + offset) * Math.sin(Math.PI * walking);
+        sprite.node.setPosition(x + dx * progress, y + dy * progress + bob * 1.6);
+        sprite.node.angle = Math.atan2(dy, dx) * 180 / Math.PI - 90 + (returnLeg ? turn : 180 + turn);
+        sprite.node.setScale(1 + bob * .031, 1 - bob * .025, 1);
+      }
+      const approach = easeWalk((run.time - (run.gateOpenedAt ?? Infinity)) / 1.55);
+      const leave = easeWalk((run.time - (run.gateClosingAt ?? Infinity)) / 1.2);
+      const progress = approach * (1 - leave);
+      const pace = Math.sin(Math.PI * progress), bob = Math.sin(run.time * 20) * pace;
+      view.refugeGuide.node.setPosition(-230 + 94 * progress, 107 + 8 * progress + bob * 1.5);
+      view.refugeGuide.node.angle = -83 + (run.gateClosingAt === undefined ? -52 * approach : -52 + 180 * leave);
+      view.refugeGuide.node.setScale(1 + bob * .034, 1 - bob * .023, 1);
+    }
+    view.aircraft.forEach(({ shadow, body, rotor, flash }, i) => {
+      const pose = run.aircraftPose(i);
+      const visible = pose.visible && Math.abs(pose.y - camera.y) < H / 2 + 170;
+      body.node.active = shadow.node.active = visible;
+      rotor.node.active = visible && !pose.grounded;
+      flash.node.active = visible && pose.supporting && run.time - run.airGun(i).flashAt < .052;
+      if (!visible) return;
+      const yaw = pose.angle * Math.PI / 180;
+      const rotorOffset = OPERATION_LITTLEBIRD_ART.rotorForward * pose.scale;
+      const wreck = i === 2 && pose.grounded;
+      const bodyFrame = this.streetFrames.get(wreck ? 'escort-littlebird-wreck' : 'op-littlebird')!;
+      if (body.spriteFrame !== bodyFrame) body.spriteFrame = bodyFrame;
+      body.node.setPosition(pose.x, pose.y);
+      shadow.node.setPosition(pose.x + 26 * pose.height, pose.y - 33 * pose.height);
+      shadow.node.angle = body.node.angle = pose.angle;
+      body.node.setScale(pose.scale, pose.scale, 1);
+      shadow.node.setScale(pose.scale * .95, pose.scale * .95, 1);
+      rotor.node.setPosition(pose.x - Math.sin(yaw) * rotorOffset, pose.y + Math.cos(yaw) * rotorOffset);
+      rotor.node.setScale(pose.scale, pose.scale, 1);
+      rotor.node.angle = run.time * (i === 1 ? 905 : 855) + (1 - pose.height) * -112;
+      if (flash.node.active) {
+        const point = run.aircraftMuzzle(i, pose);
+        flash.node.setPosition(point.x, point.y);
+        flash.node.angle = pose.angle + 90;
+        const size = 1 + Math.sin(run.airGun(i).shots * 2.4) * .26;
+        flash.node.setScale(size * 1.22, size * .85, 1);
+      }
+    });
+    const detonation = run.breachAt === undefined ? -1 : run.time - run.breachAt;
+    view.fallen.node.active = detonation < 0 && Math.abs(logY) < 490;
+    if (view.fallen.node.active) view.fallen.node.setPosition(0, logY);
+    view.debris.forEach((debris, i) => {
+      debris.node.active = detonation >= 0 && Math.abs(logY) < 480;
+      const drift = 1 - (1 - clamp(detonation / .48, 0, 1)) ** 3;
+      debris.node.setPosition((i ? 1 : -1) * (89 + drift * 115), logY + (i ? 12 : -14) * drift);
+      debris.node.angle = (i ? 31 : -23) * drift;
+    });
+    view.engineers.forEach((unit, i) => {
+      const pose = run.crewPose(i);
+      unit.node.active = pose.visible;
+      unit.node.setPosition(pose.x, pose.y);
+      unit.node.angle = pose.angle;
+      unit.node.setScale(pose.scaleX, .96, 1);
+      const frames = this.fallFrames.get('operator');
+      const frame = pose.fallAge < 0 ? undefined : frames?.[i * 3 + (pose.fallAge < .13 ? 0 : pose.fallAge < .31 ? 1 : 2)];
+      if (frame && unit.spriteFrame !== frame.frame) {
+        unit.spriteFrame = frame.frame;
+        const bounds = unit.node.getComponent(UITransform)!;
+        bounds.setContentSize(frame.width * .12, 512 * .12);
+        bounds.setAnchorPoint(frame.anchorX, frame.anchorY);
+      }
+      const gun = run.crewGuns[i], flash = view.crewFlashes[i], age = run.time - gun.flashAt;
+      flash.node.active = pose.visible && pose.armed && age < .045;
+      if (flash.node.active) {
+        const barrel = ESCORT_CREW_BARREL * pose.scaleX;
+        flash.node.setPosition(pose.x + Math.cos(gun.angle) * barrel, pose.y + Math.sin(gun.angle) * barrel);
+        flash.node.angle = gun.angle * 180 / Math.PI;
+        flash.color = color('#ffe7c1', Math.round(245 * (1 - age / .045)));
+      }
+    });
+    view.blast.node.active = detonation >= 0 && detonation < 1.15;
+    view.blast.node.setPosition(0, logY);
+    const blastScale = .5 + clamp(detonation, 0, 1.15) * 1.3;
+    view.blast.node.setScale(blastScale, blastScale, 1);
+    view.blast.color = color('#ffdab0', Math.round(255 * (1 - clamp(detonation / 1.15, 0, 1))));
+    const blastShake = view.blast.node.active ? (1 - detonation / 1.15) ** 2 * 13 : 0;
+    const bus = run.bus;
+    const wreckShake = bus.wreck ? clamp(1 - (run.time - bus.wreck.at) / .58, 0, 1) ** 2 * 11 : 0;
+    let impactShake = 0;
+    const lead = run.vehiclePose(0);
+    for (let i = 0; i < run.vehicleHits.length; i++) {
+      const impact = run.vehicleHits[i];
+      if (!impact?.heavy || run.time - impact.at >= .28) continue;
+      const pose = run.vehiclePose(i), distance = Math.hypot(lead.x - pose.x, lead.y - pose.y);
+      impactShake = Math.max(impactShake, clamp(1 - distance / 220, 0, 1) * (1 - (run.time - impact.at) / .28) ** 2 * 6.8);
+    }
+    const shake = Math.max(blastShake, wreckShake, impactShake, run.blastFeedback(lead).shake, run.muzzle * 31) * camera.shake;
+    view.status.setPosition(0, -310 * (1 - camera.shake));
+    view.world.setScale(camera.scale, camera.scale, 1);
+    view.world.setPosition(-camera.x * camera.scale + shake * Math.sin(run.time * 82),
+      -camera.y * camera.scale + shake * Math.cos(run.time * 66));
+    const onScreen = (x: number, y: number, margin = 0) =>
+      Math.abs(x - camera.x) * camera.scale < W / 2 + margin && Math.abs(y - camera.y) * camera.scale < H / 2 + margin;
+    view.fire.clear();
+    view.vehicles.forEach((sprite, i) => {
+      const pose = run.vehiclePose(i), civilian = i === ESCORT_BUS ? bus : undefined, dust = view.dust[i];
+      const shock = run.blastFeedback(pose);
+      const impact = run.vehicleHits[i], puff = view.vehicleHitDust[i];
+      const age = impact ? run.time - impact.at : Infinity;
+      const life = impact?.heavy ? .45 : .29;
+      const activeHit = impact && age < life;
+      let bump = 0, pushX = 0, pushY = 0;
+      puff.node.active = false;
+      if (activeHit) {
+        const at = escortContactPoint(pose, impact.contact), outward = escortContactPoint(pose, impact.contact, 1);
+        const nx = outward.x - at.x, ny = outward.y - at.y;
+        const phase = age / life, fade = (1 - phase) ** 2;
+        bump = (impact.heavy ? 9 : 4.5) * Math.cos(phase * 8.5) * fade;
+        pushX = -nx * bump;
+        pushY = -ny * bump;
+        if (onScreen(at.x, at.y, 45)) {
+          const spread = .35 + phase * (impact.heavy ? 1.35 : .9);
+          puff.node.active = true;
+          puff.node.setPosition(at.x + nx * phase * 28, at.y + ny * phase * 28);
+          puff.node.setScale(spread, spread, 1);
+          puff.color = color('#d9b399', Math.round((impact.heavy ? 168 : 118) * (1 - phase)));
+          const count = impact.heavy ? 6 : 4;
+          for (let j = 0; j < count; j++) {
+            const path = (j - (count - 1) / 2) * .44, angle = Math.atan2(ny, nx) + path;
+            const sx = Math.cos(angle), sy = Math.sin(angle);
+            const reach = 2 + age * (58 + j * 12) * (impact.heavy ? 1.4 : 1);
+            const x = at.x + sx * reach + pushX, y = at.y + sy * reach + pushY;
+            line(view.fire, x, y, x + sx * 5, y + sy * 5, j % 2 ? '#ffbc77' : '#fff1b6', j % 2 ? 1.5 : 2.2, Math.round(245 * fade));
+          }
+        }
+      }
+      sprite.node.setPosition(pose.x + pushX + shock.x, pose.y + pushY + shock.y);
+      sprite.node.angle = pose.angle + shock.yaw + clamp(bump, -9, 9) * (impact?.contact.nx ?? 0) * .48;
+      sprite.color = color(civilian?.hp === 0 ? '#514540' : age < .10 ? '#ffccae' : '#ffffff');
+      const { length, width } = ESCORT_VEHICLES[i];
+      dust.node.active = pose.speed > 4;
+      dust.node.setPosition(pose.x + 8 * Math.sin(run.time * 3 + i), pose.y - length / 2 - 13);
+      dust.color = color('#d0ab83', Math.round(clamp(pose.speed / 70, 0, 1) * (78 + 14 * Math.cos(run.time * 7 + i))));
+      if (pose.braking) {
+        for (const side of [-1, 1]) {
+          const x = pose.x + side * width * .36, y = pose.y - length * .44;
+          disc(view.fire, x, y, 7, '#f34a26', 40);
+          disc(view.fire, x, y, 2.8, '#ff7650', 224);
+        }
+      }
+      if (civilian?.threat && civilian.hp > 0) {
+        const threat = civilian.threat, angle = Math.atan2(threat.y - pose.y, threat.x - pose.x);
+        if (onScreen(pose.x, pose.y, -18) && onScreen(threat.x, threat.y)) {
+          const dx = Math.cos(angle), dy = Math.sin(angle), offset = 53 * ESCORT_VEHICLE_SCALE;
+          const x = pose.x + dx * offset, y = pose.y + dy * offset;
+          polygon(view.fire, [{ x, y }, { x: x - dx * 13 - dy * 7, y: y - dy * 13 + dx * 7 },
+            { x: x - dx * 13 + dy * 7, y: y - dy * 13 - dx * 7 }], '#ffa15e', 230);
+        }
+      }
+    });
+    this.drawFrontierEscortIncidents(run, view, onScreen);
+    {
+      const pose = run.vehiclePose(ESCORT_BUS), effects = view.wreckEffects;
+      const damaged = bus.hp <= 35, wreck = bus.wreck;
+      const age = wreck ? run.time - wreck.at : -1, visible = onScreen(pose.x, pose.y, 135);
+      const angle = pose.angle * Math.PI / 180, nose = ESCORT_VEHICLES[ESCORT_BUS].length * .235;
+      const noseX = pose.x - Math.sin(angle) * nose, noseY = pose.y + Math.cos(angle) * nose;
+      effects.blast.node.active = visible && age >= 0 && age < .62;
+      if (effects.blast.node.active) {
+        const progress = age / .62;
+        effects.blast.spriteFrame = this.grenadeBlastFrames[Math.min(5, Math.floor(progress * 6))] ?? this.streetFrames.get('escort-blast')!;
+        effects.blast.node.setPosition(noseX, noseY);
+        const size = .45 + progress * .65;
+        effects.blast.node.setScale(size, size, 1);
+        effects.blast.color = color('#ffdfa6', Math.round(255 * (1 - progress ** 2)));
+      }
+      effects.smoke.forEach((smoke, j) => {
+        smoke.node.active = visible && damaged && (wreck ? age > j * .19 : j < 2);
+        if (!smoke.node.active) return;
+        const drift = (run.time * .6 + j * .25) % 1;
+        smoke.node.setPosition(noseX + drift * (wreck?.side ?? 1) * 46, noseY - drift * 65 + Math.sin(run.time + j) * 6);
+        smoke.node.angle = 41 * j + drift * 49;
+        const scale = (wreck ? .62 : .4) + drift * .65;
+        smoke.node.setScale(scale, scale, 1);
+        smoke.color = color(wreck ? '#352c28' : '#534640', Math.round(Math.sin(drift * Math.PI) * (wreck ? 194 : 132)));
+      });
+      effects.flames.forEach((flame, j) => {
+        flame.node.active = visible && age > .12;
+        if (!flame.node.active) return;
+        const flicker = run.time * 13 + j * 1.95;
+        flame.spriteFrame = this.survivalFireFrames[Math.floor(flicker) % 3] ?? this.streetFrames.get('escort-blast')!;
+        flame.node.setPosition(noseX + (j - 1) * 19, noseY - j * 15);
+        flame.node.angle = 37 * j;
+        const scale = .75 + Math.sin(flicker) * .2;
+        flame.node.setScale(scale, scale, 1);
+        flame.color = color('#ffc477', j === 1 ? 242 : 195);
+      });
+      if (visible && wreck && age < 1.6 && (wreck.speed > 4 || age < .5)) {
+        for (let j = 0; j < 5; j++) {
+          const drift = (age * 3.4 + j / 5) % 1;
+          const x = pose.x - wreck.side * drift * (20 + j * 8), y = pose.y - 28 - drift * (24 + j * 8);
+          line(view.fire, x, y, x + 5 * wreck.side, y + 4, '#ffbb65', 2.1, Math.round((1 - drift) * 230));
+        }
+      }
+    }
+    const gun = run.gunOrigin, rear = run.rearGunOrigin;
+    view.turret.node.setPosition(gun.x - run.gunKick * Math.cos(run.muzzleAngle), gun.y - run.gunKick * Math.sin(run.muzzleAngle));
+    view.turret.node.angle = (run.muzzle > 0 ? run.muzzleAngle : run.heading) * 180 / Math.PI - 90;
+    view.rearTurret.node.setPosition(rear.x, rear.y);
+    view.rearTurret.node.angle = run.rearHeading * 180 / Math.PI - 90;
+    view.flash.node.active = run.muzzle > 0;
+    if (view.flash.node.active) {
+      const flame = view.flashes[run.muzzleVariant];
+      if (view.flash.spriteFrame !== flame) view.flash.spriteFrame = flame;
+      const barrel = ESCORT_TURRETS[0].barrel - run.gunKick;
+      const phase = 1 - run.muzzle / ESCORT_MUZZLE_TIME, flare = Math.sin(Math.PI * Math.min(1, phase * 1.5));
+      view.flash.node.setPosition(gun.x + Math.cos(run.muzzleAngle) * barrel, gun.y + Math.sin(run.muzzleAngle) * barrel);
+      view.flash.node.angle = run.muzzleAngle * 180 / Math.PI;
+      view.flash.node.setScale(run.muzzleLength * (.91 + flare * .23 - phase * .49), .8 + flare * .2 - phase * .3, 1);
+      const alpha = Math.round(255 * (1 - phase) ** 1.65);
+      view.flash.color = new Color(255, Math.round(251 - phase * 94), Math.round(237 - phase * 138), alpha);
+    }
+    view.rearFlash.node.active = run.rearMuzzle > 0;
+    if (view.rearFlash.node.active) {
+      const barrel = ESCORT_TURRETS[1].barrel, scale = .75 + run.rearMuzzle * 7;
+      view.rearFlash.node.setPosition(rear.x + Math.cos(run.rearHeading) * barrel, rear.y + Math.sin(run.rearHeading) * barrel);
+      view.rearFlash.node.angle = run.rearHeading * 180 / Math.PI;
+      view.rearFlash.node.setScale(scale, scale, 1);
+      view.rearFlash.color = color('#ffdfac', Math.round(140 + run.rearMuzzle / .052 * 115));
+    }
+    const enemyFrame = (enemy: { type: string; variant: number }) =>
+      (enemy.type === 'brute' ? this.streetFrames.get('brute') : enemy.type === 'runner' ? this.timedSurvivalFrames.get('runner') :
+        this.artFrames.get('dorm-walker-' + enemy.variant)) ?? this.artFrames.get('walker')!;
+    run.enemies.forEach((enemy, i) => {
+      const sprite = view.units[i], brute = enemy.type === 'brute';
+      sprite.node.active = onScreen(enemy.x, enemy.y, 65);
+      if (!sprite.node.active) return;
+      const frame = enemyFrame(enemy);
+      if (sprite.spriteFrame !== frame) sprite.spriteFrame = frame;
+      const swipe = enemy.swipe;
+      let lean = 0;
+      if (swipe) {
+        const windup = clamp((run.time - swipe.began) / (swipe.landsAt - swipe.began), 0, 1);
+        const recovery = clamp((run.time - swipe.landsAt) / (swipe.endsAt - swipe.landsAt), 0, 1);
+        lean = ((brute ? 15 : 10) * windup ** 4 - Math.sin(windup * Math.PI) * (brute ? 7 : 4)) * (1 - recovery) ** 2;
+      }
+      const gait = swipe ? 1 + lean * .012 : 1 + .055 * Math.sin(run.time * (brute ? 9 : 18) + enemy.id * 2);
+      sprite.node.setPosition(enemy.x + Math.cos(enemy.angle) * lean, enemy.y + Math.sin(enemy.angle) * lean);
+      sprite.node.angle = enemy.angle * 180 / Math.PI;
+      sprite.node.setScale(brute ? 1.82 * gait : gait, brute ? 1.82 : 1, 1);
+      sprite.color = color(enemy.hit ? '#ffb2a6' : '#ffffff');
+    });
+    for (let i = run.enemies.length; i < view.units.length; i++) view.units[i].node.active = false;
+    view.crewAmbushers.forEach((sprite, index) => {
+      const enemy = run.crewAmbushPose(index);
+      const visible = !!enemy && enemy.opacity > 0 && onScreen(enemy.x, enemy.y, 65);
+      sprite.node.active = visible;
+      if (!enemy || !visible) return;
+      const frame = enemyFrame(enemy), size = enemy.type === 'brute' ? 1.82 : 1;
+      if (sprite.spriteFrame !== frame) sprite.spriteFrame = frame;
+      sprite.node.setPosition(enemy.x, enemy.y);
+      sprite.node.angle = enemy.angle * 180 / Math.PI;
+      sprite.node.setScale(size * (1 + enemy.gait), size, 1);
+      sprite.color = color('#ffffff', Math.round(enemy.opacity * 255));
+    });
+    view.downed.forEach((sprite, i) => {
+      const fall = run.fallen[i];
+      sprite.node.active = !!fall && onScreen(fall.x, fall.y, 64) && (!fall.broken || fall.age < .22);
+      if (!fall || !onScreen(fall.x, fall.y, 64)) return;
+      const frame = enemyFrame(fall), settle = clamp(fall.age / .22, 0, 1), size = fall.type === 'brute' ? 1.82 : 1;
+      if (sprite.spriteFrame !== frame) sprite.spriteFrame = frame;
+      sprite.node.setPosition(fall.x, fall.y);
+      sprite.node.angle = fall.angle * 180 / Math.PI + settle * (fall.variant % 2 ? -68 : 68);
+      sprite.node.setScale(size * (1 - settle * .13), size * (1 - settle * .3), 1);
+      sprite.color = color('#b68374', Math.round(255 * (fall.broken ? 1 - settle : clamp((1.5 - fall.age) / .58, 0, 1))));
+      disc(view.fire, fall.x, fall.y, size * (2 + settle * (fall.broken ? 10 : 5)), '#6c2524', Math.round(145 * (1 - fall.age / 1.5)));
+    });
+    for (const round of run.rounds) {
+      const length = Math.min(round.travelled, round.airborne ? round.tracer ? 42 : 19 : round.tracer ? 32 : 11);
+      if (length < 2 || !onScreen(round.x, round.y, 33)) continue;
+      const speed = Math.hypot(round.vx, round.vy), dx = round.vx / speed, dy = round.vy / speed;
+      if (round.tracer) drawYellowTracer(view.fire, round.x, round.y, dx * length, dy * length);
+      else line(view.fire, round.x, round.y, round.x - dx * length, round.y - dy * length, '#ffc250', 1.5, 162);
+    }
+    this.drawCasings(view.fire, view.casingSprites, this.supportCasings, (x, y) => onScreen(x, y, 20));
+    this.drawEscortAirStrikes(run, view, onScreen);
+    view.impacts.forEach((sprite, i) => {
+      const impact = run.impacts[i];
+      const visible = !!impact && onScreen(impact.x, impact.y, 65), burst = impact?.kind === 'burst';
+      sprite.node.active = visible && (impact.kind === 'dust' || burst);
+      if (!visible) return;
+      const fade = 1 - impact.age / (burst ? .52 : .3);
+      if (sprite.node.active) {
+        sprite.node.setPosition(impact.x, impact.y);
+        const size = (.35 + impact.age * 2.5) * (burst ? 1.28 * impact.size : 1);
+        sprite.node.setScale(size, size, 1);
+        sprite.color = color(burst ? '#9f2227' : '#d9bb8e', Math.round((burst ? 218 : 178) * fade));
+        if (!burst) return;
+      }
+      const metal = impact.kind === 'metal', count = metal ? 4 : burst ? 7 : 3;
+      for (let j = 0; j < count; j++) {
+        const angle = impact.angle + (metal ? Math.PI : 0) + (j - (count - 1) / 2) * (burst ? .47 : .52);
+        const dx = Math.cos(angle), dy = Math.sin(angle);
+        const distance = 3 + impact.age * (burst ? 110 + j * 14 : 72 + j * 19) * impact.size;
+        const x = impact.x + dx * distance, y = impact.y + dy * distance;
+        if (metal) line(view.fire, x - dx * 5, y - dy * 5, x, y, '#ffe093', 1.65, Math.round(243 * fade ** 2));
+        else if (burst && j % 2 === 0) {
+          const size = impact.size * (2.5 + (j % 3));
+          polygon(view.fire, [{ x: x + dx * size, y: y + dy * size }, { x: x - dy * size, y: y + dx * size },
+            { x: x - dx * size, y: y - dy * size }, { x: x + dy * size * .7, y: y - dx * size * .7 }],
+          '#821f25', Math.round(238 * fade));
+        }
+        else disc(view.fire, x, y, 1.5 + j * .46, '#ba3431', Math.round(240 * fade));
+      }
+    });
+    view.hud.clear();
+    view.threatHud.clear();
+    this.sbox(view.hud, 16, 606, 400, 87, '#101618', 217);
+    this.sbox(view.hud, 16, 524, 262, 64, '#101618', 204);
+    const refugePhase = run.refugePhase;
+    view.title.string = refugePhase === 'closing' || refugePhase === 'secure'
+      ? '临时避难所' : '车队护送  ' + this.time(Math.max(0, Math.ceil(ESCORT_END - run.time)));
+    const clearanceHints = {
+      road: '清扫两翼 · 保护载民大巴', braking: '发现断木 · 车队正在减速', dismount: '爆破组下车 · 守住载民大巴',
+      working: '爆破组正在清障 · 守住载民大巴',
+      withdrawing: '引信已启动 · 守住载民大巴', cleared: '道路打通 · 车辆依次起步', outbound: '清扫两翼 · 保护载民大巴',
+    };
+    const refugeHints = {
+      checkpoint: '前方是避难所外围 · 继续护送', support: '空中接应 · 掩护载民大巴',
+      entry: '城门开启 · 掩护尾车进门', closing: '车队已进门 · 城门关闭中', secure: '已进入临时避难所',
+    };
+    view.hint.string = refugePhase === 'road' ? clearanceHints[run.clearPhase] : refugeHints[refugePhase];
+    if (run.stopped) {
+      this.sbox(view.hud, 32, 615, 354, 4, '#6c6556');
+      this.sbox(view.hud, 32, 615, 354 * run.clearanceProgress, 4, '#f2b457');
+    }
+    view.passengers.string = ESCORT_VEHICLES[ESCORT_BUS].name + (bus.hp === 0 ? ' · 已失去行动能力' :
+      bus.threat ? ` · 受威胁  ${bus.hp}%` : '  ' + bus.hp + '%');
+    this.sbox(view.hud, 32, 539, 216, 5, '#60564a');
+    const barColor = bus.struck > .22 ? '#fff1cf' : bus.struck > 0 || bus.threat ? '#ee8652' : '#a4cdb2';
+    this.sbox(view.hud, 32, 539, 216 * bus.hp / 100, 5, barColor);
+    if (bus.struck > 0) this.sbox(view.hud, 30, 537, 220, 9, '#ffc482', Math.round(bus.struck / .32 * 87));
+    if (bus.threat && bus.hp > 0 && !onScreen(bus.threat.x, bus.threat.y, -28)) {
+      const x = (bus.threat.x - camera.x) * camera.scale, py = (bus.threat.y - camera.y) * camera.scale;
+      const angle = Math.atan2(py, x), dx = Math.cos(angle), dy = Math.sin(angle);
+      const bound = Math.min((W / 2 - 36) / Math.max(.01, Math.abs(dx)), (H / 2 - 32) / Math.max(.01, Math.abs(dy)));
+      const px = dx * bound, sy = dy * bound;
+      disc(view.threatHud, px, sy, 16, '#151214', 210);
+      polygon(view.threatHud, [{ x: px + dx * 10, y: sy + dy * 10 }, { x: px - dx * 7 - dy * 8, y: sy - dy * 7 + dx * 8 },
+        { x: px - dx * 7 + dy * 8, y: sy - dy * 7 - dx * 8 }], '#ffc774');
+    }
+    if (view.stick) view.stick.setScale(this.aiming ? .9 : 1, this.aiming ? .9 : 1, 1);
+    this.blackFade(view.shade, run.outcome ? this.frontierEscortOutro / .9 : 1 - run.time / 1.25);
+  }
+  private drawEscortAirStrikes(run: FrontierEscort, view: ReturnType<Blackout['buildFrontierEscortView']>,
+    onScreen: (x: number, y: number, margin?: number) => boolean) {
+    view.airDust.forEach((dust, i) => {
+      const impact = run.airImpacts[i];
+      if (!impact || !onScreen(impact.x, impact.y, 115)) { dust.node.active = false; return; }
+      const { x, y, age, angle, pavement, pattern } = impact;
+      const phase = age / ESCORT_AIR_IMPACT_LIFE, fade = (1 - phase) ** 1.3;
+      const dx = Math.cos(angle), dy = Math.sin(angle);
+      dust.node.active = true;
+      dust.node.setPosition(x + dx * age * 83, y + dy * age * 83);
+      dust.node.angle = angle * 180 / Math.PI + pattern * 13;
+      const size = (.42 + phase * 1.13) * (.87 + pattern * .065);
+      dust.node.setScale(size * (1.0 + phase * .38), size, 1);
+      dust.color = color(pavement ? '#cfc1aa' : '#e7c490', Math.round((pavement ? 226 : 246) * fade));
+      if (age > .32) return;
+      const alpha = Math.round(245 * (1 - age / .32) ** .74);
+      for (let j = 0; j < 7; j++) {
+        const direction = angle + (j - 3) * .44 + (pattern - 3) * .09;
+        const vx = Math.cos(direction), vy = Math.sin(direction);
+        const reach = 6 + age * (129 + (j * 3 + pattern) % 7 * 20);
+        const px = x + vx * reach, py = y + vy * reach;
+        const spark = pavement && j % 3 === 0;
+        if (spark) {
+          const tail = (1 - age / .32) * 12;
+          line(view.fire, px - vx * tail, py - vy * tail, px, py, '#ffdd90', 2, alpha);
+          continue;
+        }
+        const chip = 1.6 + (j + pattern) % 4 * .66;
+        polygon(view.fire, [{ x: px + vx * chip * 1.45, y: py + vy * chip * 1.45 }, { x: px - vy * chip, y: py + vx * chip },
+          { x: px - vx * chip, y: py - vy * chip }, { x: px + vy * chip, y: py - vx * chip }], pavement ? '#a29b8c' : '#c6a77c', alpha);
+      }
+    });
+  }
+
+  private drawFrontierEscortIncidents(run: FrontierEscort, view: ReturnType<Blackout['buildFrontierEscortView']>,
+    onScreen: (x: number, y: number, margin?: number) => boolean) {
+    view.roadside.forEach(({ car, smoke, flame }, i) => {
+      const pose = run.roadsidePose(i), plan = run.roadside[i];
+      const visible = onScreen(pose.x, pose.y, 110);
+      car.node.active = visible;
+      if (visible) {
+        car.node.setPosition(pose.x, pose.y);
+        car.node.angle = pose.angle;
+        car.color = color(plan.exploded ? '#51413a' : plan.explosive ? '#c9a18a' : '#f4e5d1');
+      }
+      const fuse = plan.explosive && (plan.exploded || pose.age >= 0 || run.time > plan.at - 4);
+      flame.node.active = visible && fuse && pose.age >= 0;
+      if (flame.node.active) {
+        const frame = Math.floor(run.time * 14) % 3;
+        flame.spriteFrame = this.survivalFireFrames[frame] ?? this.streetFrames.get('escort-blast')!;
+        flame.node.setPosition(pose.x + 10, pose.y + 15);
+        flame.node.setScale(plan.exploded ? .79 : .4, plan.exploded ? .79 : .4, 1);
+      }
+      smoke.forEach((puff, j) => {
+        const skid = pose.age >= 0 && pose.age < .7;
+        puff.node.active = visible && (fuse || skid);
+        if (!puff.node.active) return;
+        const drift = (run.time * (skid ? 1.35 : .78) + j / smoke.length) % 1;
+        puff.node.setPosition(pose.x + drift * 37, pose.y + drift * 23 - 17);
+        const size = .35 + drift * (plan.exploded ? 1 : .58);
+        puff.node.setScale(size, size, 1);
+        puff.color = color(skid && !fuse ? '#b08a68' : '#493831', Math.round(Math.sin(Math.PI * drift) * (plan.exploded ? 205 : 163)));
+      });
+    });
+
+    const leaper = run.airAmbushPose();
+    view.leaper.node.active = view.leaperShadow.node.active = leaper !== undefined;
+    if (leaper) {
+      const spread = 1 + leaper.height * .24 - leaper.crouch * .17;
+      view.leaper.node.setPosition(leaper.x, leaper.y + leaper.height * 11);
+      view.leaper.node.setScale(spread, spread * (1 - leaper.crouch * .13), 1);
+      view.leaperShadow.node.setPosition(leaper.x + 28 * leaper.height, leaper.y - 42 * leaper.height);
+      view.leaperShadow.node.setScale(1 - leaper.height * .27, 1 - leaper.height * .27, 1);
+      view.leaper.node.angle = view.leaperShadow.node.angle = leaper.angle;
+    }
+    const wreckAge = run.time - (run.airCrashAt ?? Infinity), landed = wreckAge >= 0;
+    view.crashSmoke.forEach((smoke, i) => {
+      if (!run.airGrab) { smoke.node.active = false; return; }
+      const drift = landed ? (run.time * .66 + i / view.crashSmoke.length) % 1 : i * .11;
+      const pose = run.openingAirPose(run.time - drift);
+      const x = pose.x + drift * (landed ? 81 : -13), y = pose.y + drift * (landed ? 38 : -25);
+      smoke.node.active = onScreen(x, y, 140);
+      if (!smoke.node.active) return;
+      smoke.node.setPosition(x, y);
+      smoke.node.angle = i * 49 + drift * 14;
+      const size = .35 + drift * (landed ? 1.38 : .68);
+      smoke.node.setScale(size, size, 1);
+      const alpha = landed ? 217 * Math.sin(drift * Math.PI) * clamp((wreckAge + .28) / .75, .4, 1) :
+        205 * (1 - drift) * Math.min(1, (1 - pose.height) * 6);
+      smoke.color = color(landed ? '#3e332f' : '#4b3e37', Math.round(alpha));
+    });
+    const wreck = run.openingAirPose();
+    view.crashFire.forEach((flame, i) => {
+      flame.node.active = landed && onScreen(wreck.x, wreck.y, 110);
+      if (!flame.node.active) return;
+      const flicker = run.time * (14 + i * 3);
+      const angle = wreck.angle * Math.PI / 180;
+      const forward = 17 - i * 28;
+      flame.spriteFrame = this.survivalFireFrames[Math.floor(flicker) % 3] ?? this.streetFrames.get('escort-blast')!;
+      flame.node.setPosition(wreck.x - Math.sin(angle) * forward, wreck.y + Math.cos(angle) * forward);
+      const scale = (i ? .64 : 1.05) * (.9 + Math.sin(flicker * 1.83) * .15) + Math.max(0, 1 - wreckAge * 4) * .48;
+      flame.node.setScale(scale, scale, 1);
+      flame.node.angle = i ? 33 : -13;
+      flame.color = color(i ? '#ff9e42' : '#ffe0a9', i ? 201 : 240);
+    });
+
+    const blast = run.lastBlast, age = blast ? run.time - blast.at : Infinity;
+    const center = blast && { x: blast.x, y: blast.y - run.distance };
+    const explosion = view.incidentBlast;
+    view.incidentSparks.clear();
+    explosion.node.active = !!center && age >= 0 && age < .92 && onScreen(center.x, center.y, 150);
+    if (explosion.node.active && blast && center) {
+      explosion.spriteFrame = this.grenadeBlastFrames[grenadeBlastPhase(age)] ?? this.streetFrames.get('escort-blast')!;
+      explosion.node.setPosition(center.x, center.y);
+      const scale = (blast.damage ? .79 : 1.13) * (.65 + age * .65);
+      explosion.node.setScale(scale, scale, 1);
+      explosion.color = color('#ffd7a2', Math.round(255 * (1 - age / .92) ** .72));
+      if (age < .69) for (let i = 0; i < 17; i++) {
+        const direction = i * 2.39996, dx = Math.cos(direction), dy = Math.sin(direction);
+        const reach = (1 - (1 - age / .69) ** 2) * (70 + (i % 6) * 26) * (blast.damage ? .84 : 1);
+        const x = center.x + dx * reach, y = center.y + dy * reach;
+        const tail = (1 - age / .69) * (7 + i % 5 * 3);
+        line(view.incidentSparks, x, y, x - dx * tail, y - dy * tail, i % 3 ? '#ffba66' : '#fff0ad',
+          i % 3 ? 1.8 : 2.7, Math.round(246 * (1 - age / .69) ** .82));
+      }
+    }
+    view.shock.forEach((dust, i) => {
+      const range = age * ESCORT_SHOCK_SPEED;
+      if (!center || !blast || range < 10 || range > blast.radius) { dust.node.active = false; return; }
+      const angle = i * 2 * Math.PI / view.shock.length;
+      const radius = range * (.97 + .045 * Math.sin(i * 3));
+      const x = center.x + Math.cos(angle) * radius, y = center.y + Math.sin(angle) * radius;
+      dust.node.active = onScreen(x, y, 85);
+      if (!dust.node.active) return;
+      dust.node.setPosition(x, y);
+      dust.node.angle = angle * 180 / Math.PI + 90;
+      dust.node.setScale(.6 + range / 320, .5 + age * .76, 1);
+      dust.color = color('#e4bd91', Math.round(212 * (1 - range / blast.radius) ** 1.15));
+    });
+  }
+
+  private stepFrontierEscort(dt: number) {
+    const run = this.frontierEscort!;
+    if (run.outcome) {
+      const distance = run.distance;
+      run.stepArrival(dt);
+      this.updateCasingParticles(dt, run.casingShots, run.distance - distance);
+      if (run.outcome === 'won' && !this.frontierEscortArrivalShown) {
+        this.frontierEscortArrivalShown = true;
+        this.clearOperationDialogue();
+        this.speakOperation([['ghost', '我们已成功抵达避难所。']], false, 2);
+      }
+      if (run.outcome === 'won' && this.operationDialogue) {
+        this.drawFrontierEscort();
+        return;
+      }
+      this.frontierEscortOutro += dt;
+      this.drawFrontierEscort();
+      if (this.frontierEscortOutro >= .94) {
+        this.battle.status = run.outcome;
+        this.finishBattle();
+      }
+      return;
+    }
+    const past = run.time, phase = run.clearPhase, kills = run.kills, shots = run.shotsFired, rearShots = run.rearShotsFired, origin = run.gunOrigin;
+    const crewShots = run.crewGuns[0].shots + run.crewGuns[1].shots;
+    const airShots = run.aircraft[0].shots + run.aircraft[1].shots + run.openingAircraft.shots;
+    const wasWrecked = !!run.bus.wreck;
+    const camera = run.camera(H);
+    const aim = sys.isMobile ? this.aimRadius > .01 ? Math.atan2(this.aimVector.y, this.aimVector.x) : run.heading :
+      this.mouseAimInput ? Math.atan2(this.my - H / 2 - (origin.y - camera.y) * camera.scale,
+        this.mx - W / 2 - (origin.x - camera.x) * camera.scale) : run.heading;
+    const firing = run.time > 1.25 && (sys.isMobile ? this.aiming && this.aimOuter : this.mouseFire || this.mouseQueuedFire);
+    this.mouseQueuedFire = false;
+    const distance = run.distance;
+    run.step(dt, aim, firing);
+    this.updateCasingParticles(dt, run.casingShots, run.distance - distance);
+    this.battle.elapsed += dt;
+    this.battle.kills += run.kills - kills;
+    if (run.shotsFired !== shots) this.play('shoot');
+    if (run.rearShotsFired !== rearShots || run.crewGuns[0].shots + run.crewGuns[1].shots !== crewShots) this.play('support-shot');
+    if (run.time >= this.frontierEscortAirSoundAt && run.aircraft[0].shots + run.aircraft[1].shots + run.openingAircraft.shots !== airShots) {
+      this.play('operation-air-burst');
+      this.frontierEscortAirSoundAt = run.time + .074;
+    }
+    if (run.lastBlast && run.lastBlast.at > past) this.play('grenade-blast');
+    if (run.lastRoadsideHitAt > past) this.play('escort-metal-heavy');
+    if (run.airCrashAt !== undefined && run.airCrashAt > past)
+      this.speakOperation([['headquarters', '小鸟坠落，注意左侧！守住大巴！']]);
+    if (run.gateOpenedAt !== undefined && run.gateOpenedAt > past) this.play('door-sound');
+    if (run.refugeSecuredAt !== undefined && run.refugeSecuredAt > past) this.play('escort-metal-heavy');
+    if (!wasWrecked && run.bus.wreck) this.play('grenade-blast');
+    else {
+      const newHits = run.vehicleHits.filter(hit => hit && hit.at > past);
+      if (newHits.length) this.play(newHits.some(hit => hit?.heavy) ? 'escort-metal-heavy' : 'escort-metal');
+    }
+    if (phase !== run.clearPhase && run.clearPhase === 'braking')
+      this.speakOperation([['ghost', '前方有断木。爆破组准备下车，其他人守住大巴！']]);
+    if (phase !== run.clearPhase && run.clearPhase === 'withdrawing')
+      this.speakOperation([['demolition', '炸药已就绪，带大巴先走！']]);
+    if (phase !== run.clearPhase && run.clearPhase === 'cleared') {
+      this.play('grenade-blast');
+      this.speakOperation([['headquarters', '道路打通！别停，护送大巴继续前进！']]);
+    }
+    this.drawFrontierEscort();
   }
   private stepTransition(dt: number) {
     const t = this.transition;
@@ -5549,6 +7192,9 @@ export class Blackout extends Component {
       this.transition = undefined; this.transitionShade.node.active = false; this.resetInput();
       if (t.prompt) { this.tutorialPrompt = t.prompt; this.open('playing'); }
       else if (t.chapter === 2) this.startIntro();
+      else if (t.chapter === 5) this.speakOperation([['headquarters', '转移车还没走完。装甲组顶住，步兵守住沙袋线！']]);
+      else if (t.chapter === 6 && this.battle.retrieval?.part === 'stairs')
+        this.speakOperation([['command', '黑鹰已出发，预计几分钟后抵达。']]);
       else if (t.chapter === 4) {
         const part = this.battle.stage.operation?.part;
         if (part === 'city') this.speakOperation([
@@ -5570,6 +7216,28 @@ export class Blackout extends Component {
       this.transitionShade.node.active = true;
       this.transitionShade.node.setSiblingIndex(this.modal.getSiblingIndex());
     }
+  }
+  private handleRetrievalEvent(event: string): boolean {
+    const run = this.battle.retrieval;
+    if (!run || !event.startsWith('retrieval-')) return false;
+    if (event === 'retrieval-ascend') {
+      const part = run.part === 'lobby' ? 'stairs' : run.part === 'stairs' ? 'home' : 'roof';
+      const next = this.retrievalFloors?.[part];
+      if (next && this.battle.advanceRetrieval(next)) {
+        this.enterBattleScene(6);
+        return true;
+      }
+    }
+    if (event === 'retrieval-blackout') {
+      this.play('grenade-blast');
+      this.feedback.explosion(RETRIEVAL_CHECK, this.battle.player, false, 2.1);
+    }
+    if (event === 'retrieval-down') this.toast('博士倒地 · 靠近扶起', 4, 'warning');
+    if (event === 'retrieval-note') this.toast('已在 904 留下给凛的便条');
+    if (event === 'retrieval-roof-ready') this.play('alarm');
+    const lines = RETRIEVAL_DIALOGUE[event];
+    if (lines) this.speakOperation([...lines]);
+    return false;
   }
   private beginFloorLoad() {
     if (this.battle.apartment) {
@@ -5621,13 +7289,9 @@ export class Blackout extends Component {
     if (run) {
       if (this.battle.rewardClaimed || this.battle.status === 'playing') return;
       run.outcome ??= 'fallen';
-      this.reward = survivalPayout(run.pool, run.outcome);
       const survivalMaps = { ...this.profile.survivalMaps };
       delete survivalMaps[this.battle.stage.survival!.mapId];
-      const next = { ...this.profile, survivalMaps, achievementProgress: { ...this.profile.achievementProgress },
-        materials: this.profile.materials + this.reward.materials, coins: this.profile.coins + this.reward.coins,
-        tickets: this.profile.tickets + this.reward.tickets };
-      recordAchievementKills(next, this.battle.kills);
+      const next = { ...this.profile, survivalMaps };
       if (this.persist(next)) {
         this.profile = next; this.battle.rewardClaimed = true;
         this.play(run.outcome === 'fallen' ? 'hurt' : 'win');
@@ -5686,8 +7350,8 @@ export class Blackout extends Component {
     if (caption) caption.node.active = available;
     if (fallback) fallback.node.active = available && !this.objectiveFrame;
     if (!available) { hud.bubble.active = hud.click.active = false; return; }
-    const key = b.apartment?.phase === 'hold' || b.apartment?.phase === 'car-hold' ? b.apartment.phase :
-      b.operationRun ? description.replace(/ · (剩余 \d+|\d+ 秒)$/, '') : description;
+    const key = b.retrieval?.phase ?? (b.apartment?.phase === 'hold' || b.apartment?.phase === 'car-hold' ? b.apartment.phase :
+      b.operationRun ? description.replace(/ · (剩余 \d+|\d+ 秒)$/, '') : description);
     let state = this.objectiveNotice;
     if (!state || state.battle !== b) state = this.objectiveNotice = { battle: b, key: '', time: 0, pinned: false, open: 0 };
     if (state.key !== key) { state.key = key; state.time = 3; }
@@ -5743,8 +7407,9 @@ export class Blackout extends Component {
   }
   private buildBattleMessages(parent: Node) {
     const frames = this.battleHudFrames;
+    const notices = this.battleNoticeLayer = this.graphics('Battle notices above inventory', this.canvas);
     if (frames.has('notice') && frames.has('inspect')) {
-      const root = this.makeNode('Battle notice', parent);
+      const root = this.makeNode('Battle notice', notices.node);
       const plate = this.battleHudSprite('notice', root, 0, 0, 280, 42, true);
       const icon = this.battleHudSprite('inspect', root, 0, 0, 18, 18);
       this.noticeHud = { root, plate, icon, opacity: root.addComponent(UIOpacity) };
@@ -5807,12 +7472,19 @@ export class Blackout extends Component {
     this.moveCap = this.battleSprite('joystick_move_cap', { x: HUD.move.x + HUD.move.w / 2 - 40, y: HUD.move.y + HUD.move.h / 2 - 40, w: 80, h: 80 });
     this.createHudAction('dodge', 'button_roll', HUD.roll, () => this.battle.player.dash, () => 2.4);
     this.createHudAction('reload', 'button_reload', HUD.reload, () => this.battle.player.reload, () => this.battle.hero.reload);
-    if (this.battle.survival) {
+    if (this.battle.survivalBag) {
       this.createHudAction('grenade', undefined, HUD.grenade, () => this.battle.survivalThrowCooldown,
         () => { const kind = this.battle.survivalBindings.throw; return kind ? SURVIVAL_THROWABLES[kind].cooldown : 0; });
       this.createHudAction('survival-mine', undefined, HUD.trap, () => 0, () => 0);
-    } else this.createHudAction('grenade', isShopMine(this.battle.tactical.selected) ? 'button_trap' : 'button_grenade', HUD.grenade,
-      () => this.battle.tactical.cooldown, () => TACTICAL_DEFINITIONS[this.battle.tactical.selected || 'grenade'].cooldown);
+    } else {
+      const mine = this.battle.apartment ? HUD.extraMine : HUD.trap;
+      this.createHudAction('grenade', undefined, HUD.grenade, () => this.battle.tacticalFor(this.primaryThrowSlot()).cooldown,
+        () => TACTICAL_DEFINITIONS[this.battle.tacticalFor(this.primaryThrowSlot()).selected ?? 'grenade'].cooldown);
+      this.createHudAction('sortie-mine', undefined, mine, () => this.battle.mineTactical.cooldown,
+        () => TACTICAL_DEFINITIONS[this.battle.mineTactical.selected ?? 'proximity-mine'].cooldown);
+      if (this.battle.apartment) this.createHudAction('story-grenade', 'button_grenade', HUD.storyGrenade,
+        () => this.battle.storyTactical.cooldown, () => TACTICAL_DEFINITIONS.grenade.cooldown);
+    }
     const air = this.streetFrames.get('op-littlebird-hud');
     if (this.battle.operationRun?.airSupport && air) this.createHudAction('air', air, HUD.air,
       () => this.battle.operationRun?.airCooldown ?? 0, () => OPERATION_AIR_COOLDOWN);
@@ -5822,7 +7494,7 @@ export class Blackout extends Component {
     if (this.battle.apartment) this.createHudAction('apartment-trap', 'button_trap', HUD.trap, () => 0, () => 0);
     // The source PNG restores the erased quantity-badge corner from its clean mirrored rim.
     const operation = this.battle.stage.operation;
-    const name = operation ? '幽灵一组' : `${this.battle.hero.name}  Lv.${this.battle.level}`;
+    const name = operation || this.battle.frontier ? '幽灵一组' : `${this.battle.hero.name}  Lv.${this.battle.level}`;
     const statusX = this.playerStatus ? HEALTH_X : 113;
     this.text('name', name, statusX, 693, this.playerStatus && sys.isMobile ? 19 : 17, C.text, this.canvas, 212);
     const healthSize = this.playerStatus ? (sys.isMobile ? 16 : 14) : 13;
@@ -5855,17 +7527,21 @@ export class Blackout extends Component {
     bind('reload', HUD.reload, () => this.battle.reload());
     const grenadeButton = bind('grenade', HUD.grenade, () => {
       if (sys.isMobile && this.aimedTacticalButton()) return;
-      this.releaseTacticalThrow(this.battle.player.angle, this.battle.survival ? 205 : 150);
+      this.releaseTacticalThrow(this.battle.player.angle, this.battle.survivalBag ? 205 : 150);
     });
     grenadeButton.on(Node.EventType.TOUCH_START, (e: EventTouch) => this.startTacticalTouch(e));
     grenadeButton.on(Node.EventType.TOUCH_MOVE, (e: EventTouch) => this.moveTacticalTouch(e));
     grenadeButton.on(Node.EventType.TOUCH_END, (e: EventTouch) => this.finishTacticalTouch(e.getID(), false));
     grenadeButton.on(Node.EventType.TOUCH_CANCEL, (e: EventTouch) => this.finishTacticalTouch(e.getID(), true));
-    if (this.battle.survival) bind('survival-mine', HUD.trap, () => this.useSurvivalTactical('mine'));
+    if (this.battle.survivalBag) bind('survival-mine', HUD.trap, () => this.useSurvivalTactical('mine'));
+    else {
+      bind('sortie-mine', this.battle.apartment ? HUD.extraMine : HUD.trap, () => this.useTactical(undefined, undefined, 'mine'));
+      if (this.battle.apartment) bind('story-grenade', HUD.storyGrenade, () => this.useTactical(undefined, undefined, 'story'));
+    }
     if (this.battle.operationRun?.airSupport) bind('air', HUD.air, () => this.callOperationAir());
     bind('auto-fire', HUD.auto, () => this.toggleAutoFire());
     if (this.battle.apartment) bind('apartment-trap', HUD.trap, () => this.placeApartmentTrap());
-    if (!this.battle.survival) {
+    if (!this.battle.survivalBag) {
     bind('supply-toggle', { x: 1170, y: 365, w: 75, h: 48 }, () => { this.suppliesOpen = !this.suppliesOpen; this.uiTick = 0; });
     const backpack = this.supplyUiFrames.get('backpack');
     if (backpack) {
@@ -5883,7 +7559,7 @@ export class Blackout extends Component {
     }
     (['bandage', 'medkit', 'drink'] as SupplyKind[]).forEach((kind, i) => {
       const node = bind('supply-' + kind, { x: 1120 - i * 55, y: 365, w: 48, h: 48 }, () => {
-        if (!this.supplyPress?.long && !this.supplyPress?.cancelled) this.battle.useSupply(kind);
+        if (!this.supplyPress?.long && !this.supplyPress?.cancelled) this.useBattleSupply(kind);
         this.supplyTooltip = '';
         this.supplyPress = undefined;
       });
@@ -5920,7 +7596,10 @@ export class Blackout extends Component {
       node.on(Node.EventType.TOUCH_START, (e: EventTouch) => { if (this.transition) return; const id = e.getID(); if (id === null) return; a.owners.add(id); a.scale = 0.88; a.root.setScale(0.88, 0.88, 1); });
       for (const event of [Node.EventType.TOUCH_END, Node.EventType.TOUCH_CANCEL]) node.on(event, (e: EventTouch) => this.releaseHud(e.getID()));
     }
-    if (this.battle.survival) this.buildSurvivalBagHud();
+    if (this.battle.survivalBag) {
+      this.buildSurvivalBagHud();
+      this.battleNoticeLayer!.node.setSiblingIndex(this.survivalBagLayer!.getSiblingIndex() + 1);
+    }
     this.updateHud(); this.updateHudFeedback(0);
   }
   private startGhostRadio() {
@@ -6185,19 +7864,20 @@ export class Blackout extends Component {
     escape.opacity.opacity = Math.round(255 * (1 - clamp((t - .5) / 1.6, 0, 1)));
     if (t >= escape.duration) this.clearOperationEscape();
   }
-  private speakOperation(lines: OperationLine[], cinematic = false) {
+  private speakOperation(lines: OperationLine[], cinematic = false, hold = OPERATION_DIALOGUE_LAYOUT.hold) {
     const existing = this.operationDialogue;
     if (existing && existing.cinematic === cinematic) { existing.lines.push(...lines); return; }
     this.clearOperationDialogue();
-    const { y, readDelay, charTime, hold, slideOut } = OPERATION_DIALOGUE_LAYOUT;
-    const dialogue = this.makeStoryDialogue('Operation dialogue', this.canvas, () => {
+    const { y, readDelay, charTime, slideOut } = OPERATION_DIALOGUE_LAYOUT;
+    const advance = hold === OPERATION_DIALOGUE_LAYOUT.hold ? () => {
       const state = this.operationDialogue;
       if (!state || !state.node.active) return;
       const reveal = readDelay + state.lines[state.index][1].length * charTime;
-      state.time = state.time < reveal ? reveal : reveal + hold + slideOut;
-    });
+      state.time = state.time < reveal ? reveal : reveal + state.hold + slideOut;
+    } : undefined;
+    const dialogue = this.makeStoryDialogue('Operation dialogue', this.canvas, advance);
     dialogue.node.setPosition(-W - STORY_PANEL_WIDTH, y);
-    this.operationDialogue = { ...dialogue, lines, index: 0, time: 0, cinematic };
+    this.operationDialogue = { ...dialogue, lines, index: 0, time: 0, cinematic, hold };
   }
   private clearOperationDialogue() {
     if (!this.operationDialogue) return;
@@ -6208,14 +7888,17 @@ export class Blackout extends Component {
   private stepOperationDialogue(dt: number) {
     const dialogue = this.operationDialogue;
     if (!dialogue) return;
-    dialogue.node.active = dialogue.cinematic ? this.mode === 'operation-cinematic' : this.mode === 'playing' && !this.transition;
+    dialogue.node.active = dialogue.cinematic ? this.mode === 'operation-cinematic' :
+      (this.mode === 'playing' || this.mode === 'frontier-escort') && !this.transition;
+    if (this.mode === 'playing' && this.battle.frontier && (this.survivalWorkshopOpen || this.suppliesOpen || this.survivalSentryPanel)) dialogue.node.active = false;
     if (!dialogue.node.active) return;
     dialogue.time += dt;
     const [key, line] = dialogue.lines[dialogue.index];
     const configured = OPERATION_SPEAKERS[key];
     const speaker = 'slot' in configured && !this.battle.allies.some(a => a.slot === configured.slot && a.hp > 0) ?
       OPERATION_SPEAKERS.ghost : configured;
-    const { y, readDelay, charTime, hold, slideOut } = OPERATION_DIALOGUE_LAYOUT;
+    const { y, readDelay, charTime, slideOut } = OPERATION_DIALOGUE_LAYOUT;
+    const { hold } = dialogue;
     const typed = readDelay + line.length * charTime;
     dialogue.label.string = line.slice(0, Math.max(0, Math.floor((dialogue.time - readDelay) / charTime + 1e-6)));
     const frame = speaker.frame ? this.streetFrames.get(speaker.frame) :
@@ -6226,7 +7909,8 @@ export class Blackout extends Component {
       dialogue.portrait.getComponent(Sprite)!.color = color(mutated ? '#becbb1' : '#ffffff');
     }
     const flight = dialogue.cinematic && this.operationCinema?.root.name === 'Operation flight';
-    const radioY = y + (this.battle.survival ? 35 : 0);
+    const rightBagRadio = this.mode === 'playing' && this.battle.survivalBag && !speaker.left;
+    const radioY = rightBagRadio ? SURVIVAL_BAG_BUTTON.y - H / 2 - 70 : y + (this.battle.survival ? 35 : 0);
     this.placeStoryDialogue(dialogue.node, speaker.left, dialogue.time, typed + hold, flight ? H / 2 - 75 : radioY);
     if (dialogue.time < typed + hold + slideOut) return;
     dialogue.time = 0;
@@ -6244,7 +7928,7 @@ export class Blackout extends Component {
     intro.node.active = this.mode === 'playing';
     if (!intro.node.active) return;
     intro.time += dt;
-    const lines = ['这里是...地狱吗?', '我得赶紧回去,家离学校不远,就在北边的街道'];
+    const lines = ['这里是……地狱吗？我在学校附近躲到凌晨才出来。', '我得赶紧回去，家离学校不远，就在北边的街道。'];
     const first = 0.3 + lines[0].length * 0.075 + 2 + 0.3 + 0.25;
     const second = intro.time >= first, elapsed = second ? intro.time - first : intro.time;
     const text = lines[second ? 1 : 0], end = 0.3 + text.length * 0.075 + 2;
@@ -6325,6 +8009,8 @@ export class Blackout extends Component {
   }
   private toggleAutoFire() {
     this.profile.autoFire = !this.profile.autoFire;
+    this.aimAssist.reset();
+    this.mobileAimHeading = undefined;
     this.battle.tutorial?.enableAuto(this.profile.autoFire);
     this.mouseFire = this.mouseQueuedFire = false; // Switching mode is never itself a trigger.
     this.save(); this.uiTick = 0;
@@ -6528,23 +8214,26 @@ export class Blackout extends Component {
     return distance > 1 ? { angle: Math.atan2(dy, dx), range: clamp(distance, 45, OPERATION_GRENADE_RANGE) } :
       { angle: this.battle.player.angle, range: 150 };
   }
-  private useTactical(angle?: number, range?: number) {
+  private primaryThrowSlot(): TacticalSlot {
+    return this.battle.tactical.remaining === 0 && this.battle.storyTactical.remaining > 0 ? 'story' : 'throw';
+  }
+  private useTactical(angle?: number, range?: number, slot = this.primaryThrowSlot()) {
     if (this.transition || this.mode !== 'playing') return;
-    if (this.battle.throwTactical(angle, range)) { this.uiTick = 0; return; }
-    this.toast(this.battle.tacticalBlock ?? (isShopMine(this.battle.tactical.selected) ? '此处暂时无法布置地雷' : '当前动作无法投掷'));
+    if (this.battle.throwTactical(angle, range, slot)) { this.uiTick = 0; return; }
+    this.toast(this.battle.tacticalBlockFor(slot) ?? (slot === 'mine' ? '此处暂时无法布置地雷' : '当前动作无法投掷'));
   }
   private aimedTacticalButton() {
-    return !!this.battle.survival || !!this.battle.operationRun && this.battle.tactical.selected === 'grenade';
+    return !!this.battle.survivalBag || this.battle.tacticalFor(this.primaryThrowSlot()).remaining > 0;
   }
   private releaseTacticalThrow(angle: number, range: number) {
-    if (this.battle.survival) this.useSurvivalTactical('throw', angle, range);
+    if (this.battle.survivalBag) this.useSurvivalTactical('throw', angle, range);
     else this.useTactical(angle, range);
   }
   private useSurvivalTactical(slot: keyof SurvivalBindings, angle?: number, range?: number) {
-    if (this.transition || this.mode !== 'playing' || this.suppliesOpen || this.survivalWorkshopOpen || this.survivalCrateId ||
+    if (this.transition || this.mode !== 'playing' || this.suppliesOpen || this.survivalWorkshopOpen || this.survivalCrateId || this.survivalSentryPanel ||
         this.survivalDoorPanel || this.survivalVehiclePanel) return;
     const b = this.battle, kind = b.survivalBindings[slot];
-    if (!kind) { this.toast('在背包中设置 ' + (slot === 'throw' ? 'G 投掷' : 'T 布雷')); return; }
+    if (!kind) { this.toast(slot === 'throw' ? '在背包中将投掷物绑定至快捷按钮' : '在背包中将地雷绑定至快捷按钮'); return; }
     const item = b.survivalBag?.items.find(item => item.kind === kind);
     if (!item) { this.toast(SURVIVAL_GEAR[kind][0] + '已用完'); return; }
     if (b.useSurvivalItem(item.id, angle, range)) { this.uiTick = 0; return; }
@@ -6600,9 +8289,12 @@ export class Blackout extends Component {
   private drawBattleNotice(visible: boolean, y: number) {
     const panel = this.noticeHud;
     if (!panel) {
+      const layer = this.battleNoticeLayer;
+      if (!layer) return;
+      layer.clear();
       if (visible) {
-        this.sbox(this.hud, 345, y, 590, 42, C.ink, 225);
-        this.text('toast', this.notice, 640, y + 21, 17, C.gold, this.canvas, 570, Label.HorizontalAlign.CENTER);
+        this.sbox(layer, 345, y, 590, 42, C.ink, 225);
+        this.text('toast', this.notice, 640, y + 21, 17, C.gold, layer.node, 570, Label.HorizontalAlign.CENTER);
       } else if (this.labels.has('toast')) this.labels.get('toast')!.string = '';
       return;
     }
@@ -6670,14 +8362,14 @@ export class Blackout extends Component {
     const room = Math.max(0, roomAt(p, this.battle.rooms));
     const intruders = b.enemies.filter(e => e.hp > 0 && e.room !== room && roomAt(e, b.rooms) === room).length;
     const remaining = b.enemies.filter(e => e.room === room && e.hp > 0).length + intruders, safe = b.cleared[room] && intruders === 0;
-    this.labels.get('objective')!.string = b.stage.operation ? b.stage.title : b.stage.apartment ? `${b.stage.title}  /  ${b.rooms[room].kind}` : b.stage.street ? `归途  /  ${b.rooms[room].kind}` : b.stage.dorm ? `宿舍楼 ${b.stage.dorm.number}F  /  ${b.rooms[room].kind}` : b.cleared.every(Boolean) ? '前往洗衣房东北角楼梯撤离' : `${b.rooms[room].kind}  /  ${safe ? '区域安全' : intruders ? '应对追击' : '清理威胁'}`;
-    this.labels.get('sub-objective')!.string = b.stage.operation || b.stage.dorm || b.stage.street || b.apartment ? `${this.time(b.elapsed)}    ·    ${b.alarmTime !== null && b.stage.dorm ? '警报响起  ·  ' : ''}${b.objective}` : `${this.time(b.elapsed)}    ·    已清理 ${b.cleared.filter(Boolean).length} / ${b.rooms.length}    ·    ${safe ? b.stage.hints[room] : `当前区域剩余威胁 ${remaining}`}`;
+    this.labels.get('objective')!.string = b.stage.operation || b.frontier ? b.stage.title : b.stage.apartment || b.retrieval ? `${b.stage.title}  /  ${b.rooms[room].kind}` : b.stage.street ? `归途  /  ${b.rooms[room].kind}` : b.stage.dorm ? `宿舍楼 ${b.stage.dorm.number}F  /  ${b.rooms[room].kind}` : b.cleared.every(Boolean) ? '前往洗衣房东北角楼梯撤离' : `${b.rooms[room].kind}  /  ${safe ? '区域安全' : intruders ? '应对追击' : '清理威胁'}`;
+    this.labels.get('sub-objective')!.string = b.stage.operation || b.frontier || b.stage.dorm || b.stage.street || b.apartment || b.retrieval ? `${this.time(b.elapsed)}    ·    ${b.alarmTime !== null && b.stage.dorm ? '警报响起  ·  ' : ''}${b.objective}` : `${this.time(b.elapsed)}    ·    已清理 ${b.cleared.filter(Boolean).length} / ${b.rooms.length}    ·    ${safe ? b.stage.hints[room] : `当前区域剩余威胁 ${remaining}`}`;
     if (b.survival) this.updateSurvivalHud();
     this.drawMinimap(g);
     this.labels.get('ammo')!.string = p.reload > 0 ? `换弹 ${p.reload.toFixed(1)}s` : `${String(p.ammo).padStart(2, '0')} / ${b.reserveAmmo}`;
     this.labels.get('ammo')!.color = color(p.ammo < 5 || p.reload > 0 ? C.gold : C.text);
     this.labels.get('gun')!.string = b.hero.gun;
-    if (!b.survival) {
+    if (!b.survivalBag) {
     if (!this.supplyUiFrames.has('backpack')) {
       this.sbox(g, 1170, 365, 75, 48, '#172328', 245);
       this.soutline(g, 1170, 365, 75, 48, C.gold);
@@ -6719,24 +8411,27 @@ export class Blackout extends Component {
     // Item cooldowns are drawn on their own scalable roots every frame.
     const target = b.nearbyObjective(), loot = b.nearbyPickup(), clue = b.nearbyClue();
     const door = b.survival ? b.nearbySurvivalDoor() : b.nearbyDoor();
-    const crate = !target && b.survival ? b.nearbySurvivalCrate() : undefined;
+    const crate = !target && b.survivalBag ? b.nearbySurvivalCrate() : undefined;
     for (const visibleClue of b.visibleClues()) {
       const found = this.profile.clues.includes(visibleClue.id), x = visibleClue.surface.x - p.x + W / 2, y = visibleClue.surface.y - p.y + H / 2;
       this.soutline(g, x - 18, y - 18, 36, 36, found ? '#e4d49a' : C.gold, found ? 160 : 245);
       this.sbox(g, x - 12, y - 12, 24, 24, found ? '#e4d49a' : '#d9ad4d', found ? 100 : 190);
     }
-    const free = !t && !b.floorPending && !b.evacuationDrive && b.operationRun?.phase !== 'boarding';
-    const handsFree = free && b.generatorProgress === undefined && !b.survivalDoorWork && !this.survivalVehiclePanel;
+    const free = !t && !b.floorPending && !b.evacuationDrive && b.operationRun?.phase !== 'boarding' &&
+      b.retrieval?.phase !== 'boarding' && b.retrieval?.phase !== 'arrive';
+    const handsFree = free && b.generatorProgress === undefined && !b.survivalDoorWork &&
+      (!b.survivalBag || !this.suppliesOpen && !this.survivalWorkshopOpen && !this.survivalSentryPanel &&
+        !this.survivalVehiclePanel && !this.survivalDoorPanel);
     const verb = crate ? (crate.opened ? '查看' : '开箱') : clue ? '调查' : target ? target.id === 'apartment' ? target.verb :
       target.id === 'survival-board' ? '上车' : target.id === 'survival-vehicle' ? b.survivalVehicleStatus(target.vehicle).ready ? '撤离' : '检查' :
-      target.id === 'operation-board' ? '登机' : target.id === 'survival-workbench' ? '制作' : target.id === 'survival-radio' ? '电台' : '下楼' :
+      target.id === 'operation-board' ? '登机' : target.id === 'retrieval' ? '交互' : target.id === 'survival-workbench' ? '制作' : target.id === 'survival-sentry' ? '维护' : target.id === 'frontier-ready' ? '就绪' : '下楼' :
       door ? door.destroyed ? '工事' : door.locked ? '开锁' : Math.abs(door.target - door.baseAngle) < 0.01 ? '开门' : '关门' : '';
     const kits = b.apartment?.kits ?? 0;
     this.showHudAction('door', HUD.door, handsFree && (!!verb || !!this.survivalDoorHold?.opened), 'door-button', verb, 'E');
-    this.showHudAction('pickup', HUD.pickup, handsFree && !!loot, 'pickup-button', loot?.id === 'survival-drop' ? SURVIVAL_GEAR[loot.dropped.goods[0].kind][0] : '拾取', 'F');
+    this.showHudAction('pickup', HUD.pickup, handsFree && !!loot, 'pickup-button', loot?.id === 'survival-drop' ?
+      SURVIVAL_GEAR[loot.dropped.goods[0].kind][0] + ' ×' + loot.dropped.goods[0].count : '拾取', 'F');
     this.showHudAction('apartment-trap', HUD.trap, free && kits > 0, 'apartment-trap-count', `陷阱 ×${kits}`, 'T');
-    const tactical = b.tactical.selected;
-    if (b.survival) {
+    if (b.survivalBag) {
       const visible = handsFree && !this.suppliesOpen && !this.survivalWorkshopOpen && !this.survivalCrateId && !this.survivalDoorPanel;
       for (const [slot, id, rect, key, title] of [
         ['throw', 'grenade', HUD.grenade, 'G', '投掷'], ['mine', 'survival-mine', HUD.trap, 'T', '布雷'],
@@ -6746,9 +8441,16 @@ export class Blackout extends Component {
         this.showHudAction(id, rect, visible, id + '-label', kind ? SURVIVAL_GEAR[kind][0] + ' ×' + count : title + '未绑定', key);
       }
     } else {
-      this.updateTacticalHudIcon('grenade', undefined, !!b.tacticalBlock);
-      this.showHudAction('grenade', HUD.grenade, free && !!tactical && b.tactical.remaining > 0, 'grenade-label',
-        tactical ? TACTICAL_DEFINITIONS[tactical].title + ' ×' + b.tactical.remaining : '', 'G');
+      const primary = this.primaryThrowSlot();
+      for (const [slot, id, rect, key] of [
+        [primary, 'grenade', HUD.grenade, 'G'], ['mine', 'sortie-mine', b.apartment ? HUD.extraMine : HUD.trap, b.apartment ? 'Y' : 'T'],
+        ['story', 'story-grenade', HUD.storyGrenade, 'H'],
+      ] as const) {
+        const { selected, remaining } = b.tacticalFor(slot);
+        this.updateTacticalHudIcon(id, selected ? this.shopFrames.get(selected) : undefined, !!b.tacticalBlockFor(slot));
+        this.showHudAction(id, rect, free && !!selected && remaining > 0 && (id !== 'story-grenade' || primary !== 'story'),
+          id + '-label', selected ? TACTICAL_DEFINITIONS[selected].title + ' ×' + remaining : '', key);
+      }
     }
     const air = b.operationRun?.air;
     const airLabel = air?.mode === 'outbound' ? '小鸟返航' : air?.onStation === undefined ? air ? '小鸟进场' : '小鸟支援' :
@@ -6763,7 +8465,7 @@ export class Blackout extends Component {
         detail: this.profile.clues.includes(clue.id) ? '可重复阅读' : '首次调查' };
       else if (target) {
         const [title, detail] = target.name.split(' · ', 2);
-        const icon = target.id === 'survival-radio' ? 'radio' : target.id === 'survival-workbench' ? 'work' :
+        const icon = target.id === 'survival-workbench' ? 'work' :
           target.id === 'descend' || target.id === 'apartment' && target.station === 'stairs' ? 'stairs' : 'interact';
         prompt = { title, detail, badge, icon };
       } else if (door) {
@@ -6793,12 +8495,14 @@ export class Blackout extends Component {
       }
     }
     const grenade = this.operationGrenadeTouch ?? (this.operationGrenadeKey ? this.operationMouseGrenadeAim() : undefined);
-    const throwKind = b.survival ? b.survivalBindings.throw : b.tactical.selected;
-    const readyThrow = b.survival ? !!throwKind && isSurvivalThrowable(throwKind) && !!b.survivalCount(throwKind) &&
-      b.survivalThrowCooldown <= 0 && !b.tacticalInputBlock : throwKind === 'grenade' && !b.tacticalBlock;
+    const throwSlot = this.primaryThrowSlot();
+    const throwKind = b.survivalBag ? b.survivalBindings.throw : b.tacticalFor(throwSlot).selected;
+    const readyThrow = b.survivalBag ? !!throwKind && isSurvivalThrowable(throwKind) && !!b.survivalCount(throwKind) &&
+      b.survivalThrowCooldown <= 0 && !b.tacticalInputBlock : !b.tacticalBlockFor(throwSlot);
     if (grenade && readyThrow && isSurvivalThrowable(throwKind)) {
-      const range = Math.min(grenade.range, SURVIVAL_THROWABLES[throwKind].range);
-      const { bounces, impact } = throwKind === 'grenade' ? b.operationGrenadePreview(grenade.angle, range) :
+      const bounce = throwKind === 'grenade' && !!(b.survivalBag || b.operationRun);
+      const range = Math.min(grenade.range, bounce ? OPERATION_GRENADE_RANGE : SURVIVAL_THROWABLES[throwKind].range);
+      const { bounces, impact } = bounce ? b.operationGrenadePreview(grenade.angle, range) :
         { bounces: [], impact: b.grenadeAim(grenade.angle, range, range) };
       let x = W / 2 + this.feedback.x, y = H / 2 + this.feedback.y;
       for (const [i, point] of [...bounces, impact].entries()) {
@@ -6814,12 +8518,19 @@ export class Blackout extends Component {
     if (!sys.isMobile && !this.overSurvivalBag(this.mx, this.my)) {
       for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) this.sline(g, this.mx + dx * 6, this.my + dy * 6, this.mx + dx * 14, this.my + dy * 14, C.gold, 1.5, 200);
     }
-    const gearPanel = this.suppliesOpen || this.survivalWorkshopOpen || this.survivalCrateId || this.survivalDoorPanel || this.survivalVehiclePanel;
-    this.drawBattleNotice(this.noticeTime > 0 && !t, b.survival && gearPanel ? 608 : 549);
-    if (b.survival) this.drawSurvivalBagHud();
+    const gearPanel = this.suppliesOpen || this.survivalWorkshopOpen || this.survivalCrateId || this.survivalDoorPanel || this.survivalVehiclePanel || this.survivalSentryPanel;
+    if (b.survivalBag) this.drawSurvivalBagHud();
+    this.drawBattleNotice(this.noticeTime > 0 && !t, this.suppliesOpen ? 651 : gearPanel ? 608 : 549);
+  }
+  private survivalClockText() {
+    const b = this.battle, eta = b.survivalConvoyETA;
+    if (eta === 0) return '车队在工事南门';
+    if (eta !== undefined) return '车队抵达　' + this.time(Math.ceil(eta));
+    if (b.elapsed < BLOOD_MOON) return '距离血月　' + this.time(Math.ceil(BLOOD_MOON - b.elapsed));
+    return '血月　' + this.time(Math.floor(b.elapsed));
   }
   private updateSurvivalHud() {
-    const b = this.battle, run = b.survival!, plan = b.stage.survival!;
+    const b = this.battle, plan = b.stage.survival!;
     const title = this.labels.get('objective')!, detail = this.labels.get('sub-objective')!;
     const floor = b.survivalFloorView;
     const atHouse = floor || plan.stairs.some(stair => roomAt(b.player, [b.rooms[stair.lowerRoom]]) >= 0);
@@ -6827,60 +8538,48 @@ export class Blackout extends Component {
     const floorLabel = atHouse ? '　·　' + level : '';
     const now = b.elapsed;
     const fuel = (['helicopter', 'boat'] as const).find(id => b.survivalVehicleStatus(id).fuel !== undefined && !b.survivalVehicleStatus(id).ready);
-    title.string = (now >= CONVOY_LEAVE ? '最后追击　' + this.time(Math.ceil(SURVIVAL_DEADLINE - now)) :
-      now >= CONVOY_ARRIVAL ? '车队撤离　' + this.time(Math.ceil(CONVOY_LEAVE - now)) :
-        now >= BLOOD_MOON ? '血月 · 车队抵达 ' + this.time(Math.ceil(CONVOY_ARRIVAL - now)) :
-          '距离血月　' + this.time(Math.ceil(BLOOD_MOON - now))) + floorLabel;
+    title.string = this.survivalClockText() + floorLabel;
     title.color = color(now >= BLOOD_MOON || fuel ? '#ff9f75' : '#ecd8b8');
-    detail.string = (fuel ? EVAC_VEHICLES[fuel].name + '加油 ' + Math.ceil(b.survivalVehicleStatus(fuel).fuel ?? 0) + ' 秒　·　' : '') +
-      '奖励池　金币 ' + (run.pool.coins + run.salvage) + '　材料 ' + run.pool.materials;
+    const horde = b.survivalHorde;
+    detail.string = fuel ? EVAC_VEHICLES[fuel].name + '加油 ' + Math.ceil(b.survivalVehicleStatus(fuel).fuel ?? 0) + ' 秒' :
+      b.survivalConvoyETA !== undefined || b.survivalCount('convoy-pager') ? b.objective :
+        horde ? (horde.active ? '尸潮经过  ' : '下一波  ') + HARBOR_MAP_REGIONS[horde.region][0] : b.objective;
     const air = b.airSupportFlight, queued = b.pendingAirSupport;
     if (air || queued) {
       const status = !air || air.mode === 'inbound' ? '小鸟进场' : air.mode === 'outbound' ? '小鸟返航' :
         '小鸟支援 ' + Math.ceil(air.supportTime - (air.onStation ?? 0)) + ' 秒';
       this.text('survival-air-status', status + (queued ? ' · 待命 ' + queued : ''), HUD.map.x + HUD.map.w / 2,
-        HUD.map.y - 28, 14, '#e5bf81', this.canvas, HUD.map.w + 22, Label.HorizontalAlign.CENTER);
+        SURVIVAL_QUICK.y - 18, 14, '#e5bf81', this.canvas, HUD.map.w + 22, Label.HorizontalAlign.CENTER);
     } else if (this.labels.has('survival-air-status')) this.labels.get('survival-air-status')!.string = '';
   }
   private overSurvivalBag(x: number, y: number) {
-    if (!this.battle.survival) return false;
+    if (!this.battle.survivalBag) return false;
     const panels = [this.suppliesOpen ? SURVIVAL_BAG : undefined,
       this.survivalWorkshopOpen ? SURVIVAL_WORKSHOP : undefined, this.survivalCrateId ? SURVIVAL_CRATE_PANEL : undefined,
-      this.survivalDoorPanel ? SURVIVAL_DOOR_PANEL : undefined, this.survivalVehiclePanel ? SURVIVAL_VEHICLE_PANEL : undefined];
+      this.survivalDoorPanel ? SURVIVAL_DOOR_PANEL : undefined, this.survivalVehiclePanel ? SURVIVAL_VEHICLE_PANEL : undefined,
+      this.survivalSentryPanel ? SENTRY_SERVICE : undefined];
     return panels.some(r => r && x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
   }
-  private toggleSurvivalQuick() {
-    this.survivalQuickOpen = !this.suppliesOpen && !this.survivalQuickOpen;
-    this.suppliesOpen = this.survivalWorkshopOpen = false;
-    this.survivalDoorPanel = undefined;
-    this.survivalVehiclePanel = undefined;
-    this.survivalCrateId = undefined;
-    this.survivalHeldItem = undefined;
-    this.survivalDrag = this.survivalRotatePreview = undefined;
-    this.mouseFire = this.mouseQueuedFire = false;
-    this.updateHud();
-  }
   private toggleSurvivalBag() {
-    this.suppliesOpen = !this.suppliesOpen;
-    this.survivalWorkshopOpen = false;
-    this.survivalDoorPanel = undefined;
-    this.survivalHeldItem = undefined;
-    this.survivalDrag = this.survivalRotatePreview = undefined;
     this.mouseFire = this.mouseQueuedFire = false;
-    this.updateHud();
+    this.resetSurvivalPanels(!this.suppliesOpen);
   }
-  private closeSurvivalPanels() {
-    this.suppliesOpen = this.survivalQuickOpen = this.survivalWorkshopOpen = false;
+  private resetSurvivalPanels(bagOpen = false) {
+    this.suppliesOpen = bagOpen;
+    this.survivalWorkshopOpen = false;
     this.survivalDoorPanel = undefined;
     this.survivalVehiclePanel = undefined;
     this.survivalCrateId = undefined; this.survivalHeldItem = undefined;
     this.survivalDrag = this.survivalRotatePreview = undefined;
+    this.survivalSentryPanel = undefined;
+    this.workshopStockOpen = false;
+    this.workshopPage = 0;
     this.updateHud();
   }
   private openSurvivalDoorPanel(id: number) {
     const door = this.battle.nearbySurvivalDoor(id);
     if (!door || this.battle.survivalDoorWork) return;
-    this.suppliesOpen = this.survivalQuickOpen = this.survivalWorkshopOpen = false;
+    this.suppliesOpen = this.survivalWorkshopOpen = false;
     this.survivalCrateId = undefined; this.survivalHeldItem = undefined;
     this.survivalDoorPanel = { id, replacement: door.destroyed ? door.fortification : undefined };
     this.mouseFire = this.mouseQueuedFire = false;
@@ -6904,6 +8603,7 @@ export class Blackout extends Component {
     this.openSurvivalDoorPanel(hold.id);
   }
   private survivalItemFrame(kind: GearKind) {
+    if (kind === 'convoy-pager') return this.battleHudFrames.get('radio');
     const newArt = this.timedSurvivalFrames.get(kind);
     if (newArt) return newArt;
     if (kind === 'mod-cache') return this.shopFrames.get('parts');
@@ -6914,10 +8614,27 @@ export class Blackout extends Component {
     if (isSurvivalGun(kind)) return this.shopFrames.get(FIXED_WEAPON_ART[SURVIVAL_GUNS[kind].hero]);
     return this.survivalGearFrames.get(kind) ?? (kind === 'shock-mine' ? this.shopFrames.get('shock-mine') : this.itemFrames.get(kind));
   }
+  private useBattleSupply(kind: SupplyKind, itemId?: number) {
+    const battle = this.battle;
+    const used = itemId === undefined ? battle.useSupply(kind) : battle.useSurvivalItem(itemId);
+    if (used) { this.uiTick = 0; return; }
+    const messages = {
+      unavailable: '当前动作中无法使用补给',
+      'in-progress': '正在使用补给，请稍候',
+      empty: '没有可用的' + SUPPLY_INFO[kind].name,
+      'full-health': '生命值已满',
+    };
+    this.toast(messages[battle.supplyUseBlock(kind) ?? 'unavailable'], undefined, 'warning');
+  }
   private useSurvivalBagItem(id: number | null | undefined) {
     const item = this.battle.survivalBag?.item(id);
     if (!item) return;
+    if (isSurvivalSupply(item.kind)) { this.useBattleSupply(item.kind, item.id); return; }
     if (this.battle.useSurvivalItem(item.id)) {
+      if (item.kind === 'convoy-pager') {
+        this.saveSurvivalCheckpoint();
+        if (this.suppliesOpen) this.toggleSurvivalBag();
+      }
       if ((item.kind === 'scanner' || item.kind === 'sentry' || isSurvivalThrowable(item.kind) || isSurvivalMine(item.kind)) && this.suppliesOpen) this.toggleSurvivalBag();
       if (item.kind === 'scanner' && this.saveSurvivalCheckpoint()) {
         this.toast(this.battle.pendingAirSupport ? '已预约小鸟 · 待命 ' + this.battle.pendingAirSupport + ' 架' : '打击终端已启用 · 小鸟进场');
@@ -6927,7 +8644,8 @@ export class Blackout extends Component {
       this.toast(SURVIVAL_GUNS[item.kind].hero !== this.battle.heroId ? '该武器限 ' + heroes[SURVIVAL_GUNS[item.kind].hero].name + ' 装备' :
         this.battle.survivalSpecial ? '无法替换 · 请为换下的武器腾出空间' : '当前动作无法装备');
     } else {
-      this.toast(['sentry', 'shock-mine', 'mine'].includes(item.kind) ? '前方没有足够的布置空间' :
+      this.toast(item.kind === 'sentry' && this.battle.frontier ? '到目标提示圈附近的空地部署哨械枪' :
+        ['sentry', 'shock-mine', 'mine'].includes(item.kind) ? '前方没有足够的布置空间' :
         item.kind === 'special-ammo' ? '需要先装备一把特殊武器' : '此时无法使用或背包空间不足');
     }
   }
@@ -6939,15 +8657,14 @@ export class Blackout extends Component {
     this.survivalBagItemLayer = this.makeNode('Inventory item models', this.survivalBagLayer);
     const bind = (name: string, x: number, y: number, w: number, h: number, run: () => void) =>
       this.addButton('gear-' + name, x, y, w, h, () => { run(); this.uiTick = 0; });
-    bind('blocker', layout.x, layout.y, layout.w, layout.h, () => {});
-    bind('toggle', SURVIVAL_BAG_BUTTON.x, SURVIVAL_BAG_BUTTON.y, SURVIVAL_BAG_BUTTON.w, SURVIVAL_BAG_BUTTON.h, () => this.toggleSurvivalQuick());
-    bind('all', q.x - 68, q.y, 61, q.h, () => this.toggleSurvivalBag());
-    for (let i = 0; i < 3; i++) bind('quick-' + i, q.x + i * 67, q.y, q.w, q.h, () => this.useSurvivalBagItem(bag.quick[i]));
+    const backdrop = bind('blocker', layout.x, layout.y, layout.w, layout.h, () => {});
+    bind('toggle', SURVIVAL_BAG_BUTTON.x, SURVIVAL_BAG_BUTTON.y, SURVIVAL_BAG_BUTTON.w, SURVIVAL_BAG_BUTTON.h, () => this.toggleSurvivalBag());
+    for (let i = 0; i < 3; i++) bind('quick-' + i, q.x + i * q.pitch, q.y, q.w, q.h, () => this.useSurvivalBagItem(bag.quick[i]));
     const close = SURVIVAL_BAG_CLOSE;
     bind('close', close.x, close.y, close.w, close.h, () => this.toggleSurvivalBag());
     const vehiclePanel = SURVIVAL_VEHICLE_PANEL;
     bind('vehicle-blocker', vehiclePanel.x, vehiclePanel.y, vehiclePanel.w, vehiclePanel.h, () => {});
-    bind('vehicle-close', 941, 546, 54, 36, () => this.closeSurvivalPanels());
+    bind('vehicle-close', 941, 546, 54, 36, () => this.resetSurvivalPanels());
     for (let i = 0; i < 5; i++) bind('vehicle-fit-' + i, 859, 477 - 51 * i, 116, 36, () => {
       const id = this.survivalVehiclePanel;
       if (id && b.fitSurvivalPart(id, i)) this.play('unlock');
@@ -6957,16 +8674,16 @@ export class Blackout extends Component {
       if (!id) return;
       const status = b.survivalVehicleStatus(id);
       if (!(status.ready ? b.boardSurvival(id) : b.beginSurvivalFuel(id))) return;
-      this.closeSurvivalPanels();
+      this.resetSurvivalPanels();
       if (!status.ready) this.toast('加油开始 · 尸群正在被引来', 4, 'warning');
     });
     for (const tab of [SUPPLY_WORKSHOP_RECIPES, SENTRY_WORKSHOP_RECIPES]) tab.forEach((recipe, i) =>
       bind('recipe-' + recipe, 644, 468 - 44 * i, 216, 39, () => { this.survivalRecipe = recipe; }));
     bind('recipe-ammo', 644, 468 - 44 * SUPPLY_WORKSHOP_RECIPES.length, 216, 39, () => { this.survivalRecipe = 'special-ammo'; });
-    bind('work-supply', 644, 515, 103, 32, () => { this.survivalRecipe = 'grenade'; });
-    bind('work-sentry', 755, 515, 105, 32, () => { this.survivalRecipe = 'sentry'; });
-    bind('workshop-close', 1073, 543, 61, 34, () => this.closeSurvivalPanels());
-    bind('fort-close', 1060, 543, 61, 34, () => this.closeSurvivalPanels());
+    bind('work-supply', 644, 515, 103, 32, () => { this.survivalRecipe = 'grenade'; this.workshopStockOpen = false; });
+    bind('work-sentry', 755, 515, 105, 32, () => { this.survivalRecipe = 'sentry'; this.workshopStockOpen = false; });
+    bind('workshop-close', 1073, 543, 61, 34, () => this.resetSurvivalPanels());
+    bind('fort-close', 1060, 543, 61, 34, () => this.resetSurvivalPanels());
     bind('fort-repair', 645, 466, 182, 37, () => {
       if (this.survivalDoorPanel) this.survivalDoorPanel.replacement = undefined;
     });
@@ -6977,7 +8694,7 @@ export class Blackout extends Component {
       const selection = this.survivalDoorPanel;
       if (!selection) return;
       if (b.startSurvivalDoorWork(selection.id, selection.replacement)) {
-        this.closeSurvivalPanels();
+        this.resetSurvivalPanels();
       } else this.toast(b.survivalDoorPlan(selection.id, selection.replacement)?.reason ?? '当前无法施工', undefined, 'warning');
     });
     const craft = (toGround: boolean) => {
@@ -6985,28 +8702,54 @@ export class Blackout extends Component {
       if (result === 'ok') {
         this.play('loot');
         this.toast(recipe === 'special-ammo' && ammo ? ammo.title + ' · 备弹 +' + ammo.rounds : SURVIVAL_GEAR[recipe][0] + ' 已放入背包');
-      } else if (result === 'dropped') {
+      } else if (result === 'stored') {
         this.play('loot');
-        this.closeSurvivalPanels();
-        this.toast(SURVIVAL_GEAR[recipe][0] + ' 已放在台边');
+        this.toast(SURVIVAL_GEAR[recipe][0] + ' 已放入工作台储备');
       } else this.toast(result === 'space' ? '成品需要一块连续空位' : result === 'materials' ? '制作材料不足' :
-        result === 'ground-blocked' ? '台边没有空位，请先清理掉落物' : result === 'changed' ? '背包已有空位，可直接制作入包' :
+        result === 'changed' ? '背包已有空位，可直接制作入包' :
         result === 'weapon' ? '先在背包装备特殊武器' : result === 'full' ? '备弹已接近上限' : '请靠近工事工作台');
     };
     bind('craft', 902, 229, 210, 43, () => craft(false));
     bind('craft-drop', 902, 229, 210, 43, () => craft(true));
-    const crateRect = SURVIVAL_CRATE_PANEL;
-    bind('crate-close', crateRect.x + 12, crateRect.y + 12, 80, 34, () => { this.survivalCrateId = undefined; });
-    bind('crate-all', crateRect.x + 128, crateRect.y + 12, 80, 34, () => this.toggleSurvivalBag());
-    for (let i = 0; i < 6; i++) bind('take-' + i, crateRect.x + 13, 440 - i * 33, 200, 31, () => {
-      if (!this.survivalCrateId) return;
-      const crate = b.nearbySurvivalCrate(this.survivalCrateId), stack = crate?.goods[i];
-      if (!crate || !stack) return;
-      if (!b.takeSurvivalCrate(crate.id, i)) {
-        const [w, h] = bag.size(stack.kind, false);
-        this.toast(SURVIVAL_GEAR[stack.kind][0] + '需要连续 ' + w + '×' + h + ' 格（' + w * h + ' 格）');
-      }
+    bind('crate-close', 1072, 597, 65, 35, () => this.resetSurvivalPanels());
+    bind('crate-all', 943, 112, 192, 44, () => {
+      if (this.survivalCrateId && !b.takeAllSurvivalCrate(this.survivalCrateId)) this.toast('背包没有合适空位');
     });
+    bind('crate-rotate', 248, 82, 112, 32, () => {
+      const item = bag.item(this.survivalHeldItem);
+      if (item && !bag.move(item.id, item.col, item.row, !item.rotated)) this.toast('没有足够空间旋转');
+    });
+    bind('crate-drop', 368, 82, 112, 32, () => {
+      if (this.survivalHeldItem === undefined) return;
+      if (b.dropSurvivalItem(this.survivalHeldItem)) this.survivalHeldItem = undefined;
+      else this.toast('此时无法丢弃该物品', undefined, 'warning');
+    });
+    bind('work-stock', 869, 515, 106, 32, () => { this.workshopStockOpen = !this.workshopStockOpen; });
+    for (const [id, x, delta] of [['previous', 663, -1], ['next', 1059, 1]] as const) {
+      bind('stock-' + id, x, 213, 61, 33, () => { this.workshopPage += delta; });
+    }
+    for (let i = 0; i < SURVIVAL_STOCK_PAGE_SIZE; i++) {
+      const y = 468 - i * 35;
+      for (const [action, x, deposit, all] of [
+        ['put', 889, true, false], ['put-all', 945, true, true], ['get', 1001, false, false], ['get-all', 1057, false, true],
+      ] as const) bind('stock-' + action + '-' + i, x, y, 52, 29, () => {
+        const kind = WORKSHOP_ITEMS[this.workshopPage * SURVIVAL_STOCK_PAGE_SIZE + i];
+        if (kind && !b.transferWorkshopStock(kind, all ? Number.MAX_SAFE_INTEGER : 1, deposit))
+          this.toast(deposit ? '背包中没有可存入的材料' : '无法取出 · 检查储备数量和背包空位', undefined, 'warning');
+      });
+    }
+    bind('sentry-blocker', SENTRY_SERVICE.x, SENTRY_SERVICE.y, SENTRY_SERVICE.w, SENTRY_SERVICE.h, () => {});
+    bind('sentry-close', 1056, 530, 64, 34, () => this.resetSurvivalPanels());
+    bind('sentry-recover', 1002, 182, 113, 37, () => {
+      if (this.survivalSentryPanel && b.startSurvivalSentryRecovery(this.survivalSentryPanel)) this.resetSurvivalPanels();
+      else this.toast('回收需要一块完整的背包空位');
+    });
+    bind('sentry-repair', 1002, 445, 113, 36, () => {
+      if (this.survivalSentryPanel && !b.serviceSurvivalSentry(this.survivalSentryPanel)) this.toast('当前无法修理');
+    });
+    SENTRY_UPGRADE_IDS.forEach((id, i) => bind('sentry-' + id, 1002, 387 - i * 56, 113, 37, () => {
+      if (this.survivalSentryPanel && !b.serviceSurvivalSentry(this.survivalSentryPanel, id)) this.toast('当前无法升级');
+    }));
     const actions = {
       use: () => this.useSurvivalBagItem(this.survivalHeldItem),
       rotate: () => {
@@ -7023,14 +8766,17 @@ export class Blackout extends Component {
         if (item && !bag.split(item.id)) this.toast('没有可拆分的堆叠或空间不足');
       },
       drop: () => {
-        if (this.survivalHeldItem !== undefined && b.dropSurvivalItem(this.survivalHeldItem)) this.survivalHeldItem = undefined;
+        if (this.survivalHeldItem === undefined) return;
+        if (b.dropSurvivalItem(this.survivalHeldItem)) this.survivalHeldItem = undefined;
+        else this.toast('此时无法丢弃该物品', undefined, 'warning');
       },
     };
     for (const { id, x, y, w, h } of SURVIVAL_BAG_ACTIONS) bind(id, x, y, w, h, actions[id]);
     bind('assign-tactical', 734, 105, 385, 35, () => {
       const item = bag.item(this.survivalHeldItem);
       if (!item || !b.bindSurvivalTactical(item.kind)) return;
-      if (this.saveSurvivalCheckpoint(b)) this.toast('已绑定 ' + (isSurvivalThrowable(item.kind) ? 'G' : 'T') + ' · ' + SURVIVAL_GEAR[item.kind][0]);
+      this.saveSurvivalCheckpoint(b);
+      this.toast(SURVIVAL_GEAR[item.kind][0] + '已绑定至快捷按钮');
       this.uiTick = 0;
     });
     for (let i = 0; i < 3; i++) bind('assign-' + i, 734 + i * 131, 105, 122, 35, () => {
@@ -7050,6 +8796,43 @@ export class Blackout extends Component {
       row: Math.floor((layout.gridTop - p.y) / layout.cell),
     });
     const distance = (start: { x: number; y: number }, end: { x: number; y: number }) => Math.hypot(end.x - start.x, end.y - start.y);
+    // Capture on the whole overlay so releasing over the backpack finishes the same touch.
+    backdrop.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
+      const crate = this.survivalCrateId && b.nearbySurvivalCrate(this.survivalCrateId);
+      if (!crate || this.survivalDrag) return;
+      const pointer = this.pointerPosition(event);
+      const index = crate.goods.findIndex((_, i) => {
+        const { x, y, w, h } = crateTile(i);
+        return pointer.x >= x && pointer.x <= x + w && pointer.y >= y && pointer.y <= y + h;
+      });
+      const stack = crate.goods[index];
+      if (stack) this.survivalDrag = { ...pointer, owner: event.getID(), crate: { id: crate.id, index, stack } };
+    });
+    const moveFromCrate = (event: EventTouch) => {
+      const drag = this.survivalDrag;
+      if (!drag?.crate || drag.owner !== event.getID()) return;
+      const p = this.pointerPosition(event), { col, row } = cellAt(p);
+      if (distance(drag, p) < 8 && drag.col === undefined) return;
+      Object.assign(drag, { col, row,
+        rotated: !bag.fitsStackAt(drag.crate.stack, col, row, false) && bag.fitsStackAt(drag.crate.stack, col, row, true) });
+      this.uiTick = 0;
+    };
+    backdrop.on(Node.EventType.TOUCH_MOVE, moveFromCrate);
+    backdrop.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+      const drag = this.survivalDrag, source = drag?.crate;
+      if (!drag || !source || drag.owner !== event.getID()) return;
+      moveFromCrate(event);
+      this.survivalDrag = undefined;
+      if (b.nearbySurvivalCrate(source.id)?.goods[source.index] !== source.stack) return;
+      const position = drag.col === undefined || drag.row === undefined ? undefined : { col: drag.col, row: drag.row, rotated: drag.rotated };
+      if (!b.takeSurvivalCrate(source.id, source.index, position)) this.toast('这个位置放不下');
+      this.uiTick = 0;
+    });
+    backdrop.on(Node.EventType.TOUCH_CANCEL, (event: EventTouch) => {
+      if (this.survivalDrag?.owner !== event.getID()) return;
+      this.survivalDrag = undefined;
+      this.uiTick = 0;
+    });
     grid.on(Node.EventType.TOUCH_START, (e: EventTouch) => {
       if (this.survivalDrag || !this.suppliesOpen) return;
       const p = this.pointerPosition(e), { col, row } = cellAt(p);
@@ -7075,7 +8858,7 @@ export class Blackout extends Component {
       const p = this.pointerPosition(e);
       updateDrag(drag, p);
       if (drag.id !== undefined && drag.col !== undefined && drag.row !== undefined) {
-        bag.move(drag.id, drag.col, drag.row);
+        if (!bag.move(drag.id, drag.col, drag.row)) this.toast('这个位置放不下', undefined, 'warning');
       } else if (distance(drag, p) < 8) {
         const { col, row } = cellAt(p);
         if (col < 0 || col >= bag.columns || row < 0 || row >= bag.rows) return;
@@ -7097,11 +8880,19 @@ export class Blackout extends Component {
     if (!g || !this.survivalBagLayer) return;
     g.clear();
     const shown = new Set<string>(), activeButtons = new Set<string>();
-    const q = SURVIVAL_QUICK, layout = SURVIVAL_BAG, show = this.suppliesOpen;
+    const q = SURVIVAL_QUICK, layout = SURVIVAL_BAG;
     const selected = bag.item(this.survivalHeldItem);
     const crate = this.survivalCrateId ? b.nearbySurvivalCrate(this.survivalCrateId) : undefined;
-    if (!crate) this.survivalCrateId = undefined;
+    if (!crate && this.survivalCrateId) {
+      this.survivalCrateId = undefined;
+      this.suppliesOpen = false;
+      this.survivalHeldItem = undefined;
+      this.survivalDrag = undefined;
+    }
+    const show = this.suppliesOpen;
     if (this.survivalWorkshopOpen && !b.survivalAtWorkbench) this.survivalWorkshopOpen = false;
+    const sentry = this.survivalSentryPanel;
+    if (sentry && b.nearbySurvivalSentry() !== sentry) this.survivalSentryPanel = undefined;
     const fortDoor = this.survivalDoorPanel ? b.nearbySurvivalDoor(this.survivalDoorPanel.id) : undefined;
     if (!fortDoor) this.survivalDoorPanel = undefined;
     const label = (id: string, str: string, x: number, y: number, w: number, size = 14, fill = C.text, height?: number,
@@ -7152,12 +8943,11 @@ export class Blackout extends Component {
     };
     const old = SURVIVAL_BAG_BUTTON;
     texture(this.supplyUiFrames.get('backpack'), old.x + 10, old.y - 5, 56, 56);
-    label('backpack-label', '背包', old.x + old.w / 2, old.y - 8, 70, 12, this.survivalQuickOpen ? C.gold : C.text);
+    label('backpack-label', '背包', old.x + old.w / 2, old.y - 8, 70, 12, show ? C.gold : C.text);
     activeButtons.add('toggle');
-    if (this.survivalQuickOpen && !show && !crate && !this.survivalWorkshopOpen) {
-      button('all', '全部', q.x - 68, q.y, 61, q.h);
+    if (!show && !crate && !this.survivalWorkshopOpen && !this.survivalDoorPanel && !this.survivalVehiclePanel && !this.survivalSentryPanel) {
       for (let i = 0; i < 3; i++) {
-        const x = q.x + i * 67, item = bag.item(bag.quick[i]);
+        const x = q.x + i * q.pitch, item = bag.item(bag.quick[i]);
         texture(this.survivalSkin.get('slot') ?? this.supplyUiFrames.get('slot'), x, q.y, q.w, q.h);
         if (item) {
           icon(item.kind, x + q.w / 2, q.y + 27, 42, 31);
@@ -7171,6 +8961,11 @@ export class Blackout extends Component {
       button('install', '安装哨械枪  ' + p.left.toFixed(1) + ' 秒', 487, 108, 277, 39, true);
       this.sbox(g, 500, 114, 248 * (1 - p.left / p.duration), 3, C.gold);
     }
+    if (b.survivalRecovery) {
+      const { left } = b.survivalRecovery;
+      button('sentry-recovery-progress', '回收哨械枪  ' + Math.max(0, left).toFixed(1) + ' 秒', 487, 108, 277, 39, true);
+      this.sbox(g, 500, 114, 248 * clamp(1 - left / 1.2, 0, 1), 3, C.gold);
+    }
     if (b.survivalDoorWork) {
       const work = b.survivalDoorWork;
       button('fort-progress', (work.replacement ? '安装门板' : '修补门板') + '  ' + Math.max(0, work.left).toFixed(1) + ' 秒', 481, 105, 285, 40, true);
@@ -7180,14 +8975,17 @@ export class Blackout extends Component {
       this.sbox(g, 498, 78, 220 * clamp(1 - hold.left / SURVIVAL_DOOR_HOLD, 0, 1), 3, C.gold);
     }
     if (show) {
-      if (!texture(this.survivalUiFrames.get('bag'), layout.x, layout.y, layout.w, layout.h)) panel(layout);
+      if (crate) panel({ ...layout, w: 505 });
+      else if (!texture(this.survivalUiFrames.get('bag'), layout.x, layout.y, layout.w, layout.h)) panel(layout);
       activeButtons.add('blocker');
       activeButtons.add('grid');
       label('capacity', bag.columns + ' × ' + bag.rows + '　·　已用 ' + bag.used + ' / ' + (bag.columns * bag.rows) + ' 格',
         layout.gridX, 612, 350, 21, '#f0d8a9', undefined, Label.HorizontalAlign.LEFT);
       const close = SURVIVAL_BAG_CLOSE;
-      if (texture(this.survivalUiFrames.get('close'), close.x, close.y, close.w, close.h)) activeButtons.add('close');
-      else button('close', '×', close.x, close.y, close.w, close.h);
+      if (!crate) {
+        if (texture(this.survivalUiFrames.get('close'), close.x, close.y, close.w, close.h)) activeButtons.add('close');
+        else button('close', '×', close.x, close.y, close.w, close.h);
+      }
       const cell = layout.cell, gridLength = layout.displaySize * cell;
       const slot = this.survivalUiFrames.get('tile') ?? this.survivalSkin.get('slot');
       const locked = this.survivalUiFrames.get('tile-locked');
@@ -7212,59 +9010,76 @@ export class Blackout extends Component {
       const turn = this.survivalRotatePreview;
       const rotation = turn && turn.until > this.presentationTime ? bag.item(turn.id) : undefined;
       const drag = this.survivalDrag, moving = bag.item(drag?.id);
-      const preview = rotation ? { item: rotation, col: rotation.col, row: rotation.row, rotated: !rotation.rotated } :
-        moving && drag?.col !== undefined && drag.row !== undefined ? { item: moving, col: drag.col, row: drag.row, rotated: moving.rotated } : undefined;
+      const preview = rotation ? { item: rotation, col: rotation.col, row: rotation.row, rotated: !rotation.rotated, id: rotation.id } :
+        drag?.col !== undefined && drag.row !== undefined && (moving || drag.crate) ? {
+          item: moving ?? drag.crate!.stack, col: drag.col, row: drag.row, rotated: moving?.rotated ?? !!drag.rotated, id: moving?.id,
+        } : undefined;
       if (preview) {
         const { item, col, row, rotated } = preview, [w, h] = bag.size(item.kind, rotated);
         const x = layout.gridX + col * cell, y = layout.gridTop - (row + h) * cell;
-        const valid = bag.fits(item.kind, col, row, rotated, item.id);
+        const valid = preview.id === undefined ? bag.fitsStackAt(item, col, row, rotated) : bag.fits(item.kind, col, row, rotated, preview.id);
         const left = Math.max(x, layout.gridX), right = Math.min(x + w * cell, layout.gridX + gridLength);
         const bottom = Math.max(y, layout.gridTop - gridLength), top = Math.min(y + h * cell, layout.gridTop);
         if (right > left && top > bottom) this.sbox(g, left, bottom, right - left, top - bottom, valid ? '#9acb93' : '#e75a4d', 137);
       }
-      const [w, h] = selected ? bag.size(selected.kind, selected.rotated) : [0, 0];
-      const gun = selected && isSurvivalGun(selected.kind) ? SURVIVAL_GUNS[selected.kind] : undefined;
-      const usable = !!selected && canUseSurvivalGear(selected.kind) && (!gun || gun.hero === b.heroId);
-      if (selected) {
-        label('selected', SURVIVAL_GEAR[selected.kind][0], 734, 539, 370, 31, '#f3d6a3', undefined, Label.HorizontalAlign.LEFT);
-        icon(selected.kind, 928, 447, 240, 119, selected.rotated);
-        const detail = SURVIVAL_DESCRIPTIONS[selected.kind] + (gun ? '\n适用 ' + heroes[gun.hero].name + '　·　弹匣 ' +
-          (selected.rounds ?? gun.magazine) + ' / ' + gun.magazine : '');
-        label('details', detail, 734, 343, 384, 19, '#eee2cd', 63, Label.HorizontalAlign.LEFT);
-        label('size', w + ' × ' + h + ' 格　·　数量 ' + selected.count, 734, 286, 360, 16, C.jade, undefined, Label.HorizontalAlign.LEFT);
+      if (crate) {
+        button('crate-rotate', '旋转', 248, 82, 112, 32, false, !!selected);
+        button('crate-drop', '丢弃', 368, 82, 112, 32, false, !!selected);
+        if (selected) label('crate-bag-selection', SURVIVAL_GEAR[selected.kind][0], 589, 98, 190, 15, C.gold);
       } else {
-        label('details-empty', '选择左侧物品查看详情', 927, 424, 355, 23, '#c5bba6');
+        const [w, h] = selected ? bag.size(selected.kind, selected.rotated) : [0, 0];
+        const gun = selected && isSurvivalGun(selected.kind) ? SURVIVAL_GUNS[selected.kind] : undefined;
+        const usable = !!selected && canUseSurvivalGear(selected.kind) && (!gun || gun.hero === b.heroId);
+        if (selected) {
+          label('selected', SURVIVAL_GEAR[selected.kind][0], 734, 539, 370, 31, '#f3d6a3', undefined, Label.HorizontalAlign.LEFT);
+          icon(selected.kind, 928, 447, 240, 119, selected.rotated);
+          const packed = selected.packedSentry;
+          const detail = packed ? '回收状态 · 耐久 ' + Math.ceil(packed.hp) + ' / ' + SENTRY_HP + '\n' +
+            SENTRY_UPGRADE_IDS.map(id => SENTRY_UPGRADES[id].name + ' Lv.' + (packed.upgrades?.[id] ?? 0)).join('  ') :
+            SURVIVAL_DESCRIPTIONS[selected.kind] + (gun ? '\n适用 ' + heroes[gun.hero].name + '　·　弹匣 ' +
+              (selected.rounds ?? gun.magazine) + ' / ' + gun.magazine : '');
+          label('details', detail, 734, 343, 384, packed ? 16 : 19, '#eee2cd', 63, Label.HorizontalAlign.LEFT);
+          label('size', w + ' × ' + h + ' 格　·　数量 ' + selected.count, 734, 286, 360, 16, C.jade, undefined, Label.HorizontalAlign.LEFT);
+        } else {
+          label('details-empty', '选择左侧物品查看详情', 927, 424, 355, 23, '#c5bba6');
+        }
+        const enabled = { use: usable, rotate: w !== h, split: (selected?.count ?? 0) > 1, drop: !!selected };
+        const actionButton = (id: string, title: string, x: number, y: number, width: number, height: number,
+          active: boolean, primary = false) => {
+          const frame = this.survivalUiFrames.get(primary ? 'primary' : 'secondary') ?? this.survivalSkin.get('button');
+          texture(frame, x, y, width, height, active ? '#ffffff' : '#727475');
+          label(id, title, x + width / 2, y + height / 2, width - 12, height >= 40 ? 20 : 14, active ? '#f1dfbd' : '#9e9b91');
+          if (active) activeButtons.add(id);
+        };
+        const equip = selected?.packedSentry ? '重新部署' : gun ? b.survivalSpecial ? '替换 ' + SURVIVAL_GUNS[b.survivalSpecial.id].gun : '装备' : '使用';
+        for (const action of SURVIVAL_BAG_ACTIONS) actionButton(action.id, action.id === 'use' ? equip : action.label, action.x, action.y, action.w, action.h,
+          enabled[action.id], action.id === 'use' && usable);
+        const tacticalSlot = isSurvivalThrowable(selected?.kind) ? 'throw' : isSurvivalMine(selected?.kind) ? 'mine' : undefined;
+        if (tacticalSlot) {
+          const assigned = b.survivalBindings[tacticalSlot] === selected?.kind;
+          actionButton('assign-tactical', assigned ? '已绑定至快捷按钮' : '绑定至快捷按钮', 734, 105, 385, 35, usable, assigned);
+        } else for (let i = 0; i < 3; i++) {
+          const assigned = !!selected && bag.quick[i] === selected.id;
+          actionButton('assign-' + i, '快捷 ' + (i + 1), 734 + i * 131, 105, 122, 35, usable, assigned);
+        }
       }
-      const enabled = { use: usable, rotate: w !== h, split: (selected?.count ?? 0) > 1, drop: !!selected };
-      const actionButton = (id: string, title: string, x: number, y: number, width: number, height: number,
-        active: boolean, primary = false) => {
-        const frame = this.survivalUiFrames.get(primary ? 'primary' : 'secondary') ?? this.survivalSkin.get('button');
-        texture(frame, x, y, width, height, active ? '#ffffff' : '#727475');
-        label(id, title, x + width / 2, y + height / 2, width - 12, height >= 40 ? 20 : 14, active ? '#f1dfbd' : '#9e9b91');
-        if (active) activeButtons.add(id);
-      };
-      const equip = gun ? b.survivalSpecial ? '替换 ' + SURVIVAL_GUNS[b.survivalSpecial.id].gun : '装备' : '使用';
-      for (const action of SURVIVAL_BAG_ACTIONS) actionButton(action.id, action.id === 'use' ? equip : action.label, action.x, action.y, action.w, action.h,
-        enabled[action.id], action.id === 'use' && usable);
-      const tacticalSlot = isSurvivalThrowable(selected?.kind) ? 'throw' : isSurvivalMine(selected?.kind) ? 'mine' : undefined;
-      if (tacticalSlot) {
-        const assigned = b.survivalBindings[tacticalSlot] === selected?.kind;
-        const title = tacticalSlot === 'throw' ? 'G 投掷' : 'T 布雷';
-        actionButton('assign-tactical', (assigned ? '已绑定 · ' : '设为 ') + title, 734, 105, 385, 35, usable, assigned);
-      } else for (let i = 0; i < 3; i++) {
-        const assigned = !!selected && bag.quick[i] === selected.id;
-        actionButton('assign-' + i, '快捷 ' + (i + 1), 734 + i * 131, 105, 122, 35, usable, assigned);
-      }
-    } else if (crate) {
+    }
+    if (crate) {
       const r = SURVIVAL_CRATE_PANEL;
-      panel(r, 'tooltip');
-      label('source', SURVIVAL_CRATE_LABELS[crate.kind], r.x + r.w / 2, 487, 185, 18, '#f0d5a3');
-      for (const [i, stack] of crate.goods.entries()) {
-        button('take-' + i, '　' + SURVIVAL_GEAR[stack.kind][0] + ' ×' + stack.count, r.x + 13, 440 - i * 33, 200, 31);
-        icon(stack.kind, r.x + 31, 455 - i * 33, 25, 22);
+      if (!texture(this.survivalUiFrames.get('loot-panel'), r.x, r.y, r.w, r.h, '#ffffff', true)) panel(r, 'tooltip');
+      label('source', SURVIVAL_CRATE_LABELS[crate.kind], 755, 615, 195, 25, '#f3d9a7', undefined, Label.HorizontalAlign.LEFT);
+      label('crate-summary', '剩余 ' + crate.goods.length + ' 项', 755, 572, 266, 16, C.jade, undefined, Label.HorizontalAlign.LEFT);
+      for (let i = 0; i < 6; i++) {
+        const stack = crate.goods[i], { x, y, w, h } = crateTile(i);
+        texture(this.survivalUiFrames.get('tile') ?? this.survivalSkin.get('slot'), x, y, w, h, stack ? '#ffffff' : '#636c6b');
+        if (!stack) continue;
+        icon(stack.kind, x + w / 2, y + 79, 89, 77);
+        label('crate-kind-' + i, SURVIVAL_GEAR[stack.kind][0], x + w / 2, y + 29, w - 10, 13, '#f3e1bc');
+        label('crate-count-' + i, '×' + stack.count, x + w / 2, y + 12, w - 10, 12, C.gold);
       }
-      button('crate-close', '关闭', r.x + 12, r.y + 12, 80, 34);
-      button('crate-all', show ? '收起背包' : '全部', r.x + 128, r.y + 12, 80, 34);
+      label('crate-help', '点击收取 · 拖动到指定格', 736, 209, 350, 16, '#afbab4', undefined, Label.HorizontalAlign.LEFT);
+      button('crate-close', '关闭', 1072, 597, 65, 35);
+      button('crate-all', '一键领取', 943, 112, 192, 44, true);
     }
     if (this.survivalVehiclePanel && b.survivalVehicleAtPlayer() !== this.survivalVehiclePanel) this.survivalVehiclePanel = undefined;
     const vehicleId = this.survivalVehiclePanel;
@@ -7300,49 +9115,94 @@ export class Blackout extends Component {
       button('vehicle-start', start, 716, 177, 258, 51, status.ready || readyToFuel, status.ready || status.fuel === undefined && readyToFuel);
       label('vehicle-fuel-note', '加油会吸引附近尸群', 817, 151, 290, 14, '#e4af92');
     }
+    if (this.survivalSentryPanel && sentry) {
+      const r = SENTRY_SERVICE;
+      if (!texture(this.survivalUiFrames.get('sentry-panel'), r.x, r.y, r.w, r.h, '#ffffff', true)) panel(r);
+      activeButtons.add('sentry-blocker');
+      label('sentry-title', '哨械枪维护', 781, 546, 192, 24, '#f2d6a3');
+      button('sentry-close', '关闭', 1056, 530, 64, 34);
+      icon('sentry', 720, 465, 60, 55);
+      label('sentry-hp', '耐久 ' + Math.ceil(sentry.hp) + ' / ' + SENTRY_HP, 852, 483, 185, 17, C.jade);
+      const materialText = (cost: readonly (readonly [GearKind, number])[]) =>
+        cost.map(([kind, amount]) => SURVIVAL_GEAR[kind][0] + ' ×' + amount).join('  ');
+      label('repair-cost', materialText(SENTRY_REPAIR), 704, 445, 250, 13, C.muted, undefined, Label.HorizontalAlign.LEFT);
+      button('sentry-repair', '维修 +60', 1002, 445, 113, 36, false, sentry.hp < SENTRY_HP && bag.canPay(SENTRY_REPAIR));
+      SENTRY_UPGRADE_IDS.forEach((id, i) => {
+        const y = 387 - i * 56, def = SENTRY_UPGRADES[id], level = sentry.upgrades?.[id] ?? 0;
+        const cost = def.cost.map(([kind, amount]) => [kind, amount + level] as const);
+        const stat = sentryStats(sentry)[id], unit = id === 'speed' ? '%' : '';
+        label('sentry-stat-' + id, def.name + '  ' + stat + unit + (level < 2 ? '  →  ' + (stat + def.step) + unit : ''),
+          704, y + 24, 245, 17, '#f2d6a3', undefined, Label.HorizontalAlign.LEFT);
+        if (level < 2) label('sentry-cost-' + id, materialText(cost), 704, y + 3, 286, 12, C.muted, undefined, Label.HorizontalAlign.LEFT);
+        button('sentry-' + id, level === 2 ? '已满级' : '升级  ' + (level + 1) + '/2', 1002, y, 113, 37, false, level < 2 && bag.canPay(cost));
+      });
+      const space = bag.hasSpaceFor('sentry');
+      label('sentry-recover-note', space ? '回收保留耐久与升级' : '背包需要 4×5 或 5×4 连续空位',
+        704, 201, 285, 14, space ? C.muted : '#ed9b80', undefined, Label.HorizontalAlign.LEFT);
+      button('sentry-recover', '回收', 1002, 182, 113, 37, false, space && !b.survivalRecovery);
+    }
     if (this.survivalWorkshopOpen) {
-      panel(SURVIVAL_WORKSHOP);
-      label('workshop-title', '工事工作台', 731, 560, 170, 23, '#f0d5a3');
+      const r = SURVIVAL_WORKSHOP;
+      if (!texture(this.survivalUiFrames.get('workshop-panel'), r.x, r.y, r.w, r.h, '#ffffff', true)) panel(r);
+      label('workshop-title', b.nearbyWorkbench?.name ?? '工事工作台', 752, 560, 208, 23, '#f0d5a3');
       button('workshop-close', '关闭', 1073, 543, 61, 34);
       const sentryTab = SENTRY_WORKSHOP_RECIPES.some(id => this.survivalRecipe === id);
-      button('work-supply', '通用制作', 644, 515, 103, 32, !sentryTab);
-      button('work-sentry', '哨械枪', 755, 515, 105, 32, sentryTab);
-      (sentryTab ? SENTRY_WORKSHOP_RECIPES : SUPPLY_WORKSHOP_RECIPES).forEach((id, i) => {
-        const y = 468 - i * 44;
-        button('recipe-' + id, id === 'sentry' ? '组装哨械枪' : SURVIVAL_GEAR[id][0], 644, y, 216, 39, this.survivalRecipe === id);
-        icon(id, 671, y + 20, 34, 30);
-      });
-      const recipe = this.survivalRecipe, ammoSelected = recipe === 'special-ammo', ammo = b.survivalAmmoRecipe;
-      if (!sentryTab) {
-        const y = 468 - 44 * SUPPLY_WORKSHOP_RECIPES.length;
-        button('recipe-ammo', '特殊弹药', 644, y, 216, 39, ammoSelected);
-        icon('special-ammo', 671, y + 20, 34, 30);
-      }
-      const plan = b.planSurvivalCraft(recipe), { status } = plan, [w, h] = bag.size(recipe, false);
-      const canDrop = status === 'space' && 'drop' in plan && !!plan.drop;
-      icon(recipe, 1007, 482, 102, 72);
-      const output = recipe === 'special-ammo' ? ammo ? ammo.title + '  ·  +' + ammo.rounds + ' 发' : '特殊弹药' :
-        SURVIVAL_GEAR[recipe][0] + '  ·  ' + w + '×' + h + ' 格';
-      label('result-size', output, 1007, 430, 222, 17, '#f3d6a3');
-      const cost = recipe === 'special-ammo' ? ammo?.cost ?? [] : SURVIVAL_RECIPES[recipe];
-      for (const [i, [material, count]] of cost.entries()) {
-        const y = 391 - i * 33, have = bag.count(material);
-        icon(material, 913, y, 25, 23);
-        label('material-' + i, SURVIVAL_GEAR[material][0] + '   ' + have + ' / ' + count, 1016, y, 173, 15, have >= count ? C.jade : '#eb967a');
-      }
-      label('craft-status', status === 'space' ? (canDrop ? '扣料后仍缺 ' + w + '×' + h + ' 连续空间' : '背包与台边都无空位') : status === 'materials' ? '材料不足' :
-        status === 'weapon' ? '请先装备一把特殊武器' : status === 'full' ? '备弹接近上限' : status === 'location' ? '请靠近工事工作台' :
-          ammoSelected ? '制作后直接补入备弹' : '成品直接放入背包', 1007, 291, 203, 13, status === 'ok' ? C.jade : '#eb967a');
-      if (status === 'space') button('craft-drop', '制作后放在台边', 902, 229, 210, 43, canDrop, canDrop);
-      else button('craft', recipe === 'sentry' ? '确认组装' : '确认制作', 902, 229, 210, 43, status === 'ok', status === 'ok');
-      if (status === 'ok' && 'output' in plan && plan.output) {
-        const size = 5.5, x = 919, y = 199 + bag.rows * size / 2;
-        for (let row = 0; row < bag.rows; row++) for (let col = 0; col < bag.columns; col++) {
-          const item = plan.bag.covering(col, row);
-          this.sbox(g, x + col * size, y - (row + 1) * size, size - 1, size - 1,
-            item?.id === plan.output.id ? '#efbc68' : item ? '#646c68' : '#303738');
+      button('work-supply', '通用制作', 644, 515, 103, 32, !sentryTab && !this.workshopStockOpen);
+      button('work-sentry', '哨械枪', 755, 515, 105, 32, sentryTab && !this.workshopStockOpen);
+      button('work-stock', '材料储备', 869, 515, 106, 32, this.workshopStockOpen);
+      if (this.workshopStockOpen) {
+        const pages = Math.ceil(WORKSHOP_ITEMS.length / SURVIVAL_STOCK_PAGE_SIZE);
+        const start = this.workshopPage * SURVIVAL_STOCK_PAGE_SIZE;
+        for (const [i, kind] of WORKSHOP_ITEMS.slice(start, start + SURVIVAL_STOCK_PAGE_SIZE).entries()) {
+          const y = 468 - i * 35, count = bag.count(kind), stock = b.workshopCount(kind);
+          icon(kind, 663, y + 15, 26, 24);
+          label('stock-item-' + i, SURVIVAL_GEAR[kind][0], 681, y + 15, 104, 13, '#eadaa9', undefined, Label.HorizontalAlign.LEFT);
+          label('stock-count-' + i, count + ' / ' + stock, 788, y + 15, 90, 14, C.jade);
+          button('stock-put-' + i, '存1', 889, y, 52, 29, false, count > 0);
+          button('stock-put-all-' + i, '全存', 945, y, 52, 29, false, count > 0);
+          button('stock-get-' + i, '取1', 1001, y, 52, 29, false, stock > 0);
+          button('stock-get-all-' + i, '全取', 1057, y, 52, 29, false, stock > 0);
         }
-        label('craft-placement', '扣料后成品位置', 1029, 199, 125, 14, '#efbc68');
+        button('stock-previous', '上页', 663, 213, 61, 33, false, this.workshopPage > 0);
+        button('stock-next', '下页', 1059, 213, 61, 33, false, this.workshopPage + 1 < pages);
+        label('stock-page', '随身 / 储备     ' + (this.workshopPage + 1) + ' / ' + pages, 894, 229, 242, 15, '#eadaa9');
+      } else {
+        (sentryTab ? SENTRY_WORKSHOP_RECIPES : SUPPLY_WORKSHOP_RECIPES).forEach((id, i) => {
+          const y = 468 - i * 44;
+          button('recipe-' + id, id === 'sentry' ? '组装哨械枪' : SURVIVAL_GEAR[id][0], 644, y, 216, 39, this.survivalRecipe === id);
+          icon(id, 671, y + 20, 34, 30);
+        });
+        const recipe = this.survivalRecipe, ammoSelected = recipe === 'special-ammo', ammo = b.survivalAmmoRecipe;
+        if (!sentryTab) {
+          const y = 468 - 44 * SUPPLY_WORKSHOP_RECIPES.length;
+          button('recipe-ammo', '特殊弹药', 644, y, 216, 39, ammoSelected);
+          icon('special-ammo', 671, y + 20, 34, 30);
+        }
+        const plan = b.planSurvivalCraft(recipe), { status } = plan, [w, h] = bag.size(recipe, false);
+        icon(recipe, 1007, 482, 102, 72);
+        const output = recipe === 'special-ammo' ? ammo ? ammo.title + '  ·  +' + ammo.rounds + ' 发' : '特殊弹药' :
+          SURVIVAL_GEAR[recipe][0] + '  ·  ' + w + '×' + h + ' 格';
+        label('result-size', output, 1007, 430, 222, 17, '#f3d6a3');
+        const cost = recipe === 'special-ammo' ? ammo?.cost ?? [] : SURVIVAL_RECIPES[recipe];
+        for (const [i, [material, count]] of cost.entries()) {
+          const y = 391 - i * 33, have = bag.count(material) + b.workshopCount(material);
+          icon(material, 913, y, 25, 23);
+          label('material-' + i, SURVIVAL_GEAR[material][0] + '   ' + have + ' / ' + count, 1016, y, 173, 15, have >= count ? C.jade : '#eb967a');
+        }
+        label('craft-status', status === 'space' ? '背包空间不足，可放入工作台' : status === 'materials' ? '材料不足' :
+          status === 'weapon' ? '请先装备一把特殊武器' : status === 'full' ? '备弹接近上限' : status === 'location' ? '请靠近工事工作台' :
+            ammoSelected ? '制作后直接补入备弹' : '成品直接放入背包', 1007, 291, 203, 13, status === 'ok' ? C.jade : '#eb967a');
+        if (status === 'space') button('craft-drop', '制作并存入储备', 902, 229, 210, 43, true);
+        else button('craft', recipe === 'sentry' ? '确认组装' : '确认制作', 902, 229, 210, 43, status === 'ok', status === 'ok');
+        if (status === 'ok' && 'output' in plan && plan.output) {
+          const size = 5.5, x = 919, y = 199 + bag.rows * size / 2;
+          for (let row = 0; row < bag.rows; row++) for (let col = 0; col < bag.columns; col++) {
+            const item = plan.bag.covering(col, row);
+            this.sbox(g, x + col * size, y - (row + 1) * size, size - 1, size - 1,
+              item?.id === plan.output.id ? '#efbc68' : item ? '#646c68' : '#303738');
+          }
+          label('craft-placement', '扣料后成品位置', 1029, 199, 125, 14, '#efbc68');
+        }
       }
     }
     if (fortDoor && this.survivalDoorPanel) {
@@ -7407,7 +9267,7 @@ export class Blackout extends Component {
     }
     const street = b.stage.street;
     const goal = street ? b.alarmTime === null ? street.alarm : b.player.y < street.upperTurn.y - 170 ? street.upperTurn : b.stage.exit
-      : b.stage.dorm ? b.pickup ?? b.stage.exit : b.stage.survival?.radio ?? b.operationGoal ?? b.apartmentGoal;
+      : b.stage.dorm ? b.pickup ?? b.stage.exit : b.operationGoal ?? b.apartmentGoal;
     if (goal && (b.stage.operation || b.stage.survival || state(Math.floor(goal.x / size), Math.floor(goal.y / size)))) {
       disc(g, ox + goal.x * scale - W / 2, oy + goal.y * scale - H / 2, 3, C.gold);
     }
@@ -7426,6 +9286,19 @@ export class Blackout extends Component {
       disc(g, ox + q.x * scale - W / 2, oy + q.y * scale - H / 2, supplied ? 3.3 : 1.8, supplied ? C.jade : '#e6cb98');
     }
     if (b.survival) {
+      const horde = b.survivalHorde;
+      if (horde) {
+        const points = SURVIVAL_FIELD_AREAS[horde.region].map(([x, y]) => harborPoint(x, y));
+        for (const point of points) {
+          const x = ox + point.x * scale - W / 2, y = oy + point.y * scale - H / 2;
+          if (horde.active) disc(g, x, y, 4, '#a2252a', 232);
+          else disc(g, x, y, 1.6, '#ff916e', 180);
+          if (horde.active) {
+            g.strokeColor = color('#ff7664', 210); g.lineWidth = 1;
+            g.circle(x, y, 4); g.stroke();
+          }
+        }
+      }
       const mark = (point: { x: number; y: number }, fill: string, size: number) =>
         this.sbox(g, ox + point.x * scale - size / 2, oy + point.y * scale - size / 2, size, size, fill);
       if (b.survivalConvoyReady) mark(CONVOY_BOARD, '#fff1ad', 6);
@@ -7437,7 +9310,7 @@ export class Blackout extends Component {
       { x: px + Math.cos(angle) * 5, y: py + Math.sin(angle) * 5 },
       { x: px + Math.cos(angle + 2.5) * 4, y: py + Math.sin(angle + 2.5) * 4 },
       { x: px + Math.cos(angle - 2.5) * 4, y: py + Math.sin(angle - 2.5) * 4 },
-    ], C.gold);
+    ], b.survival ? '#9bffdf' : C.gold);
   }
   private createHudAction(id: string, art: BattleImage | SpriteFrame | undefined, rect: typeof HUD.roll, remaining: () => number, duration: () => number, locked = false) {
     const root = typeof art === 'string' ? this.battleSprite(art, rect) || this.makeNode(art, this.battleArtwork!) :
@@ -7557,7 +9430,7 @@ export class Blackout extends Component {
       card.ammo.string = active && b.player.reload > 0 ? '换弹 ' + b.player.reload.toFixed(1) + 's' :
         String(data.ammo).padStart(2, '0') + ' / ' + data.reserve;
       const face = isSpecial ? this.timedSurvivalFrames.get(special.id) :
-        this.shopFrames.get(FIXED_WEAPON_ART[b.heroId]) ?? this.supplyUiFrames.get(heroes[b.heroId].weapon);
+        this.supplyUiFrames.get(heroes[b.heroId].weapon) ?? this.shopFrames.get(FIXED_WEAPON_ART[b.heroId]);
       card.icon.active = !!face;
       card.icon.setPosition(-w * .29, active ? 3 : -h * .23);
       if (face) {
@@ -7622,6 +9495,10 @@ export class Blackout extends Component {
     g.strokeColor = color(active ? C.text : '#96a99b', active ? 180 : 95); g.circle(px + v.x * 39, py + v.y * 39, 24); g.stroke();
   }
   private keyDown(e: EventKeyboard) {
+    if (this.chapterOpening) {
+      if (e.keyCode === KeyCode.ENTER) this.skipChapterOpening();
+      return;
+    }
     if (this.transition) return;
     if (this.readerLayer) { if (this.reader.open && !this.readerClosing && e.keyCode === KeyCode.ESCAPE) this.closeReader(); return; }
     if (this.tutorialPrompt) {
@@ -7644,7 +9521,6 @@ export class Blackout extends Component {
     if (e.keyCode === KeyCode.ESCAPE && this.mode === 'survival-resume') { this.open('survival-entry'); return; }
     if (e.keyCode === KeyCode.ESCAPE && this.mode === 'survival-hero') { this.closeSurvivalPicker(); return; }
     if (e.keyCode === KeyCode.ESCAPE && this.mode === 'street-loading') { this.backFromDeparture(); return; }
-    if (e.keyCode === KeyCode.ESCAPE && this.mode === 'survival-radio') { this.open('playing'); return; }
     if (this.mode === 'survival-map' && (e.keyCode === KeyCode.ESCAPE || e.keyCode === KeyCode.KEY_M)) { this.open('playing'); return; }
     if (e.keyCode === KeyCode.ESCAPE && this.mode === 'select-hero') { this.open('chapters'); return; }
     if (e.keyCode === KeyCode.ESCAPE && this.mode === 'help') { this.open('settings'); return; }
@@ -7656,11 +9532,15 @@ export class Blackout extends Component {
       else if (this.mode === 'pause') this.open('playing');
       return;
     }
+    if (this.mode === 'frontier-escort' && (e.keyCode === KeyCode.ESCAPE || e.keyCode === KeyCode.KEY_P)) {
+      if (!this.frontierEscort?.outcome) this.open('pause');
+      return;
+    }
     if (e.keyCode === KeyCode.ESCAPE && this.reader.open) { this.closeReader(); return; }
-    if (this.mode === 'playing' && this.battle.survival) {
-      if (e.keyCode === KeyCode.KEY_B) { this.toggleSurvivalQuick(); return; }
-      if (e.keyCode === KeyCode.ESCAPE && (this.suppliesOpen || this.survivalQuickOpen || this.survivalWorkshopOpen || this.survivalCrateId || this.survivalDoorPanel || this.survivalVehiclePanel)) {
-        this.closeSurvivalPanels(); return;
+    if (this.mode === 'playing' && this.battle.survivalBag) {
+      if (e.keyCode === KeyCode.KEY_B) { this.toggleSurvivalBag(); return; }
+      if (e.keyCode === KeyCode.ESCAPE && (this.suppliesOpen || this.survivalWorkshopOpen || this.survivalCrateId || this.survivalDoorPanel || this.survivalVehiclePanel || this.survivalSentryPanel)) {
+        this.resetSurvivalPanels(); return;
       }
       if (e.keyCode === KeyCode.KEY_X) { this.requestSurvivalWeaponSwap(); return; }
       if (e.keyCode === KeyCode.KEY_T) { this.useSurvivalTactical('mine'); return; }
@@ -7682,35 +9562,50 @@ export class Blackout extends Component {
       else this.useTactical();
     }
     if (e.keyCode === KeyCode.KEY_V && this.battle.operationRun) this.callOperationAir();
-    if (e.keyCode === KeyCode.KEY_T && this.battle.apartment) this.placeApartmentTrap();
+    if (e.keyCode === KeyCode.KEY_T) {
+      if (this.battle.apartment) this.placeApartmentTrap();
+      else if (this.battle.mineTactical.remaining) this.useTactical(undefined, undefined, 'mine');
+    }
+    if (e.keyCode === KeyCode.KEY_Y && this.battle.apartment && this.battle.mineTactical.remaining) this.useTactical(undefined, undefined, 'mine');
+    if (e.keyCode === KeyCode.KEY_H && this.battle.apartment && this.battle.storyTactical.remaining && this.primaryThrowSlot() !== 'story') this.useTactical(undefined, undefined, 'story');
     if (e.keyCode === KeyCode.KEY_E && !this.startSurvivalDoorHold(-1)) this.interactOrInvestigate();
     if (e.keyCode === KeyCode.KEY_F) this.battle.collectPickup();
   }
   private interactOrInvestigate() {
-    if (this.readerLayer || this.mode !== 'playing' || this.survivalDoorPanel || this.battle.survivalDoorWork) return;
+    if (this.readerLayer || this.mode !== 'playing' || this.survivalDoorPanel || this.survivalSentryPanel || this.battle.survivalDoorWork ||
+        this.battle.survivalRecovery) return;
     const b = this.battle;
+    if (b.nearbyObjective()?.id === 'frontier-ready' && b.interact()) return;
     if (b.survivalAtConvoy && b.interact()) return;
     const vehicle = b.survivalVehicleAtPlayer();
     if (vehicle && b.interact()) {
       if (b.status === 'playing') {
-        this.closeSurvivalPanels();
+        this.resetSurvivalPanels();
         this.survivalVehiclePanel = vehicle;
         this.mouseFire = this.mouseQueuedFire = false;
         this.updateHud();
       }
       return;
     }
-    if (this.battle.survivalAtRadio && this.battle.interact()) { this.open('survival-radio'); return; }
     if (this.battle.survivalAtWorkbench && this.battle.interact()) {
+      if (b.frontier) this.survivalRecipe = 'sentry';
       this.survivalWorkshopOpen = true;
-      this.suppliesOpen = this.survivalQuickOpen = false;
+      this.suppliesOpen = false;
       this.survivalCrateId = undefined; this.survivalHeldItem = undefined;
+      this.mouseFire = this.mouseQueuedFire = false;
+      this.updateHud(); return;
+    }
+    const sentry = b.nearbySurvivalSentry();
+    if (sentry && b.interact()) {
+      this.resetSurvivalPanels();
+      this.survivalSentryPanel = sentry;
       this.mouseFire = this.mouseQueuedFire = false;
       this.updateHud(); return;
     }
     const crate = this.battle.openSurvivalCrate();
     if (crate) {
       this.survivalCrateId = crate.id; this.survivalWorkshopOpen = false; this.survivalHeldItem = undefined;
+      this.suppliesOpen = true;
       this.mouseFire = this.mouseQueuedFire = false;
       this.updateHud(); return;
     }
@@ -7762,11 +9657,11 @@ export class Blackout extends Component {
     if (this.readerLayer) return;
     const point = this.pointerPosition(e);
     this.mx = point.x; this.my = point.y;
-    if (this.mode === 'playing' && !this.transition &&
+    if ((this.mode === 'playing' || this.mode === 'frontier-escort') && !this.transition &&
         !this.hitButton(point.x, point.y) && !this.overStreetStory(point.x, point.y)) this.mouseAimInput = true;
   }
   private mouseDown(e: EventMouse) {
-    if (this.readerLayer || this.transition || this.tutorialPrompt || sys.isMobile ||
+    if (this.readerLayer || this.transition || this.chapterOpening || this.tutorialPrompt || sys.isMobile ||
         e.getButton() !== EventMouse.BUTTON_LEFT) return;
     const point = this.pointerPosition(e);
     if (this.mode === 'street-loading') {
@@ -7777,14 +9672,15 @@ export class Blackout extends Component {
     this.mouseMove(e);
     this.startSupplyPress(this.mx, this.my, -2);
     this.pressHud(this.mx, this.my, -2);
-    if (!this.hitButton(this.mx, this.my) && this.mode === 'playing') {
+    if (!this.hitButton(this.mx, this.my) && (this.mode === 'playing' || this.mode === 'frontier-escort')) {
       this.mouseFire = true;
       this.mouseQueuedFire = true;
     }
   }
   private mouseUp() { if (this.readerLayer) { this.resetInput(); return; } this.mouseFire = false; this.releaseHud(-2); }
   private touchStart(e: EventTouch) {
-    if (this.readerLayer) return;
+    if (this.readerLayer || this.chapterOpening) return;
+    if (this.mode === 'chapters') { this.startChapterDrag(e); return; }
     // Desktop clicks also generate touch events in Cocos; only mobile uses sticks.
     if (!sys.isMobile || this.tutorialPrompt || this.transition) return;
     const p = this.pointerPosition(e), id = e.getID();
@@ -7802,9 +9698,9 @@ export class Blackout extends Component {
       this.startTacticalTouch(e);
       return;
     }
-    if (this.hitButton(p.x, p.y) || this.mode !== 'playing') return;
+    if (this.hitButton(p.x, p.y) || this.mode !== 'playing' && this.mode !== 'frontier-escort') return;
     const inside = (r: typeof HUD.move) => Math.hypot((p.x - r.x - r.w / 2) / (r.w / 2), (p.y - r.y - r.h / 2) / (r.h / 2)) <= 1;
-    if (inside(HUD.move) && this.moveTouch < 0) { this.moveTouch = id; this.moveOrigin = { x: HUD.move.x + HUD.move.w / 2, y: HUD.move.y + HUD.move.h / 2 }; this.moving = true; }
+    if (this.mode === 'playing' && inside(HUD.move) && this.moveTouch < 0) { this.moveTouch = id; this.moveOrigin = { x: HUD.move.x + HUD.move.w / 2, y: HUD.move.y + HUD.move.h / 2 }; this.moving = true; }
     else if (inside(HUD.fire) && this.aimTouch < 0) { this.aimTouch = id; this.aimOrigin = { x: HUD.fire.x + HUD.fire.w / 2, y: HUD.fire.y + HUD.fire.h / 2 }; this.aiming = true; this.aimVector = { x: 0, y: 0 }; }
     this.touchMove(e);
   }
@@ -7816,6 +9712,7 @@ export class Blackout extends Component {
     });
   }
   private touchMove(e: EventTouch) {
+    if (this.mode === 'chapters') { this.moveChapterDrag(e); return; }
     if (!sys.isMobile || this.tutorialPrompt || this.transition) return;
     const p = this.pointerPosition(e), id = e.getID();
     this.moveTacticalTouch(e, p);
@@ -7831,6 +9728,10 @@ export class Blackout extends Component {
     }
   }
   private touchEnd(e: EventTouch) {
+    if (this.mode === 'chapters') {
+      this.releaseChapterDrag(e);
+      return;
+    }
     this.releaseHud(e.getID());
     this.finishTacticalTouch(e.getID(), e.type === Input.EventType.TOUCH_CANCEL);
     if (e.getID() === this.moveTouch) { this.moveTouch = -1; this.moving = false; this.moveVector = { x: 0, y: 0 }; }
@@ -7840,7 +9741,7 @@ export class Blackout extends Component {
     const id = e.getID();
     if (!sys.isMobile || id === null || this.mode !== 'playing' || this.transition || this.tutorialPrompt ||
         this.operationGrenadeTouch || !this.aimedTacticalButton()) return;
-    this.operationGrenadeTouch = { id, ...this.pointerPosition(e), angle: this.battle.player.angle, range: this.battle.survival ? 205 : 150 };
+    this.operationGrenadeTouch = { id, ...this.pointerPosition(e), angle: this.battle.player.angle, range: this.battle.survivalBag ? 205 : 150 };
     const button = this.buttons.find(item => item.node.name === 'Button-grenade');
     if (button) this.pressHud(button.x + button.w / 2, button.y + button.h / 2, id);
   }
@@ -7850,7 +9751,7 @@ export class Blackout extends Component {
     const p = point ?? this.pointerPosition(e);
     const dx = p.x - grenade.x, dy = p.y - grenade.y, length = Math.hypot(dx, dy);
     grenade.angle = length > 10 ? Math.atan2(dy, dx) : this.battle.player.angle;
-    grenade.range = length > 10 ? clamp(length * 3.6, 55, OPERATION_GRENADE_RANGE) : this.battle.survival ? 205 : 150;
+    grenade.range = length > 10 ? clamp(length * 3.6, 55, OPERATION_GRENADE_RANGE) : this.battle.survivalBag ? 205 : 150;
   }
   private finishTacticalTouch(id: number | null, cancelled: boolean) {
     const grenade = this.operationGrenadeTouch;
@@ -7885,14 +9786,21 @@ export class Blackout extends Component {
     }
   }
   update(dt: number) {
+    if (this.chapterOpening) { this.stepChapterOpening(Math.min(dt, 0.05)); return; }
     const refresh = this.artRefresh;
     this.artRefresh = undefined;
-    if (refresh === this.mode && !this.readerLayer && !this.caseRoll && (refresh !== 'profile-info' || this.canRefreshProfileArt())) this.open(refresh);
+    if (refresh === 'chapters' && this.mode === 'chapters' && this.chapterDrag && this.chapterDrag.id >= 0) this.artRefresh = refresh;
+    else if (refresh === this.mode && !this.readerLayer && !this.caseRoll && (refresh !== 'profile-info' || this.canRefreshProfileArt())) this.open(refresh);
     if (this.readerLayer) { this.resetInput(); this.stepReaderAnimation(Math.min(dt, 0.05)); return; }
     dt = Math.min(dt, 0.05); this.presentationTime += dt; this.noticeTime = Math.max(0, this.noticeTime - dt); this.hitAudioTime = Math.max(0, this.hitAudioTime - dt);
+    if (this.mode === 'survival-map') this.updateHarborMapPlayer();
     const cinema = this.operationCinema;
     this.stepOperationDialogue(dt);
     this.stepOperationEscape(dt);
+    if (this.frontierEscort) {
+      if (this.mode === 'frontier-escort') this.stepFrontierEscort(dt);
+      return;
+    }
     if (this.mode === 'operation-cinematic' && cinema) {
       cinema.time += dt;
       if (cinema.draw(cinema.time)) cinema.finish();
@@ -7952,16 +9860,23 @@ export class Blackout extends Component {
       const stick = this.aiming && this.aimRadius > 0;
       const overBag = !sys.isMobile && this.overSurvivalBag(this.mx, this.my);
       const pointer = overBag ? p.angle : Math.atan2(this.my - H / 2 - this.feedback.y, this.mx - W / 2 - this.feedback.x);
-      const raw = stick ? Math.atan2(this.aimVector.y, this.aimVector.x) : p.angle;
-      const aim = sys.isMobile ? this.aimAssist.step(dt, raw, p.angle, stick && !p.knockback,
-        this.profile.aimAssist, this.battle.aimCandidates()) : { angle: pointer, sweeping: false };
+      const auto = this.profile.autoFire && !overBag;
+      if (stick) this.mobileAimHeading = Math.atan2(this.aimVector.y, this.aimVector.x);
+      else if (sys.isMobile && auto) this.mobileAimHeading ??= p.angle;
+      const raw = sys.isMobile ? this.mobileAimHeading ?? p.angle : pointer;
+      const assistActive = !p.knockback && !overBag && (auto || sys.isMobile && stick);
+      const candidates = assistActive && this.profile.aimAssist ?
+        this.battle.aimCandidates(auto ? { angle: raw, cone: AIM.retain } : undefined) : [];
+      const aim = sys.isMobile || this.profile.autoFire ? this.aimAssist.step(dt, raw, p.angle, assistActive,
+        this.profile.aimAssist, candidates, auto) : { angle: pointer, sweeping: false };
       this.lastFacing = aim.angle; this.sweeping = aim.sweeping;
       this.battle.operationRadioBusy = !!this.operationDialogue;
       const fire = !overBag && (this.mouseFire || this.mouseQueuedFire || stick && this.aimOuter);
       this.mouseQueuedFire = false;
       this.battle.update(dt, { ...v, angle: this.lastFacing, fire: !this.profile.autoFire && fire,
-        autoFire: this.profile.autoFire && !overBag, sweeping: this.sweeping,
+        autoFire: auto, sweeping: this.sweeping,
         aimActive: sys.isMobile ? stick && !this.aimOuter : this.mouseAimInput, manualHeld: fire });
+      this.updateCasingParticles(dt, this.battle.casingShots);
       for (const footfall of this.battle.bruteFootfalls) this.feedback.heavyFootfall(footfall, p);
       this.mouseAimInput = false;
       const tutorial = this.battle.tutorial;
@@ -7972,19 +9887,44 @@ export class Blackout extends Component {
       this.lastFacing = p.angle;
       this.motion.step(dt, p);
       for (const event of this.battle.events) {
+        if (this.handleRetrievalEvent(event)) return;
+        if (event === 'frontier-bend') this.speakOperation([['ghost', '主路被仓库挡住了。沿后街绕过去，杂货店的后门也能走。']]);
+        if (event === 'frontier-search') this.speakOperation([['ghost', '维修铺里有工作台和一套部件。先做一架哨械枪，搬到门口试射。']]);
+        if (event === 'frontier-trial') this.speakOperation([['three', '先试守一轮。留意耐久，靠近哨械枪就能维修和升级。']]);
+        if (event === 'frontier-ready') this.speakOperation([
+          ['ghost', '把这架枪回收，搬到中央路口。加油站和货运站里还有另一套部件。'],
+          ['three', '带上零件回来做第二架。两架都架好，就到路口确认。'],
+        ]);
+        if (event === 'frontier-hold') this.speakOperation([['headquarters', '尸群来了！守住路口，别让它们冲到后方！']]);
+        if (event === 'frontier-secured') this.speakOperation([['headquarters', '平民都上车了。幽灵小队，去镇东接手护送！']]);
+        if (event === 'frontier-escort') { this.beginFrontierEscort(); return; }
+        if (event === 'frontier-breached') this.toast('尸群突破了后方防线', 2.4, 'warning');
         if (event !== 'hit' || this.hitAudioTime <= 0 && !this.battle.events.includes('kill')) { this.play(event); if (event === 'hit') this.hitAudioTime = 0.055; }
         if (event === 'shoot') {
-          this.feedback.shoot(p.angle, this.battle.heroId);
+          const { quiet, weapon } = this.battle.hero;
+          this.feedback.shoot(p.angle, this.battle.heroId, quiet);
           this.motion.shoot(p, this.battle.heroId);
-          this.weaponEffects.shoot(this.playerWeaponMount(), this.battle.heroId);
+          const mount = this.playerWeaponMount();
+          this.weaponEffects.shoot(mount, this.battle.heroId, weapon === 'shotgun' ? 'shotgun' : weapon === 'suppressed' ? 'pistol' : 'rifle');
+          this.muzzleLight = undefined;
+          if (this.presentationMaterial && lineClear(p, mount.muzzle, this.battle.visionBlockers)) {
+            const radius = quiet ? 90 : weapon === 'shotgun' ? 162 : 142;
+            const intensity = quiet ? 0.43 : weapon === 'shotgun' ? 1.15 : 0.88;
+            this.muzzleLight = { ...mount.muzzle, radius, intensity };
+            const reach = muzzleOcclusion(mount.muzzle, radius, this.battle.visionBlockers);
+            for (let i = 0; i < 4; i++) {
+              const j = i * 4;
+              this.presentationMaterial.setProperty('muzzleCover' + i, new Vec4(reach[j], reach[j + 1], reach[j + 2], reach[j + 3]));
+            }
+          }
         }
         if (event === 'hurt') this.feedback.hurt(p.hp / p.maxHp, this.battle.lastHurtAngle);
         if (event === 'grenade-blast') {
           const effect = this.battle.tacticalEffects.find(item => (item.kind === 'grenade' || item.kind === 'proximity-mine') && item.life === item.max);
           if (effect) this.feedback.explosion(effect, p, !lineClear(effect, p, this.battle.blockers), effect.kind === 'proximity-mine' ? 1.45 : 1);
         }
-        if (event === 'clear') this.toast(this.battle.stage.operation ? '敌人已肃清 · 前往目标' : !this.battle.stage.dorm && !this.battle.stage.street && this.battle.cleared.every(Boolean) ? '所有区域已清理，前往洗衣房东北角楼梯撤离' : '区域安全 · 生命恢复 20，继续前进');
-        if (event === 'room' && !this.battle.survival && !this.battle.stage.dorm && !this.battle.stage.street && !this.battle.stage.operation) this.toast(`进入${this.battle.rooms[Math.max(0, roomAt(p, this.battle.rooms))].kind} · 留意攻击预警`);
+        if (event === 'clear' && !this.battle.retrieval) this.toast(this.battle.stage.operation ? '敌人已肃清 · 前往目标' : !this.battle.stage.dorm && !this.battle.stage.street && this.battle.cleared.every(Boolean) ? '所有区域已清理，前往洗衣房东北角楼梯撤离' : '区域安全 · 生命恢复 20，继续前进');
+        if (event === 'room' && !this.battle.retrieval && !this.battle.survival && !this.battle.stage.dorm && !this.battle.stage.street && !this.battle.stage.operation) this.toast(`进入${this.battle.rooms[Math.max(0, roomAt(p, this.battle.rooms))].kind} · 留意攻击预警`);
         if (event === 'operation-air-request') this.speakOperation([
           ['littlebird', '我到了，正在找目标。'],
         ]);
@@ -8009,7 +9949,7 @@ export class Blackout extends Component {
           ['pickup', '还要一会儿。你们先撑住。'],
                   ]);
         if (event === 'operation-injection') this.speakOperation([
-          ['rimelet', '来晚了。样本已经送走了。'],
+          ['rimelet', '来晚了。样本已经送走，病毒也释放了。'],
           ['two', '他在扎针！往后退！'],
         ]);
         if (event === 'operation-king-escape') {
@@ -8022,6 +9962,7 @@ export class Blackout extends Component {
         }
         if (event === 'operation-announcement') {
           this.speakOperation([
+            ['command', '总部收到首份感染报告。记录日期，六月二十八日。'],
             ['command', '接应在路上。你们撤出后，空袭开始。'],
           ]);
         }
@@ -8041,7 +9982,6 @@ export class Blackout extends Component {
         if (event === 'support-called') this.startGhostRadio();
         if (event === 'ammo-empty') this.toast('备用弹药已耗尽 · 寻找弹药');
         if (event === 'supply-full') {
-          if (this.battle.survival) { this.survivalQuickOpen = true; this.uiTick = 0; }
           const block = this.battle.survivalPickupBlocked;
           this.toast(block ? SURVIVAL_GEAR[block.kind][0] + '需要连续 ' + block.width + '×' + block.height + ' 格（' +
             block.width * block.height + ' 格）' : '该补给已满');
@@ -8055,6 +9995,8 @@ export class Blackout extends Component {
         if (event === 'survival-sentry-fire') this.play('shoot');
         if (event === 'survival-sentry-placed') this.toast('哨械枪已部署');
         if (event === 'survival-sentry-blocked') this.toast('落点被占用 · 哨械枪已放回背包');
+        if (event === 'survival-sentry-recovered') this.toast('哨械枪已回收 · 耐久与升级已保留');
+        if (event === 'survival-sentry-recovery-cancelled') this.toast('回收中断 · 哨械枪留在原位');
         if (event === 'survival-sentry-lost') this.toast('一台哨械枪已被摧毁');
         if (event === 'survival-door-work-cancel') this.toast('门位施工中断 · 材料已保留', undefined, 'warning');
         if (event === 'survival-door-repaired' || event === 'survival-door-installed') {
@@ -8063,13 +10005,15 @@ export class Blackout extends Component {
         }
         if (event === 'survival-timed-checkpoint') this.saveSurvivalCheckpoint();
         if (event === 'survival-part-found') this.toast('收到新的配件线索 · 查看港区地图');
-        if (event === 'survival-convoy-radio') this.speakOperation([
-          ['headquarters', '装甲车队两分钟后到工事南门。'],
-          ['headquarters', '车队停留三分钟。能赶到，就跟他们撤离。'],
+        if (event === 'survival-pager-radio') this.speakOperation([
+          ['headquarters', '各街区的室内补给可能有寻呼器。需要撤离时，用它呼叫车队。'],
         ]);
+        if (event === 'survival-pager-found') this.toast('收到寻呼器线索 · 查看港区地图');
+        if (event === 'survival-convoy-called') this.speakOperation([['headquarters', '收到。装甲车队三分钟后到工事南门。']]);
+        if (event === 'survival-convoy-arrived') this.speakOperation([['headquarters', '车队已到南门。清理完周围就靠近上车。']]);
         if (event === 'survival-blood-moon') this.speakOperation([
           ['headquarters', '血月来了。丧尸开始成群活动。'],
-          ['headquarters', '小心，它们会进楼搜人。'],
+          ['headquarters', '尸群会在各区之间转移。看港区地图，趁间歇搜物资或撤离。'],
         ]);
         if (event === 'survival-air-request' && !this.operationDialogue) this.speakOperation([
           ['headquarters', '小鸟进场，马上压住尸群。'],
@@ -8077,7 +10021,7 @@ export class Blackout extends Component {
         if (event === 'supply-cancel') this.toast('补给使用中断');
         if (event === 'street-supply') this.toast('已使用急救包 · 恢复生命');
         if (event === 'descend') this.beginFloorLoad();
-        if (event === 'apartment-outside') this.speakApartment('凛：马上就要到家里了！');
+        if (event === 'apartment-outside') this.speakApartment('凛：从街区绕了好久，天都快亮了。马上就要到家里了！');
         if (event === 'apartment-tank') this.speakApartment('维川：凛！快进来！', '凛：这，好像是川叔的声音！');
         if (event === 'apartment-entry-open' || event === 'apartment-entry') this.play('door-sound');
         if (event === 'apartment-entry') this.toast('获得麻痹陷阱 ×1');
@@ -8152,19 +10096,32 @@ export class Blackout extends Component {
       this.getawaySprite.node.angle = driving.angle * 180 / Math.PI;
     }
     this.world.setPosition(-p.x + offsetX, -p.y + offsetY);
+    this.updateFrontierWorkbenchHighlight(offsetX, offsetY);
     const floorOffset = this.battle.survivalUpperFloor?.offsetX ?? 0;
     this.environment.setPosition(-p.x + floorOffset + offsetX, -p.y + offsetY);
     if (this.battle.survival) this.updateSurvivalRoofs(dt);
     // Actor clipping follows movement immediately, independent of the outdoor lighting budget.
-    const outdoor = !!this.battle.stage.operation && this.battle.stage.operation.part !== 'compound';
+    const frontier = !!this.battle.frontier;
+    const outdoor = frontier || !!this.battle.stage.operation && this.battle.stage.operation.part !== 'compound';
     const evacuationView = this.battle.evacuationViewRadius;
+    if (this.retrievalLiftDisplay && this.battle.retrieval) {
+      const { phase, time } = this.battle.retrieval;
+      const label = phase === 'lift' && Math.hypot(p.x - RETRIEVAL_LIFT.x, p.y - RETRIEVAL_LIFT.y) <= 110
+        ? '电梯 · ' + Math.max(2, 6 - Math.floor(time * 1.7)) + 'F' : this.battle.retrievalCalm ? '电梯 · 6F' : '';
+      if (this.retrievalLiftDisplay.string !== label) this.retrievalLiftDisplay.string = label;
+    }
     const visionRange = evacuationView || this.battle.playerVisionRange;
     const allyRange = this.battle.allyVisionRange;
     const lamp = this.battle.stage.faultyDoorLamp;
     const allies = evacuationView ? [] : this.battle.allies.filter(ally => ally.hp > 0 && Math.abs(ally.x - p.x) <= W / 2 + allyRange && Math.abs(ally.y - p.y) <= H / 2 + allyRange);
-    const allySight = allies.map(ally => [ally.id, Math.round(ally.x / 3), Math.round(ally.y / 3), Math.round(ally.angle * 40)].join(',')).join('|');
+    const inFrame = (point: Point, range: number) => Math.abs(point.x - p.x) <= W / 2 + range && Math.abs(point.y - p.y) <= H / 2 + range;
+    const shared = evacuationView ? [] : this.battle.survivalGroundSight.filter(source => inFrame(source.point, source.range));
+    const allySight = [...allies.map(ally => [ally.id, Math.round(ally.x / (frontier ? 6 : 3)), Math.round(ally.y / (frontier ? 6 : 3)), Math.round(ally.angle * (frontier ? 18 : 40))]),
+      ...shared.map(source => [source.id, Math.round(source.point.x / 8), Math.round(source.point.y / 8), source.range])].join('|');
     const grenadeLights = this.battle.grenadeLights, airSight = this.battle.operationAirSight;
-    const airKey = airSight ? [airSight.x, airSight.y, airSight.radius].map(value => Math.round(value / 8)).join(',') : '';
+    const aerial = [...(airSight ? [airSight] : []), ...this.battle.survivalAirSight].filter(source => inFrame(source, source.radius));
+    const airKey = aerial.map(source => [source.x, source.y, source.radius].map(value => Math.round(value / 8)).join(',')).join('|');
+    const budgetHarborLight = !!this.battle.survival && (shared.length > 0 || aerial.length > 0);
     this.sightTick -= dt;
     this.outdoorLightTick -= dt;
     const geometry = this.battle.geometryRevision;
@@ -8172,15 +10129,34 @@ export class Blackout extends Component {
     const flashChanged = !!grenadeLights.length !== this.hadGrenadeLight;
     const sightDirty = grenadeLights.length || this.hadGrenadeLight || this.sightTick <= 0 || evacuationView !== this.lastEvacuationView ||
       allySight !== this.lastAllySight || airKey !== this.lastAirSight || geometryChanged ||
-      Math.hypot(p.x - this.lastSightX, p.y - this.lastSightY) > 0.01 || Math.abs(angleDiff(p.angle, this.lastSightAngle)) > 0.001;
+      Math.hypot(p.x - this.lastSightX, p.y - this.lastSightY) > (frontier ? 2 : 0.01) ||
+      Math.abs(angleDiff(p.angle, this.lastSightAngle)) > (frontier ? 0.012 : 0.001);
     if (sightDirty) this.outdoorLightPending = true;
-    const lightDirty = outdoor
+    const lightDirty = outdoor || budgetHarborLight
       ? !this.lightCamera || geometryChanged || flashChanged || this.outdoorLightPending && this.outdoorLightTick <= 0
       : sightDirty;
     if (sightDirty || lightDirty) {
       this.sightTick = 1;
       const localCover = (source: Point, range: number) => this.battle.visionBlockers.filter(r =>
         Math.abs(r.x + r.w / 2 - source.x) < range + r.w && Math.abs(r.y + r.h / 2 - source.y) < range + r.h);
+      const cachedFrontierSight = (id: string, unit: Point, range: number, angle: number, period: number, panorama = false) => {
+        const doors = this.battle.doors.filter(d => Math.hypot(d.x - unit.x, d.y - unit.y) <= range + d.length + 32)
+          .map(d => d.destroyed ? d.id + ':gone' : d.id + ':' + d.angle).join('|');
+        let cache = this.frontierSight.get(id);
+        const moved = !cache || Math.hypot(unit.x - cache.point.x, unit.y - cache.point.y) >= (panorama ? 1 : 8) ||
+          Math.abs(angleDiff(angle, cache.angle)) >= .065;
+        if (!cache || cache.doors !== doors || cache.range !== range || moved && this.presentationTime >= cache.next) {
+          const point = { x: unit.x, y: unit.y };
+          cache = { point, angle, range, doors, next: this.presentationTime + period, field: cache?.field,
+            sight: visibilityPolygon(point, angle, localCover(point, range), range, panorama) };
+          this.frontierSight.set(id, cache);
+        }
+        if (lightDirty) {
+          cache.envelope ??= visibilityPolygon(cache.point, cache.angle, [], range, panorama);
+          cache.surfaces ??= visibleSurfaces(cache.point, cache.angle, localCover(cache.point, range), range);
+        }
+        return cache;
+      };
       const blocks = localCover(p, visionRange);
       const pts = visibilityPolygon(p, p.angle, blocks, visionRange, !!evacuationView);
       if (this.survivalRoofLayer.active) {
@@ -8196,7 +10172,36 @@ export class Blackout extends Component {
         field.addSurfaces(visibleSurfaces(unit, unit.angle, cover, range).map(surface => ({ ...surface, polygon: surface.polygon.map(toScreen) })));
       };
       if (lightDirty) buildLight(this.visibilityField, p, pts, blocks, visionRange, !!evacuationView);
-      for (const ally of allies) {
+      const mergeFrontierSight = (cache: ReturnType<typeof cachedFrontierSight>, panorama: boolean) => {
+        polygon(this.stencil, cache.sight, '#ffffff');
+        if (!lightDirty) return;
+        const field = cache.field ??= new VisibilityField(this.visibilityField.width, this.visibilityField.height);
+        const bounds = cache.rasterBounds, camera = cache.rasterCamera;
+        if (bounds && camera) {
+          const dx = Math.round((p.x - camera.x) * field.width / W), dy = Math.round((p.y - camera.y) * field.height / H);
+          // Moving the camera can reuse the world-aligned mask until a clipped edge enters the frame.
+          if ((!dx || (dx > 0 ? bounds.right < camera.x + W / 2 : bounds.left > camera.x - W / 2)) &&
+              (!dy || (dy > 0 ? bounds.top < camera.y + H / 2 : bounds.bottom > camera.y - H / 2))) {
+            this.visibilityField.mergeLight(field, 1, dx, dy);
+            return;
+          }
+        }
+        const points = [...cache.sight, ...cache.surfaces!.flatMap(surface => surface.polygon)];
+        cache.rasterBounds = points.reduce((extent, q) => ({
+          left: Math.min(extent.left, q.x), right: Math.max(extent.right, q.x),
+          bottom: Math.min(extent.bottom, q.y), top: Math.max(extent.top, q.y),
+        }), { left: Infinity, right: -Infinity, bottom: Infinity, top: -Infinity });
+        cache.rasterCamera = { x: p.x, y: p.y };
+        field.build(cache.sight.map(toScreen), FEATHER_PIXELS, cache.envelope!.map(toScreen),
+          { origin: toScreen(cache.point), peripheralRadius: panorama ? cache.range : peripheralRange(cache.range) });
+        field.addSurfaces(cache.surfaces!.map(surface => ({ ...surface, polygon: surface.polygon.map(toScreen) })));
+        this.visibilityField.mergeLight(field);
+      };
+      for (const [index, ally] of allies.entries()) {
+        if (frontier) {
+          mergeFrontierSight(cachedFrontierSight('ally-' + ally.id, ally, allyRange, ally.angle, .095 + index * .027), false);
+          continue;
+        }
         const cover = outdoor ? localCover(ally, allyRange) : blocks;
         const sight = visibilityPolygon(ally, ally.angle, cover, allyRange);
         polygon(this.stencil, sight, '#ffffff');
@@ -8220,6 +10225,31 @@ export class Blackout extends Component {
           this.visibilityField.mergeLight(field);
         }
       }
+      for (const key of this.survivalSharedPolygons.keys())
+        if (!shared.some(source => source.id === key)) this.survivalSharedPolygons.delete(key);
+      for (const { id, point, range } of shared) {
+        if (frontier) {
+          mergeFrontierSight(cachedFrontierSight(id, point, range, 0, .10, true), true);
+          continue;
+        }
+        let mask = this.survivalSharedPolygons.get(id);
+        if (!mask || mask.geometry !== geometry || mask.range !== range ||
+            Math.hypot(mask.point.x - point.x, mask.point.y - point.y) >= 8) {
+          const cover = localCover(point, range);
+          mask = { geometry, point: { x: point.x, y: point.y }, range, cover,
+            sight: visibilityPolygon(point, 0, cover, range, true) };
+          this.survivalSharedPolygons.set(id, mask);
+        }
+        const { cover, sight } = mask;
+        polygon(this.stencil, sight, '#ffffff');
+        if (this.survivalRoofLayer.active) polygon(this.survivalRoofStencil,
+          floorOffset ? sight.map(q => ({ x: q.x - floorOffset, y: q.y })) : sight, '#ffffff');
+        if (lightDirty) {
+          const field = this.allyVisibilityField ??= new VisibilityField(this.visibilityField.width, this.visibilityField.height);
+          buildLight(field, { ...mask.point, angle: 0 }, sight, cover, range, true);
+          this.visibilityField.mergeLight(field);
+        }
+      }
       for (const flash of grenadeLights) {
         const sight = grenadeLightPolygon(flash, blocks);
         polygon(this.stencil, sight, '#ffffff');
@@ -8229,10 +10259,12 @@ export class Blackout extends Component {
         const strength = clamp((GRENADE_LIGHT_TIME - (flash.max - flash.life)) / 0.27, 0, 1);
         this.visibilityField.mergeLight(field, strength * strength);
       }
-      if (airSight) {
+      const roofCover = this.battle.stage.survival?.buildings.map(building => building.footprint)
+        .filter(roof => inFrame(roof, 300)).map(roof => ({ ...roof, ...toScreen(roof) }));
+      for (const sky of aerial) {
         this.stencil.fillColor = color('#ffffff');
-        this.stencil.circle(airSight.x, airSight.y, airSight.radius); this.stencil.fill();
-        if (lightDirty) this.visibilityField.addAerialSight(toScreen(airSight), airSight.radius, airSight.intensity);
+        this.stencil.circle(sky.x, sky.y, sky.radius); this.stencil.fill();
+        if (lightDirty) this.visibilityField.addAerialSight(toScreen(sky), sky.radius, sky.intensity, roofCover);
       }
       this.lastAirSight = airKey;
       this.lastEvacuationView = evacuationView;
@@ -8241,27 +10273,28 @@ export class Blackout extends Component {
         if (lamp) this.visibilityField.addDoorLamp(lamp, p, this.battle.blockers);
         this.visibilityTexture.uploadData(this.visibilityField.pixels);
         this.lightCamera = { x: p.x, y: p.y };
-        if (outdoor) this.outdoorLightTick = 1 / 16;
+        if (budgetHarborLight || outdoor) this.outdoorLightTick = budgetHarborLight || frontier ? 1 / 12 : 1 / 16;
         this.outdoorLightPending = false;
       }
       this.lastSightX = p.x; this.lastSightY = p.y; this.lastSightAngle = p.angle; this.lastGeometry = geometry;
       this.lastAllySight = allySight;
     }
-    const mount = this.playerWeaponMount();
-    const flashAllowed = p.hp > 0 && p.dashTime <= 0 && lineClear(p, mount.muzzle, this.battle.blockers);
     if (this.presentationMaterial) {
       this.presentationMaterial.setProperty('viewInfo', new Vec4(W, H, offsetX, offsetY));
       const camera = this.lightCamera;
       this.presentationMaterial.setProperty('maskMotion', outdoor && camera ? new Vec4(p.x - camera.x, p.y - camera.y, 0, 0) : new Vec4(0, 0, 0, 0));
-      const quiet = this.battle.hero.quiet;
-      this.presentationMaterial.setProperty('muzzle', new Vec4(W / 2 + mount.muzzle.x - p.x, H / 2 + mount.muzzle.y - p.y, flashAllowed ? this.feedback.muzzle * (quiet ? 0.22 : 1) : 0, quiet ? 90 : this.battle.hero.weapon === 'shotgun' ? 160 : 140));
+      const flash = this.feedback.muzzle > 0 && p.hp > 0 ? this.muzzleLight : undefined;
+      this.presentationMaterial.setProperty('muzzle', flash ? new Vec4(W / 2 + flash.x - p.x, H / 2 + flash.y - p.y,
+        this.feedback.muzzle * flash.intensity, flash.radius) : new Vec4(0, 0, 0, 1));
       this.presentationMaterial.setProperty('doorLamp', lamp ?
         new Vec4(W / 2 + lamp.x - p.x, H / 2 + lamp.y - p.y, doorLampFlicker(lamp, this.battle.elapsed), DOOR_LAMP_RADIUS) :
         new Vec4(0, 0, 0, DOOR_LAMP_RADIUS));
       this.presentationMaterial.setProperty('feedback', new Vec4(this.feedback.hit, this.feedback.lowHealth, this.feedback.healthSeverity, 0));
       const gray = clamp((this.fallTime - FALL_DURATION) / GRAY_DURATION, 0, 1);
-      const daylight = !!this.battle.survival;
-      const focus = daylight ? this.survivalFocus : undefined;
+      const retrieval = this.battle.retrieval;
+      const daylight = !!(this.battle.survival || this.battle.frontier ||
+        retrieval && ['arrive', 'reception', 'lift', 'pad', 'boarding'].includes(retrieval.phase));
+      const focus = this.battle.survival ? this.survivalFocus : undefined;
       const interior = focus ? 1 - focus.opacity.opacity / 255 : 0;
       if (focus) {
         const r = focus.bounds;
@@ -8302,8 +10335,9 @@ export class Blackout extends Component {
     this.wildlifeArt.node.active = !!animal;
     if (animal) drawAmbientAnimal(this.wildlifeArt, animal);
     const glob = this.artFrames.get('venom-glob'), dart = this.artFrames.get('venom-dart');
-    drawActors(this.actors, this.battle, this.motion.pose, this.hasPlayerArt(), this.artFrames.has('walker'), this.artFrames.has(this.rollKey()), this.enemyPoses, this.artFrames.has('operator') || this.streetFrames.has('engineer'), !!this.battle.apartment && this.streetFrames.has('brute'), !!this.grenadeFrame, this.grenadeBlastFrames.length > 0,
-      { spitter: this.artFrames.has('spitter'), glob: !!glob, dart: !!dart });
+    drawActors(this.actors, this.battle, this.motion.pose, this.hasPlayerArt(), this.artFrames.has(this.rollKey()), this.enemyPoses,
+      this.artFrames.has('operator') || this.streetFrames.has('engineer'), enemy => !!this.enemyFrame(enemy, false),
+       !!this.grenadeFrame, this.grenadeBlastFrames.length > 0, { glob: !!glob, dart: !!dart }, !!this.projectileFrames);
     this.updateGrenadeArt();
     this.updateVenomArt(glob, dart);
     this.updateSurvivalDeviceArt(dt);
@@ -8358,7 +10392,12 @@ export class Blackout extends Component {
       this.sbox(this.exitArrow, x - 46, y + 1, 92 * work, 5, C.gold);
       this.text('generator-work', '操作中', x, y + 21, 17, C.text, this.canvas, 102, Label.HorizontalAlign.CENTER).isBold = true;
     } else if (workLabel) workLabel.string = '';
+    const mount = this.playerWeaponMount();
+    const flashAllowed = p.hp > 0 && p.dashTime <= 0 && lineClear(p, mount.muzzle, this.battle.blockers);
     drawWeaponEffects(this.weaponArt, this.weaponEffects, mount, flashAllowed, this.battle.visionScale > 1);
+    this.drawCasings(this.weaponArt, this.groundCasingSprites, [...this.weaponEffects.casings, ...this.supportCasings],
+      (x, y) => Math.abs(x - p.x) < W / 2 + 20 && Math.abs(y - p.y) < H / 2 + 20);
+    this.drawShotgunParticles();
     if (flashAllowed && !this.battle.tutorial && this.battle.hero.laser > 0) {
       const distance = rayDistance(mount.muzzle, mount.angle, this.battle.hero.laser, this.battle.blockers);
       line(this.weaponArt, mount.muzzle.x, mount.muzzle.y,

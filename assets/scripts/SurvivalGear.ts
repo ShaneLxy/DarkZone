@@ -32,6 +32,7 @@ export const SURVIVAL_GEAR = {
   'boat-key': ['船钥匙', 1, 2, 1], 'boat-battery': ['船用电瓶', 2, 2, 1],
   'boat-steering': ['转向组件', 2, 2, 1], 'boat-start': ['启动控制盒', 2, 2, 1], 'boat-fuel': ['供油模块', 1, 3, 1],
   'evac-fuel': ['撤离燃油', 2, 3, 1],
+  'convoy-pager': ['车队寻呼器', 1, 1, 1],
 } as const;
 export type GearKind = keyof typeof SURVIVAL_GEAR;
 export const SURVIVAL_THROWABLES = {
@@ -47,7 +48,7 @@ export const SURVIVAL_DISORIENT_SECONDS = 3;
 export const isSurvivalThrowable = (kind: unknown): kind is SurvivalThrowable =>
   typeof kind === 'string' && Object.prototype.hasOwnProperty.call(SURVIVAL_THROWABLES, kind);
 export const isSurvivalMine = (kind: unknown): kind is SurvivalMineKind => kind === 'mine' || kind === 'shock-mine';
-type MaterialCost = readonly (readonly [GearKind, number])[];
+export type MaterialCost = readonly (readonly [GearKind, number])[];
 type SurvivalDoorDefinition = { title: string; hp: number; seconds: number; material: 'wood' | 'steel'; repair: MaterialCost; install: MaterialCost };
 export const SURVIVAL_DOORS = {
   wood: { title: '木门', hp: 100, seconds: 3, material: 'wood', repair: [['door-wood', 1]],
@@ -63,10 +64,29 @@ export type SurvivalDoorKind = keyof typeof SURVIVAL_DOORS;
 export const SURVIVAL_DOOR_KINDS = Object.keys(SURVIVAL_DOORS) as SurvivalDoorKind[];
 export type SurvivalDoorPlan = { kind: SurvivalDoorKind; cost: MaterialCost; seconds: number; gain: number; reason?: string };
 export const SURVIVAL_DOOR_REACH = 94;
-export type GearStack = { kind: GearKind; count: number; rounds?: number };
+export type GearStack = { kind: GearKind; count: number; rounds?: number; packedSentry?: PackedSentry };
 export type BagItem = GearStack & { id: number; col: number; row: number; rotated: boolean };
 export type SurvivalCrate = Point & { id: string; kind: 'medical' | 'armory' | 'engineering' | 'airdrop' | 'dropped' | 'evac'; opened: boolean; goods: GearStack[] };
-export type SurvivalSentry = Point & { angle: number; hp: number; burst: number; next: number; muzzle: number };
+export const SENTRY_UPGRADES = {
+  vision: { name: '视野', step: 95, cost: [['tactical-module', 1]] },
+  range: { name: '射程', step: 85, cost: [['tactical-module', 1], ['door-metal', 2]] },
+  speed: { name: '射速', step: 15, cost: [['tactical-stock', 3], ['mod-cache', 2]] },
+  damage: { name: '火力', step: 4, cost: [['door-metal', 2], ['tactical-stock', 2]] },
+} as const satisfies Record<string, { name: string; step: number; cost: MaterialCost }>;
+export type SentryUpgrade = keyof typeof SENTRY_UPGRADES;
+export const SENTRY_UPGRADE_IDS = Object.keys(SENTRY_UPGRADES) as SentryUpgrade[];
+export const SENTRY_REPAIR = [['door-metal', 1], ['mod-cache', 2]] as const;
+export type PackedSentry = { hp: number; burst: number; next: number;
+  upgrades?: Partial<Record<SentryUpgrade, number>> };
+export const SENTRY_FLASH_TIME = .045;
+export type SurvivalSentry = Point & PackedSentry & { angle: number; heading?: number; muzzle: number };
+export function sentryStats(sentry: PackedSentry) {
+  const level = (id: SentryUpgrade) => sentry.upgrades?.[id] ?? 0;
+  return { vision: 320 + level('vision') * SENTRY_UPGRADES.vision.step,
+    range: SENTRY_RANGE + level('range') * SENTRY_UPGRADES.range.step,
+    speed: 100 + level('speed') * SENTRY_UPGRADES.speed.step,
+    damage: 11 + level('damage') * SENTRY_UPGRADES.damage.step };
+}
 export type SurvivalMine = Point & { kind?: 'proximity-mine' | 'shock-mine'; fuse?: number };
 export type SurvivalFieldDrop = Point & GearStack & { id: string; zone: number };
 export type SurvivalRestock = { cycle: number; zones: number[]; pending: { zone: number; slot: number }[] };
@@ -74,7 +94,8 @@ export type SurvivalGearSave = {
   bagLayout?: 2;
   items: BagItem[]; quick: (number | null)[]; crates: SurvivalCrate[]; sentries: SurvivalSentry[]; mines: SurvivalMine[];
   special?: { id: SurvivalGun; ammo: number; reserve: number }; selected: boolean; baseAmmo: number; baseReserve: number;
-  field?: SurvivalFieldDrop[]; restock?: SurvivalRestock; bindings?: SurvivalBindings;
+  field?: SurvivalFieldDrop[]; restock?: SurvivalRestock; bindings?: SurvivalBindings; workshop?: WorkshopStock;
+  workshopSentries?: PackedSentry[]; harborWorkshop?: WorkshopInventory; acquiredSpecial?: boolean;
 };
 
 export const SURVIVAL_RECIPES = {
@@ -98,6 +119,12 @@ export const SURVIVAL_AMMO_RECIPES = {
   rapid: { cost: [['tactical-stock', 5], ['mod-cache', 2]], rounds: 42 },
   drum: { cost: [['tactical-stock', 6], ['mod-cache', 2], ['door-metal', 1]], rounds: 64 },
 } as const satisfies Record<SurvivalGun, { cost: MaterialCost; rounds: number }>;
+export const WORKSHOP_ITEMS = Array.from(new Set<GearKind>([
+  ...SURVIVAL_RECIPE_IDS, ...Object.values(SURVIVAL_RECIPES).flatMap(cost => cost.map(([id]) => id)),
+  ...Object.values(SURVIVAL_AMMO_RECIPES).flatMap(recipe => recipe.cost.map(([id]) => id)),
+]));
+export type WorkshopStock = Partial<Record<GearKind, number>>;
+export type WorkshopInventory = { stock: WorkshopStock; sentries: PackedSentry[] };
 export const SURVIVAL_DESCRIPTIONS = {
   bandage: '一段时间内持续恢复生命。', medkit: '使用完成后恢复大量生命。', drink: '短暂提速，并恢复少量生命。',
   'mod-cache': '修复工事挡板，也可用作制作材料。', grenade: '投出后产生范围爆炸，掩体会挡住冲击。',
@@ -120,6 +147,7 @@ export const SURVIVAL_DESCRIPTIONS = {
   'boat-battery': '可在港口快艇的检查面板中装入。', 'boat-steering': '可在港口快艇的检查面板中装入。',
   'boat-start': '可在港口快艇的检查面板中装入。', 'boat-fuel': '可在港口快艇的检查面板中装入。',
   'evac-fuel': '零件齐全后，可用于给黑鹰或快艇加油。',
+  'convoy-pager': '使用后召唤装甲车队。3 分钟后在工事南门接应。',
 } satisfies Record<GearKind, string>;
 
 export const SENTRY_HP = 150;
@@ -127,11 +155,11 @@ export const SENTRY_RANGE = 425;
 export const isSurvivalGun = (kind: GearKind): kind is SurvivalGun => Object.prototype.hasOwnProperty.call(SURVIVAL_GUNS, kind);
 export const isSurvivalSupply = (kind: GearKind): kind is SupplyKind => kind === 'bandage' || kind === 'medkit' || kind === 'drink';
 export const canUseSurvivalGear = (kind: GearKind) => isSurvivalGun(kind) || isSurvivalSupply(kind) ||
-  isSurvivalThrowable(kind) || isSurvivalMine(kind) || ['scanner', 'sentry', 'special-ammo'].includes(kind);
+  isSurvivalThrowable(kind) || isSurvivalMine(kind) || ['scanner', 'sentry', 'special-ammo', 'convoy-pager'].includes(kind);
 const TIMED_FOOTPRINTS: Partial<Record<GearKind, readonly [number, number]>> = {
   bandage: [1, 2], drink: [1, 2], medkit: [2, 2], scanner: [2, 2],
-  'medical-stock': [1, 2], 'tactical-stock': [1, 2], 'mod-cache': [1, 3], 'special-ammo': [1, 3],
-  'tactical-module': [1, 3], 'door-wood': [1, 3], 'door-metal': [2, 2], 'door-brace': [2, 2],
+  'medical-stock': [1, 2], 'tactical-stock': [1, 2], 'mod-cache': [1, 2], 'special-ammo': [1, 2],
+  'tactical-module': [1, 2], 'door-wood': [1, 2], 'door-metal': [2, 2], 'door-brace': [2, 2],
   grenade: [2, 2], mine: [2, 3], 'shock-mine': [2, 3], sentry: [4, 5], 'sentry-base': [2, 2],
   tec9: [2, 2], eagle: [2, 2], semishot: [2, 3], doubleshot: [2, 3], rapid: [2, 4], drum: [2, 4],
 };
@@ -179,16 +207,31 @@ export class SurvivalBag {
       return n;
     }
     const position = this.freePosition(stack.kind);
-    if (position) {
-      const count = Math.min(cap, stack.count);
-      const id = 1 + this.items.reduce((n, item) => Math.max(n, item.id), 0);
-      this.items.push({ kind: stack.kind, ...(stack.rounds === undefined ? {} : { rounds: stack.rounds }), count, id, ...position });
-      const quick = this.quick.indexOf(null);
-      if (quick >= 0 && (isSurvivalSupply(stack.kind) || isSurvivalMine(stack.kind) || isSurvivalThrowable(stack.kind) || stack.kind === 'scanner') &&
-          !this.quick.some(bound => this.item(bound)?.kind === stack.kind)) this.quick[quick] = id;
+    return position ? this.giveAt(stack, position.col, position.row, position.rotated) : 0;
+  }
+  fitsStackAt(stack: GearStack, col: number, row: number, rotated: boolean) {
+    if (!Number.isInteger(col) || !Number.isInteger(row)) return false;
+    const existing = this.covering(col, row);
+    return existing ? existing.kind === stack.kind && stack.rounds === undefined && existing.rounds === undefined &&
+      existing.count < SURVIVAL_GEAR[stack.kind][3] : this.fits(stack.kind, col, row, rotated);
+  }
+  giveAt(stack: GearStack, col: number, row: number, rotated = false): number {
+    if (stack.count <= 0 || !this.fitsStackAt(stack, col, row, rotated)) return 0;
+    const existing = this.covering(col, row), cap = SURVIVAL_GEAR[stack.kind][3];
+    if (existing) {
+      const count = Math.min(cap - existing.count, stack.count);
+      existing.count += count;
       return count;
     }
-    return 0;
+    const count = Math.min(cap, stack.count);
+    const id = 1 + this.items.reduce((n, item) => Math.max(n, item.id), 0);
+    const { kind, rounds, packedSentry } = stack;
+    this.items.push({ kind, count, id, col, row, rotated, ...(rounds === undefined ? {} : { rounds }),
+      ...(packedSentry === undefined ? {} : { packedSentry }) });
+    const quick = this.quick.indexOf(null);
+    if (quick >= 0 && (isSurvivalSupply(kind) || isSurvivalMine(kind) || isSurvivalThrowable(kind) || kind === 'scanner') &&
+        !this.quick.some(bound => this.item(bound)?.kind === kind)) this.quick[quick] = id;
+    return count;
   }
   private freePosition(kind: GearKind) {
     for (const rotated of [false, true]) for (let row = 0; row < this.rows; row++) for (let col = 0; col < this.columns; col++) {
@@ -196,6 +239,7 @@ export class SurvivalBag {
     }
     return undefined;
   }
+  hasSpaceFor(kind: GearKind) { return !!this.freePosition(kind); }
   restore(items: BagItem[], quick: (number | null)[]) {
     const overflow: BagItem[] = [];
     this.items = [];
@@ -283,12 +327,17 @@ export function readSurvivalGear(raw: unknown, hero: HeroId, timed = false): Sur
   const int = (n: number, limit: number) => Number.isInteger(n) && n >= 0 && n <= limit;
   const finite = (n: number, limit: number) => Number.isFinite(n) && n >= 0 && n <= limit;
   const point = (p: Point) => !!p && finite(p.x, 30000) && finite(p.y, 6200);
+  const upgrades = (levels: PackedSentry['upgrades']) => levels === undefined ||
+    !!levels && typeof levels === 'object' && SENTRY_UPGRADE_IDS.every(id => int(levels[id] ?? 0, 2));
+  const packed = (s: PackedSentry) => !!s && finite(s.hp, SENTRY_HP) && s.hp > 0 &&
+    int(s.burst, Number.MAX_SAFE_INTEGER) && finite(s.next, 1) && upgrades(s.upgrades);
   const stack = (s: GearStack) => !!s && Object.prototype.hasOwnProperty.call(SURVIVAL_GEAR, s.kind) &&
     int(s.count, SURVIVAL_GEAR[s.kind][3]) && s.count > 0 && (!isSurvivalGun(s.kind) || SURVIVAL_GUNS[s.kind].hero === hero) &&
-    (s.rounds === undefined || isSurvivalGun(s.kind) && int(s.rounds, SURVIVAL_GUNS[s.kind].magazine));
+    (s.rounds === undefined || isSurvivalGun(s.kind) && int(s.rounds, SURVIVAL_GUNS[s.kind].magazine)) &&
+    (s.packedSentry === undefined || s.kind === 'sentry' && packed(s.packedSentry));
   if ((!legacy && g.bagLayout !== 2) || !Array.isArray(g.items) || g.items.length > bag.rows * bag.columns) return;
   for (const i of g.items) {
-    if (!stack(i) || !int(i.id, 1e6) || !i.id || bag.item(i.id) || !int(i.col, bag.columns - 1) || !int(i.row, bag.rows - 1) ||
+    if (!stack(i) || !int(i.id, Number.MAX_SAFE_INTEGER) || !i.id || bag.item(i.id) || !int(i.col, bag.columns - 1) || !int(i.row, bag.rows - 1) ||
         typeof i.rotated !== 'boolean' || !legacy && !bag.fits(i.kind, i.col, i.row, i.rotated)) return;
     bag.items.push(i);
   }
@@ -298,11 +347,12 @@ export function readSurvivalGear(raw: unknown, hero: HeroId, timed = false): Sur
         Array.isArray(c.goods) && c.goods.length <= 6 && c.goods.every(stack)) ||
       !Array.isArray(g.mines) || !g.mines.every(m => point(m) && (m.fuse === undefined || finite(m.fuse, 1)) &&
         (m.kind === undefined || m.kind === 'proximity-mine' || m.kind === 'shock-mine')) ||
-      !Array.isArray(g.sentries) || !g.sentries.every(s => point(s) && Number.isFinite(s.angle) && finite(s.hp, SENTRY_HP)) ||
+      !Array.isArray(g.sentries) || !g.sentries.every(s => point(s) && Number.isFinite(s.angle) && (s.heading === undefined || Number.isFinite(s.heading)) && finite(s.hp, SENTRY_HP) &&
+        upgrades(s.upgrades)) ||
       typeof g.selected !== 'boolean' || !int(g.baseAmmo, 1000) || !int(g.baseReserve, 100000)) return;
   if (g.field !== undefined && (!Array.isArray(g.field) || g.field.length > 128 ||
       !g.field.every(item => point(item) && stack(item) && typeof item.id === 'string' && int(item.zone, 6)))) return;
-  if (g.restock && (!int(g.restock.cycle, 40) || !Array.isArray(g.restock.zones) || g.restock.zones.length > 3 ||
+  if (g.restock && (!int(g.restock.cycle, Number.MAX_SAFE_INTEGER) || !Array.isArray(g.restock.zones) || g.restock.zones.length > 3 ||
       !g.restock.zones.every(zone => int(zone, 6)) || !Array.isArray(g.restock.pending) || g.restock.pending.length > 8 ||
       !g.restock.pending.every(item => item && int(item.zone, 6) && int(item.slot, 6)))) return;
   if (g.special && (!survivalWeapons(hero).includes(g.special.id) || !int(g.special.ammo, SURVIVAL_GUNS[g.special.id].magazine) ||
@@ -310,5 +360,13 @@ export function readSurvivalGear(raw: unknown, hero: HeroId, timed = false): Sur
   if (g.bindings !== undefined && (!g.bindings || typeof g.bindings !== 'object' ||
       g.bindings.throw !== undefined && !isSurvivalThrowable(g.bindings.throw) ||
       g.bindings.mine !== undefined && !isSurvivalMine(g.bindings.mine))) return;
+  const workshopStock = (stock: WorkshopStock) => !!stock && typeof stock === 'object' && !Array.isArray(stock) &&
+    Object.entries(stock).every(([id, count]) => WORKSHOP_ITEMS.includes(id as GearKind) && int(count, Number.MAX_SAFE_INTEGER));
+  if (g.workshop !== undefined && !workshopStock(g.workshop)) return;
+  if (g.workshopSentries !== undefined && (!Array.isArray(g.workshopSentries) || !g.workshopSentries.every(packed)) ||
+      g.harborWorkshop !== undefined && (!g.harborWorkshop || !workshopStock(g.harborWorkshop.stock) ||
+        !Array.isArray(g.harborWorkshop.sentries) || !g.harborWorkshop.sentries.every(packed)) ||
+      g.acquiredSpecial !== undefined && typeof g.acquiredSpecial !== 'boolean') return;
+  g.crates = g.crates.filter(crate => crate.goods.length > 0);
   return g.selected && !g.special ? undefined : g;
 }

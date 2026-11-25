@@ -1,9 +1,10 @@
 type Crop = readonly [number, number, number, number];
 export type CampaignImage = 'satellite-map' | 'harbor-selection' | 'map-frame' | 'radio-panel' | 'departure-brief' | 'liaison' | 'profile-panel' | 'profile-shell' | 'profile-banner' | 'hero-frame' | 'achievement-shell' | 'plate' | 'plate-active' | 'track' | 'fill' |
   'badge-combat' | 'badge-chapter' | 'badge-equipment' | 'badge-growth' | 'badge-collection' |
-  'chapter-card' | 'chapter-1' | 'chapter-2' | 'chapter-3' | 'chapter-4' |
+  'chapter-card' | 'chapter-1' | 'chapter-2' | 'chapter-3' | 'chapter-4' | 'chapter-5' | 'chapter-6' |
   'hero-card' | 'hero-active' | 'lock' | 'team' | 'rating-filled' | 'rating-empty';
 type Asset = { file: string; image: CampaignImage } | { file: string; crops: Partial<Record<CampaignImage, Crop>> };
+const CHAPTER_CARD_CROP = [1058, 154, 661, 202] as const;
 export const CAMPAIGN_ART: readonly Asset[] = [
   { file: 'satellite-map', image: 'satellite-map' },
   { file: 'harbor-selection-v2', image: 'harbor-selection' },
@@ -14,6 +15,8 @@ export const CAMPAIGN_ART: readonly Asset[] = [
   { file: 'account-dusk', image: 'profile-banner' },
   { file: 'selectHero', image: 'hero-frame' },
   { file: 'chapter-4', image: 'chapter-4' },
+  { file: 'chapter-5', image: 'chapter-5' },
+  { file: 'chapter-6', image: 'chapter-6' },
   { file: 'achievement-shell', image: 'achievement-shell' },
   { file: 'atlas', crops: {
     plate: [70, 36, 620, 166], 'plate-active': [760, 18, 655, 196],
@@ -23,7 +26,7 @@ export const CAMPAIGN_ART: readonly Asset[] = [
     'badge-collection': [1657, 455, 266, 245],
   } },
   { file: 'missions', crops: {
-    'chapter-card': [1058, 154, 661, 202],
+    'chapter-card': CHAPTER_CARD_CROP,
     'chapter-1': [46, 516, 536, 306], 'chapter-2': [623, 516, 529, 306], 'chapter-3': [1191, 516, 544, 306],
   } },
   { file: 'hero-ui', crops: {
@@ -32,10 +35,18 @@ export const CAMPAIGN_ART: readonly Asset[] = [
   } },
 ];
 
+export function chapterCardWindow(x: number, y: number, width: number, height: number) {
+  const [, , cardWidth, cardHeight] = CHAPTER_CARD_CROP;
+  // Slight overlap under the opaque border covers the antialiased edge of the cutout.
+  const left = 29, top = 32, w = 209, h = 137;
+  return { x: x + ((left + w / 2) / cardWidth - 0.5) * width,
+    y: y + (0.5 - (top + h / 2) / cardHeight) * height, w: w * width / cardWidth, h: h * height / cardHeight };
+}
+
 // Bottom-left origin, normalized to the satellite artwork.
 export const CAMPAIGN_LOCATIONS = {
   1: { x: .103, y: .795 }, 2: { x: .206, y: .752 }, 3: { x: .315, y: .706 },
-  4: { x: .812, y: .323 },
+  4: { x: .812, y: .323 }, 5: { x: .74, y: .601 }, 6: { x: .315, y: .706 },
 } as const;
 
 export function satelliteFraming(width: number, height: number, focusX: number, focusY: number, zoom: number, aspect = width / height) {

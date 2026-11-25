@@ -36,7 +36,7 @@ export const CASE_POOLS: Record<CaseId, readonly CasePrize[]> = {
     { id: 'materials', title: '培养材料', type: 'materials', amount: 25, weight: 1900 },
     { id: 'parts', title: '改装零件', type: 'parts', amount: 3, weight: 1200 },
     item('bandage', 2, 700), item('medkit', 1, 500), item('drink', 1, 400), item('grenade', 1, 500),
-    item('flashbang', 1, 400), item('shock-mine', 1, 150), item('claymore', 1, 100), item('adrenaline', 1, 50),
+    item('flashbang', 1, 400), item('shock-mine', 1, 150), item('proximity-mine', 1, 100), item('adrenaline', 1, 50),
     ...MOD_IDS.map(id => accessory(id, 0, 50)),
   ],
 };

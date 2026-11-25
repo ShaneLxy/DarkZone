@@ -2,6 +2,7 @@ import type { Loot, Point, Rect } from './Core';
 import { connectedWalls, type DoorSpec } from './Levels';
 
 export type SurvivalBuildingKind = 'house' | 'clinic' | 'warehouse' | 'shop' | 'utility';
+type SurvivalLootKind = Exclude<Loot['kind'], 'coins'>;
 export type SurvivalStair = {
   bounds: Rect;
   offsetX: number;
@@ -17,7 +18,7 @@ export type SurvivalBuilding = {
   entries: (Omit<DoorSpec, 'rooms'> & { inside: number })[];
   interiorDoors: DoorSpec[];
   furniture: Rect[];
-  loot: Omit<Loot, 'id' | 'taken'>[];
+  loot: (Point & { kind: SurvivalLootKind })[];
   residents: Point[];
   stair?: SurvivalStair;
 };
@@ -28,7 +29,7 @@ type Layout = {
   doors: { x: number; y: number; name: string; rooms: DoorSpec['rooms'] }[];
   windows: { x: number; y: number; width: number }[];
   furniture: Rect[];
-  loot: ReadonlyArray<readonly [Loot['kind'], number, number]>;
+  loot: ReadonlyArray<readonly [SurvivalLootKind, number, number]>;
   residents: Point[];
 };
 
@@ -46,7 +47,7 @@ const LAYOUTS: Record<SurvivalBuildingKind, Layout> = {
       rect('survival-dining', 354, 377, 71, 35),
     ],
     loot: [['ammo', 254, 116], ['bandage', 100, 101], ['ammo', 452, 162], ['medkit', 207, 326],
-      ['coins', 274, 364], ['mod-cache', 449, 300], ['drink', 224, 199]],
+      ['mod-cache', 274, 364], ['mod-cache', 449, 300], ['drink', 224, 199]],
     residents: [{ x: 420, y: 130 }],
   },
   clinic: {
@@ -63,7 +64,7 @@ const LAYOUTS: Record<SurvivalBuildingKind, Layout> = {
       rect('survival-pack', 484, 205, 63, 48),
     ],
     loot: [['ammo', 192, 84], ['bandage', 346, 57], ['ammo', 522, 118], ['medkit', 175, 218],
-      ['coins', 455, 208], ['mod-cache', 241, 358], ['drink', 480, 339]],
+      ['mod-cache', 455, 208], ['mod-cache', 241, 358], ['drink', 480, 339]],
     residents: [{ x: 439, y: 204 }, { x: 240, y: 324 }],
   },
   warehouse: {
@@ -76,7 +77,7 @@ const LAYOUTS: Record<SurvivalBuildingKind, Layout> = {
       rect('survival-crates', 113, 491, 128, 83), rect('survival-case', 651, 493, 84, 63),
     ],
     loot: [['ammo', 285, 103], ['bandage', 628, 77], ['ammo', 472, 260], ['medkit', 191, 288],
-      ['coins', 615, 292], ['mod-cache', 456, 460], ['drink', 281, 517], ['coins', 519, 550]],
+      ['mod-cache', 615, 292], ['mod-cache', 456, 460], ['drink', 281, 517], ['mod-cache', 519, 550]],
     residents: [{ x: 282, y: 327 }, { x: 506, y: 373 }],
   },
   shop: {
@@ -85,7 +86,7 @@ const LAYOUTS: Record<SurvivalBuildingKind, Layout> = {
     doors: [], windows: [{ x: 35, y: 0, width: 93 }],
     furniture: [rect('survival-checkout', 314, 272, 124, 56), rect('survival-shelf', 50, 155, 130, 47),
       rect('survival-shelf', 50, 255, 134, 48)],
-    loot: [['bandage', 238, 133], ['drink', 219, 262], ['ammo', 364, 176], ['coins', 285, 362]],
+    loot: [['bandage', 238, 133], ['drink', 219, 262], ['ammo', 364, 176], ['mod-cache', 285, 362]],
     residents: [{ x: 255, y: 242 }],
   },
   utility: {

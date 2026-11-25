@@ -1,41 +1,48 @@
 import { HERO_IDS, type HeroId } from './Heroes';
-import type { TacticalKind } from './Tactical';
 import { fitsWeapon, MAX_WEAPON_PARTS, MOD_IDS, MOD_STORAGE_CAP, MODS, modUpgradeCost, readAttachment, salvageValue, SLOT_NAMES, WEAPON_SLOTS, weaponLevel, weaponUpgradeCost, type Attachment, type ModId, type Quality, type WeaponBuild, type WeaponSlot } from './WeaponMods';
 
 export const GEAR = {
   vest: { title: '战术防弹背心', category: '防弹衣', price: 300, description: '装备后受到的生命伤害降低 20%。', protection: 0.2 },
   helmet: { title: '防弹战术头盔', category: '头盔', price: 210, description: '装备后受到的生命伤害降低 8%，可与防弹背心叠加。', protection: 0.08 },
-  pack: { title: '战术背包', category: '背包', price: 240, description: '每种医疗和增益补给的战斗携带上限从 5 提高到 8。', protection: 0 },
+  pack: { title: '战术背包', category: '背包', price: 240, description: '拾取补给时，每种医疗和增益补给的局内持有上限从 5 提高到 8。', protection: 0 },
 } as const;
 export type GearId = keyof typeof GEAR;
 export const CONSUMABLES = {
   grenade: { title: '手雷', category: '投掷物', price: 45, description: '投掷后爆炸，造成范围伤害。' },
   flashbang: { title: '震撼弹', category: '投掷物', price: 33, description: '投掷后短暂击晕范围内的敌人。' },
+  molotov: { title: '燃烧瓶', category: '投掷物', price: 52, description: '落地后形成火区，持续灼烧并减缓经过的敌人。' },
   'shock-mine': { title: '麻痹地雷', category: '陷阱', price: 55, description: '布置在前方，敌人接近时触发并麻痹周围目标。' },
-  claymore: { title: '阔剑地雷', category: '陷阱', price: 62, description: '布置在前方，正面敌人接近时触发扇形爆炸。' },
+  'proximity-mine': { title: '感应地雷', category: '陷阱', price: 62, description: '布置在地面，敌人接近时触发范围爆炸。' },
   adrenaline: { title: '强心剂', category: '医疗', price: 85, description: '倒地时提供一次额外的复苏机会。' },
   medkit: { title: '医疗包', category: '医疗', price: 50, description: '使用完成后恢复 60% 最大生命。' },
   bandage: { title: '绷带', category: '医疗', price: 23, description: '使用完成后在 5 秒内恢复 25% 最大生命。' },
   drink: { title: '能量饮料', category: '增益', price: 30, description: '恢复 10% 最大生命，移动速度提高 20%，持续 10 秒。' },
 } as const;
 export type ConsumableId = keyof typeof CONSUMABLES;
-type ShopTactical = Extract<ConsumableId, TacticalKind>;
-export const SHOP_TACTICALS: readonly ShopTactical[] = ['grenade', 'flashbang', 'shock-mine', 'claymore'];
+export const SORTIE_ITEMS = {
+  throw: ['grenade', 'flashbang', 'molotov'],
+  mine: ['proximity-mine', 'shock-mine'],
+  supply: ['bandage', 'medkit', 'drink'],
+} as const;
+export type SortieSlot = keyof typeof SORTIE_ITEMS;
+export type SortieLoadout = Partial<Record<SortieSlot, { id: ConsumableId; count: number }>>;
+export const SORTIE_LIMIT = 3;
 export type ProductId = ModId | GearId | ConsumableId | 'parts';
 export type ShopCategory = 'mod' | 'gear' | 'item';
 export type OperatorKit = WeaponBuild & { gear: GearId[] };
 export type Armory = {
   gear: GearId[]; counts: Partial<Record<ConsumableId, number>>; kits: Record<HeroId, OperatorKit>;
-  tactical: ShopTactical | null; parts: number; mods: Attachment[]; nextSerial: number;
+  sortie: SortieLoadout; parts: number; mods: Attachment[]; nextSerial: number;
 };
 type Wallet = { coins: number; owned: Record<HeroId, boolean>; armory: Armory };
 export type Product = { id: ProductId; group: ShopCategory; title: string; category: string; price: number; description: string };
 export const GEAR_IDS = Object.keys(GEAR) as GearId[];
 const ITEM_IDS = Object.keys(CONSUMABLES) as ConsumableId[];
+export const SHOP_MOD_ODDS = [75, 25] as const;
 export const PRODUCTS: readonly Product[] = [
   ...MOD_IDS.map(id => ({
     id, group: 'mod' as const, title: MODS[id].title, category: SLOT_NAMES[MODS[id].slot],
-    price: 45, description: '购买后随机生成一件所选品质的配件。',
+    price: 60, description: '购买后获得一件该型号的配件，品质和属性随机。',
   })),
   { id: 'parts', group: 'mod', title: '改装零件 ×5', category: '材料', price: 60, description: '用于升级固定武器和配件。' },
   ...GEAR_IDS.map(id => ({ id, group: 'gear' as const, ...GEAR[id] })),
@@ -44,12 +51,31 @@ export const PRODUCTS: readonly Product[] = [
 export const PRODUCT_BY_ID = Object.fromEntries(PRODUCTS.map(product => [product.id, product])) as Record<ProductId, Product>;
 export const MAX_STOCK = 99;
 
-export function readArmory(raw?: Partial<Armory>): Armory {
+export function normalizeSortie(loadout: SortieLoadout | undefined, stock: Armory['counts']): SortieLoadout {
+  const result: SortieLoadout = {};
+  for (const slot of Object.keys(SORTIE_ITEMS) as SortieSlot[]) {
+    const entry = loadout?.[slot], items: readonly ConsumableId[] = SORTIE_ITEMS[slot];
+    if (!entry || !items.includes(entry.id) || !Number.isSafeInteger(entry.count)) continue;
+    const count = Math.min(SORTIE_LIMIT, entry.count, stock[entry.id] ?? 0);
+    if (count > 0) result[slot] = { id: entry.id, count };
+  }
+  return result;
+}
+
+type SavedArmory = Omit<Partial<Armory>, 'counts'> & {
+  counts?: Partial<Record<ConsumableId | 'claymore', number>>;
+  tactical?: ConsumableId | 'claymore' | null;
+};
+export function readArmory(raw?: SavedArmory): Armory {
   const gear = GEAR_IDS.filter(id => Array.isArray(raw?.gear) && raw.gear.includes(id));
   const counts: Armory['counts'] = {};
   for (const id of ITEM_IDS) {
     const count = raw?.counts?.[id];
     if (Number.isSafeInteger(count) && count! > 0) counts[id] = Math.min(count!, MAX_STOCK);
+  }
+  const legacyMines = raw?.counts?.claymore;
+  if (Number.isSafeInteger(legacyMines) && legacyMines! > 0) {
+    counts['proximity-mine'] = Math.min(MAX_STOCK, (counts['proximity-mine'] ?? 0) + legacyMines!);
   }
   const mods: Attachment[] = [], known = new Set<number>();
   if (Array.isArray(raw?.mods)) for (const entry of raw.mods.slice(0, MOD_STORAGE_CAP)) {
@@ -69,9 +95,11 @@ export function readArmory(raw?: Partial<Armory>): Armory {
     kits[id] = { weaponLevel: weaponLevel(kit?.weaponLevel), slots,
       gear: gear.filter(piece => Array.isArray(kit?.gear) && kit.gear.includes(piece)) };
   }
-  const tactical = raw?.tactical && SHOP_TACTICALS.includes(raw.tactical) ? raw.tactical : null;
+  const previous = raw?.tactical === 'claymore' ? 'proximity-mine' : raw?.tactical;
+  const legacyLoadout = previous ? { throw: { id: previous, count: 2 }, mine: { id: previous, count: 2 } } : {};
+  const sortie = normalizeSortie(raw?.sortie ?? legacyLoadout, counts);
   const parts = Number.isSafeInteger(raw?.parts) ? Math.max(0, Math.min(MAX_WEAPON_PARTS, raw!.parts!)) : 0;
-  return { gear, counts, kits, tactical, parts, mods, nextSerial };
+  return { gear, counts, kits, sortie, parts, mods, nextSerial };
 }
 export function ownedProduct(armory: Armory, product: Product) {
   if (product.id === 'parts') return armory.parts;
@@ -79,8 +107,6 @@ export function ownedProduct(armory: Armory, product: Product) {
   if (product.group === 'gear') return Number(armory.gear.includes(product.id as GearId));
   return armory.counts[product.id as ConsumableId] ?? 0;
 }
-export const productPrice = (product: Product, quality: Quality) =>
-  product.group === 'mod' && product.id !== 'parts' ? product.price + 38 * quality + 14 * quality * quality : product.price;
 export function canStock(armory: Armory, product: Product) {
   if (product.id === 'parts') return armory.parts <= MAX_WEAPON_PARTS - 5;
   if (product.group === 'mod') return armory.mods.length < MOD_STORAGE_CAP;
@@ -98,16 +124,16 @@ export function createMod(armory: Armory, kind: ModId, quality: Quality, roll = 
   armory.mods.push(mod);
   return mod;
 }
-export function buyProduct(wallet: Wallet, productId: ProductId, quality: Quality = 0) {
+export function buyProduct(wallet: Wallet, productId: ProductId) {
   const product = PRODUCT_BY_ID[productId];
   if (!product || !canStock(wallet.armory, product)) return false;
-  const price = productPrice(product, quality);
+  const price = product.price;
   if (wallet.coins < price) return false;
   const armory = wallet.armory;
   if (product.id === 'parts') armory.parts += 5;
   else if (product.group === 'mod') {
     if (armory.nextSerial >= Number.MAX_SAFE_INTEGER) return false;
-    createMod(armory, product.id as ModId, quality);
+    createMod(armory, product.id as ModId, Math.random() < SHOP_MOD_ODDS[0] / 100 ? 0 : 1);
   } else if (product.group === 'gear') armory.gear.push(product.id as GearId);
   else armory.counts[product.id as ConsumableId] = ownedProduct(armory, product) + 1;
   wallet.coins -= price;

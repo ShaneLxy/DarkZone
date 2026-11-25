@@ -1,16 +1,21 @@
 import { Color, Graphics } from 'cc';
 import { Battle, BloodStain, BRUTE_WINDUP, clamp, Door, doorShape, Enemy, engineerMuzzle, FACILITY_LEVEL, HEROINE_ID, lineClear, Particle, Point, Rect, rectCorners, rayDistance, visible, walkable } from './Core';
 import { grenadeThrowPose, TACTICAL_DEFINITIONS } from './Tactical';
-import { ENGINEER_ID } from './Heroes';
+import { ENGINEER_ID, type HeroId } from './Heroes';
 import type { LevelDefinition } from './Levels';
 import type { AmbientAnimal } from './AmbientWildlife';
-import { ActorPose, FootPose, WeaponEffects, WeaponMount, weaponMount } from './Presentation';
+import { ActorPose, FootPose, VIEW_HEIGHT, VIEW_WIDTH, WeaponEffects, WeaponMount, weaponMount } from './Presentation';
 
 export const palette = { ink: '#0b1218', panel: '#131e26', line: '#33414a', text: '#e0dfd4', muted: '#82928f', gold: '#d7b47a', jade: '#8cbdad', red: '#cb6655' };
 export function color(hex: string, alpha = 255): Color { const c = new Color(); Color.fromHEX(c, hex); c.a = alpha; return c; }
 export function box(g: Graphics, x: number, y: number, w: number, h: number, fill: string, alpha = 255) { g.fillColor = color(fill, alpha); g.rect(x, y, w, h); g.fill(); }
 export function disc(g: Graphics, x: number, y: number, r: number, fill: string, alpha = 255) { g.fillColor = color(fill, alpha); g.circle(x, y, r); g.fill(); }
 export function line(g: Graphics, x: number, y: number, x2: number, y2: number, stroke: string, width = 1, alpha = 255) { g.strokeColor = color(stroke, alpha); g.lineWidth = width; g.moveTo(x, y); g.lineTo(x2, y2); g.stroke(); }
+export function drawYellowTracer(g: Graphics, x: number, y: number, dx: number, dy: number, size = 1) {
+  line(g, x, y, x - dx, y - dy, '#ff9439', 6 * size, 105);
+  line(g, x, y, x - dx * .86, y - dy * .86, '#ffc250', 3.6 * size, 240);
+  line(g, x, y, x - dx * .63, y - dy * .63, '#fff2ad', 2 * size, 255);
+}
 export function outline(g: Graphics, x: number, y: number, w: number, h: number, stroke: string, alpha = 255) { g.strokeColor = color(stroke, alpha); g.lineWidth = 1; g.rect(x, y, w, h); g.stroke(); }
 export function drawTutorialTarget(g: Graphics, battle: Battle, time: number) {
   const t = battle.tutorial, p = battle.player;
@@ -103,16 +108,17 @@ export function drawMap(g: Graphics, phase: 'all' | 'floor' | 'fixtures' = 'all'
     // Narrow skirting and worn floor marks.
     outline(g, r.x + 22, r.y + 22, r.w - 44, r.h - 44, '#929284', 55);
   }
-  // Reception rug and utilitarian floor markings.
-  box(g, 260, 405, 220, 120, '#696350'); outline(g, 269, 414, 202, 102, '#a19572', 130);
-  for (let i = 0; i < 8; i++) line(g, 275 + i * 25, 425, 275 + i * 25, 505, '#91866a', 1, 65);
-  box(g, 190, 266, 140, 42, '#404a45');
+  if (!stage.retrieval) {
+    box(g, 260, 405, 220, 120, '#696350'); outline(g, 269, 414, 202, 102, '#a19572', 130);
+    for (let i = 0; i < 8; i++) line(g, 275 + i * 25, 425, 275 + i * 25, 505, '#91866a', 1, 65);
+    box(g, 190, 266, 140, 42, '#404a45');
+  }
   }
   if (phase === 'floor') return;
   for (const f of furniture) if (f.kind !== 'harbor-obstacle' && !rasterProps.has(f.kind + ':' + f.x + ':' + f.y)) drawFurniture(g, f);
   for (const w of walls) {
     if (w.kind === 'harbor-obstacle' || w.kind === 'harbor-water') continue;
-    if (stage.survival && rasterProps.has(w.kind + ':' + w.x + ':' + w.y)) continue;
+    if ((stage.survival || stage.frontier) && rasterProps.has(w.kind + ':' + w.x + ':' + w.y)) continue;
     if (w.kind === 'survival-window') {
       box(g, w.x, w.y, w.w, w.h, '#4f625f');
       box(g, w.x + 3, w.y + 3, w.w - 6, w.h - 6, '#99b5b3', 140);
@@ -125,7 +131,7 @@ export function drawMap(g: Graphics, phase: 'all' | 'floor' | 'fixtures' = 'all'
     line(g, w.x + 1, w.y, w.x + 1, w.y + w.h, '#b7ae94', 1);
     line(g, w.x + w.w, w.y, w.x + w.w, w.y + w.h, '#3c433d', 3);
   }
-  if (stage.survival) return;
+  if (stage.survival || stage.frontier || stage.retrieval) return;
   // Open door frames make the route readable, without locking the player in.
   for (const p of [{ x: 830, y: 330 }, { x: 1175, y: 670 }, { x: 1530, y: 920 }]) {
     disc(g, p.x, p.y, 5, '#b7c2b0'); disc(g, p.x, p.y, 10, '#c6d2b4', 22);
@@ -371,6 +377,29 @@ export function drawBloodStains(g: Graphics, stains: BloodStain[], battle?: Batt
     }
   }
 }
+export function drawDeathFragments(g: Graphics, fragments: readonly Particle[]) {
+  for (const f of fragments) {
+    const alpha = Math.round(Math.min(1, f.life / (f.kind === 'fall' ? .12 : .31)) * 242);
+    const height = f.z ?? 0, size = f.size ?? 3, x = f.x, y = f.y + height * .58;
+    const a = f.rotation ?? 0, c = Math.cos(a), s = Math.sin(a);
+    const point = (along: number, across: number) => ({ x: x + (along * c - across * s) * size, y: y + (along * s + across * c) * size });
+    if (f.kind === 'fall') {
+      polygon(g, [point(-1.8, -.42), point(-.6, -.71), point(.66, -.8), point(1.18, -.39),
+        point(1.16, .37), point(.39, .75), point(-.6, .65), point(-1.65, .45)], f.tint ?? '#58554b', alpha);
+      const head = point(1.24, -.16);
+      disc(g, head.x, head.y, size * .46, '#383831', alpha);
+    } else if (f.kind === 'blood') {
+      box(g, x - size * .35, y - size * .27, size * .7, size * .54, '#8c2730', alpha);
+    } else {
+      if (height > .5) disc(g, f.x, f.y, size * .76, '#241613', Math.round(alpha * .30));
+      const gear = f.kind === 'gear';
+      polygon(g, [point(-.98, -.25), point(-.56, -.62), point(.31, -.69), point(.84, -.27),
+        point(.63, .33), point(.21, .66), point(-.71, .5)], gear ? f.tint ?? '#5d5748' : '#642d2b', alpha);
+      polygon(g, [point(-.52, -.33), point(.38, -.42), point(.47, .04), point(-.29, .30)],
+        gear ? '#a59872' : '#a25649', Math.round(alpha * .90));
+    }
+  }
+}
 export function paralyzedModelPosition(e: Enemy, time: number): Point {
   if (!e.paralysis) return e;
   const amplitude = e.type === 'boss' ? 2.2 : 1.6;
@@ -434,9 +463,10 @@ export function drawRecovery(g: Graphics, b: Battle) {
   }
 }
 
-export function drawActors(g: Graphics, b: Battle, pose: ActorPose, rasterPlayer = false, rasterWalker = false, rasterRoll = false, enemyPoses: ReadonlyMap<number, ActorPose> = new Map(), rasterOperator = false, rasterBrute = false, grenadeArt = false, blastArt = false, venomArt?: { spitter: boolean; glob: boolean; dart: boolean }) {
+export function drawActors(g: Graphics, b: Battle, pose: ActorPose, rasterPlayer = false, rasterRoll = false, enemyPoses: ReadonlyMap<number, ActorPose> = new Map(), rasterOperator = false, rasterEnemy: (enemy: Enemy) => boolean = () => false, grenadeArt = false, blastArt = false, venomArt?: { glob: boolean; dart: boolean }, pelletArt = false) {
   g.clear();
-  const daylight = b.visionScale > 1, boarding = b.operationRun?.phase === 'boarding';
+  const daylight = b.visionScale > 1, boarding = b.operationRun?.phase === 'boarding' ||
+    b.retrieval?.phase === 'boarding' || b.retrieval?.phase === 'arrive';
   for (const unit of [b.player, ...b.allies]) {
     if (boarding) break;
     if (unit.hp <= 0 || b.evacuationDrive) continue;
@@ -446,15 +476,19 @@ export function drawActors(g: Graphics, b: Battle, pose: ActorPose, rasterPlayer
   }
   for (const e of b.enemies) {
     if (e.hp <= 0) continue;
+    if ((b.survival || b.frontier) && (Math.abs(e.x - b.player.x) > VIEW_WIDTH / 2 + 120 || Math.abs(e.y - b.player.y) > VIEW_HEIGHT / 2 + 120)) continue;
     if ((b.stage.street || b.stage.operation || b.stage.survival) && !b.sees(e, 35)) continue;
     if (e.hit > 0) disc(g, e.x, e.y, 24, '#ffe8b8', Math.round(e.hit / 0.12 * 65));
     const enemyPose = enemyPoses.get(e.id), sc = (e.type === 'boss' ? 1.7 : 1) * (enemyPose?.scale || 1);
     const model = paralyzedModelPosition(e, b.elapsed);
     const operationModel = e.type === 'gunner' || !!e.operationBoss || b.stage.operation?.part === 'defense';
     if (!operationModel) {
-      if (enemyPose && !(b.apartment && e.type === 'boss')) drawFeet(g, model, e.angle, sc, enemyPose, e.type === 'walker' && rasterWalker ? 'walker' : 'plain');
-      if (!(e.type === 'spitter' && venomArt?.spitter)) {
-        drawPerson(g, model, e.angle, e.type === 'boss' ? '#9a654c' : e.type === 'spitter' ? '#a09169' : '#687a61', sc, false, e.hit > 0, rasterWalker && e.type === 'walker' || rasterBrute && e.type === 'boss');
+      const textured = rasterEnemy(e);
+      if (enemyPose && e.type === 'walker') drawFeet(g, model, e.angle, sc, enemyPose, textured ? 'walker' : 'plain');
+      if (e.type !== 'spitter' || !textured) {
+        drawPerson(g, model, e.angle, e.type === 'boss' ? '#9a654c' : e.type === 'spitter' ? '#a09169' : '#687a61', sc, false, e.hit > 0, textured);
+      }
+      if (!textured) {
         disc(g, model.x + Math.cos(e.angle) * 9 * sc, model.y + Math.sin(e.angle) * 9 * sc, 2.8 * sc, '#d99567');
       }
     }
@@ -555,11 +589,8 @@ export function drawActors(g: Graphics, b: Battle, pose: ActorPose, rasterPlayer
   for (const f of b.particles) {
     if (f.kind === 'spit-splash') continue;
     if (f.kind === 'hit-blood' || f.kind === 'hit-fabric') continue;
-    if (f.kind === 'air-case') {
-      const alpha = Math.round(255 * Math.min(1, f.life / 0.14)), angle = f.rotation ?? 0;
-      const dx = 3.1 * Math.cos(angle), dy = 3.1 * Math.sin(angle), y = f.y + (f.z ?? 0);
-      line(g, f.x - dx, y - dy, f.x + dx, y + dy, '#7a4d2d', 3, alpha);
-      line(g, f.x - dx, y - dy + 0.7, f.x + dx, y + dy + 0.7, '#edc475', 1.5, alpha);
+    if (f.kind === 'pellet-dust') {
+      if (!pelletArt) disc(g, f.x, f.y, 5 * (1 - f.life / f.max), '#b79b6c', Math.round(f.life / f.max * 90));
       continue;
     }
     if (f.kind === 'air-dust') {
@@ -574,32 +605,22 @@ export function drawActors(g: Graphics, b: Battle, pose: ActorPose, rasterPlayer
     const tint = f.kind === 'spark' ? '#e6bd71' : '#b79b6c';
     disc(g, f.x, f.y, f.size ?? (f.kind === 'spark' ? 2 : 3), tint, Math.round(f.life / f.max * 240));
   }
-  for (const f of b.deathFragments) {
-    const alpha = Math.round(Math.min(1, f.life / (f.kind === 'fall' ? .12 : .31)) * 242);
-    const height = f.z ?? 0, size = f.size ?? 3, x = f.x, y = f.y + height * .58;
-    const a = f.rotation ?? 0, c = Math.cos(a), s = Math.sin(a);
-    const point = (along: number, across: number) => ({ x: x + (along * c - across * s) * size, y: y + (along * s + across * c) * size });
-    if (f.kind === 'fall') {
-      polygon(g, [point(-1.8, -.42), point(-.6, -.71), point(.66, -.8), point(1.18, -.39),
-        point(1.16, .37), point(.39, .75), point(-.6, .65), point(-1.65, .45)], f.tint ?? '#58554b', alpha);
-      const head = point(1.24, -.16);
-      disc(g, head.x, head.y, size * .46, '#383831', alpha);
-    } else if (f.kind === 'blood') {
-      box(g, x - size * .35, y - size * .27, size * .7, size * .54, '#8c2730', alpha);
-    } else {
-      if (height > .5) disc(g, f.x, f.y, size * .76, '#241613', Math.round(alpha * .30));
-      const gear = f.kind === 'gear';
-      polygon(g, [point(-.98, -.25), point(-.56, -.62), point(.31, -.69), point(.84, -.27),
-        point(.63, .33), point(.21, .66), point(-.71, .5)], gear ? f.tint ?? '#5d5748' : '#642d2b', alpha);
-      polygon(g, [point(-.52, -.33), point(.38, -.42), point(.47, .04), point(-.29, .30)],
-        gear ? '#a59872' : '#a25649', Math.round(alpha * .90));
-    }
-  }
+  drawDeathFragments(g, b.deathFragments);
   for (const shot of b.bullets) {
     if (shot.venom) {
       if (shot.venom === 'spit' ? venomArt?.glob : venomArt?.dart) continue;
       const factor = 12 / Math.hypot(shot.vx, shot.vy);
       line(g, shot.x, shot.y, shot.x - shot.vx * factor, shot.y - shot.vy * factor, '#a2cc55', shot.venom === 'spit' ? 4 : 2);
+    } else if (shot.pellet) {
+      if (pelletArt) continue;
+      const length = Math.min(13, shot.traveled ?? 0), factor = length / Math.hypot(shot.vx, shot.vy);
+      if (length > 0) line(g, shot.x, shot.y, shot.x - shot.vx * factor, shot.y - shot.vy * factor, '#ffd28c', 1.6, 194);
+    } else if (shot.sentry || !shot.hostile && !shot.airSupport) {
+      if (Math.abs(shot.x - b.player.x) > VIEW_WIDTH / 2 + 70 || Math.abs(shot.y - b.player.y) > VIEW_HEIGHT / 2 + 70) continue;
+      const length = Math.min(shot.sentry ? 64 : 38, shot.traveled ?? 0);
+      if (length <= .5) continue;
+      const factor = length / Math.hypot(shot.vx, shot.vy);
+      drawYellowTracer(g, shot.x, shot.y, shot.vx * factor, shot.vy * factor, shot.sentry ? 1 : .78);
     } else if (shot.airSupport) {
       const factor = Math.min(24, shot.traveled ?? 0) / Math.hypot(shot.vx, shot.vy);
       const dx = shot.vx * factor, dy = shot.vy * factor;
@@ -681,26 +702,24 @@ export function drawHitBlood(g: Graphics, particles: readonly Particle[]) {
 /** Drawn after body sprites so fire attaches to the actual barrel tip. */
 export function drawWeaponEffects(g: Graphics, effects: WeaponEffects, mount: WeaponMount, flashAllowed: boolean, daylight = false) {
   g.clear();
-  for (const shell of effects.casings) {
-    const c = Math.cos(shell.angle), s = Math.sin(shell.angle), half = shell.shell ? 3.3 : 2.2;
-    const alpha = Math.round(Math.min(1, shell.life / 0.35) * 245), y = shell.y + shell.z * 0.35;
-    line(g, shell.x - c * half, y - s * half, shell.x + c * half, y + s * half, shell.shell ? '#b64e38' : '#c29a4e', shell.shell ? 2.3 : 1.6, alpha);
-    line(g, shell.x, y, shell.x + c * half, y + s * half, '#f0d994', 0.8, alpha);
-  }
   for (const puff of effects.smoke) {
     const progress = 1 - puff.life / puff.max, radius = puff.radius + progress * 7;
     disc(g, puff.x, puff.y, radius, '#a3aaa5', Math.round((1 - progress) ** 2 * 36));
     disc(g, puff.x + 1.5, puff.y + 1.5, radius * 0.65, '#c4c8bc', Math.round((1 - progress) ** 2 * 22));
   }
   if (!flashAllowed || effects.flash <= 0) return;
+  drawGunFlash(g, mount, effects.flash, effects.heroId, effects.shotCount, daylight);
+}
+
+export function drawGunFlash(g: Graphics, mount: Pick<WeaponMount, 'muzzle' | 'angle'>, t: number, heroId: HeroId, shot: number, daylight: boolean) {
   if (daylight) {
-    drawDaylightFlash(g, mount.muzzle, mount.angle, effects.flash, effects.heroId === HEROINE_ID ? 13 : effects.heroId === ENGINEER_ID ? 42 : 34);
+    drawDaylightFlash(g, mount.muzzle, mount.angle, t, heroId === HEROINE_ID ? 13 : heroId === ENGINEER_ID ? 42 : 34);
     return;
   }
-  const c = Math.cos(mount.angle), s = Math.sin(mount.angle), t = effects.flash;
+  const c = Math.cos(mount.angle), s = Math.sin(mount.angle);
   const at = (x: number, y: number) => ({ x: mount.muzzle.x + x * c - y * s, y: mount.muzzle.y + x * s + y * c });
-  const length = (effects.heroId === HEROINE_ID ? 9 : effects.heroId === ENGINEER_ID ? 33 : 26) * (0.65 + 0.35 * t) * (0.88 + effects.shotCount % 3 * 0.09);
-  const side = effects.shotCount % 2 ? 1 : -1;
+  const length = (heroId === HEROINE_ID ? 9 : heroId === ENGINEER_ID ? 33 : 26) * (0.65 + 0.35 * t) * (0.88 + shot % 3 * 0.09);
+  const side = shot % 2 ? 1 : -1;
   disc(g, mount.muzzle.x + c * 4, mount.muzzle.y + s * 4, 10 * t, '#eab05d', Math.round(t * 27));
   polygon(g, [at(0, -2), at(length * 0.22, -5 * side), at(length * 0.5, -3), at(length, side), at(length * 0.45, 3), at(length * 0.18, 5 * side), at(0, 2)], '#eea34b', Math.round(210 * t));
   polygon(g, [at(0, -1.4), at(length * 0.25, -2.5), at(length * 0.72, 0), at(length * 0.22, 2.2), at(0, 1.4)], '#fff0bd', Math.round(255 * Math.sqrt(t)));

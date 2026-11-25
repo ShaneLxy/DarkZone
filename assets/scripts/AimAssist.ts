@@ -1,4 +1,4 @@
-// Pure mobile aim intent filter. Candidates must already pass strict visibility in Core.
+// Candidates must already pass strict visibility in Core.
 export type AimCandidate = { id: number; angle: number };
 const diff = (a: number, b: number) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 export const AIM = { cone: 0.20, retain: 0.25, correction: 0.16, speed: 1.8, release: 0.48, sweepSpeed: 3.8, suppress: 0.22 } as const;
@@ -8,7 +8,7 @@ export class AimAssist {
   private offset = 0;
   private inhibit = 0;
   reset() { this.target = this.previous = undefined; this.offset = this.inhibit = 0; }
-  step(dt: number, raw: number, facing: number, active: boolean, enabled: boolean, candidates: AimCandidate[]) {
+  step(dt: number, raw: number, facing: number, active: boolean, enabled: boolean, candidates: AimCandidate[], automatic = false) {
     dt = Math.max(0.001, Math.min(dt, 0.05));
     this.inhibit = Math.max(0, this.inhibit - dt);
     if (!active) { this.target = this.previous = undefined; this.offset = 0; return { angle: facing, sweeping: this.inhibit > 0 }; }
@@ -16,6 +16,7 @@ export class AimAssist {
     const speed = Math.abs(delta) / dt;
     this.previous = raw;
     const held = candidates.find(c => c.id === this.target);
+    if (automatic && this.target !== undefined && !held) this.offset = 0;
     const reversing = !!held && Math.abs(delta) > 0.045 && delta * diff(held.angle, facing) < 0;
     if (Math.abs(delta) > AIM.release || speed > AIM.sweepSpeed || reversing) {
       this.target = undefined; this.offset = 0; this.inhibit = AIM.suppress;

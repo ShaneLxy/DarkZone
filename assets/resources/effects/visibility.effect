@@ -20,6 +20,10 @@ CCEffect %{
         viewInfo: { value: [1280, 720, 0, 0] }
         maskMotion: { value: [0, 0, 0, 0] }
         muzzle: { value: [640, 360, 0, 140] }
+        muzzleCover0: { value: [162, 162, 162, 162] }
+        muzzleCover1: { value: [162, 162, 162, 162] }
+        muzzleCover2: { value: [162, 162, 162, 162] }
+        muzzleCover3: { value: [162, 162, 162, 162] }
         doorLamp: { value: [0, 0, 0, 48] }
         feedback: { value: [0, 0, 0, 0] }
 }%
@@ -63,9 +67,19 @@ CCProgram presentation-fs %{
     vec4 viewInfo;
     vec4 maskMotion;
     vec4 muzzle;
+    vec4 muzzleCover0;
+    vec4 muzzleCover1;
+    vec4 muzzleCover2;
+    vec4 muzzleCover3;
     vec4 doorLamp;
     vec4 feedback;
   };
+  float muzzleReach(vec2 delta) {
+    float sector = floor(fract(atan(delta.y, delta.x + 0.00001) / 6.2831853 + 1.0) * 16.0);
+    vec4 reach = sector < 4.0 ? muzzleCover0 : sector < 8.0 ? muzzleCover1 : sector < 12.0 ? muzzleCover2 : muzzleCover3;
+    float modSector = mod(sector, 4.0);
+    return modSector < 1.0 ? reach.x : modSector < 2.0 ? reach.y : modSector < 3.0 ? reach.z : reach.w;
+  }
   vec4 frag () {
     vec4 scene = texture(cc_spriteTexture, sceneUV);
     vec4 actor = texture(actorsTexture, sceneUV);
@@ -93,8 +107,17 @@ CCProgram presentation-fs %{
         scene.rgb = mix(scene.rgb, soft, exterior * 0.60);
       }
     }
-    float distanceToMuzzle = length(unshakenUV * viewInfo.xy - muzzle.xy);
-    float flash = muzzle.z * (1.0 - smoothstep(12.0, muzzle.w, distanceToMuzzle)) * strictLight;
+    float flash = 0.0;
+    if (muzzle.z > 0.001) {
+      vec2 delta = unshakenUV * viewInfo.xy - muzzle.xy;
+      float distanceToMuzzle = length(delta);
+      if (distanceToMuzzle < muzzle.w) {
+        float reach = muzzleReach(delta);
+        float cover = step(0.01, reach) * (1.0 - smoothstep(max(0.0, reach - 10.0), max(0.01, reach), distanceToMuzzle));
+        float falloff = 1.0 - smoothstep(6.0, muzzle.w, distanceToMuzzle);
+        flash = muzzle.z * falloff * falloff * cover * max(strictLight, surfaceLight * 0.55);
+      }
+    }
     float lampDistance = length(unshakenUV * viewInfo.xy - doorLamp.xy);
     float lamp = doorLamp.z * (1.0 - smoothstep(4.0, doorLamp.w, lampDistance)) * smoothstep(0.52, 1.0, field.a) * valid;
     // Opaque tops are lit independently. Surface lighting never contributes to
@@ -105,7 +128,7 @@ CCProgram presentation-fs %{
     vec3 normalEnvironment = scene.rgb * vec3(1.03, 1.01, 0.97);
     vec3 result = mix(grayEnvironment, normalEnvironment, lit);
     result *= 1.0 - 0.22 * exterior - 0.79 * hiddenRoom;
-    result += vec3(0.56, 0.34, 0.12) * flash * 0.24;
+    result += vec3(0.51, 0.30, 0.12) * flash;
     result += vec3(0.24, 0.17, 0.09) * lamp * 0.55;
     // The actor RT is already clipped by exact line of sight. Its RGB is
     // premultiplied by RT blending; feather alpha rather than leaking gray actors.

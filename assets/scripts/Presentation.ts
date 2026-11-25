@@ -1,4 +1,4 @@
-import { clamp, closestOnRect, DEFAULT_VISION_RANGE, dist, lineClear, peripheralRange, Point, Rect, rectCorners, ROLL_DURATION, sightRange, TAU } from './Core';
+import { clamp, closestOnRect, DEFAULT_VISION_RANGE, dist, lineClear, peripheralRange, Point, rayDistance, Rect, rectCorners, ROLL_DURATION, sightRange, TAU } from './Core';
 import type { FaultyDoorLamp } from './Levels';
 import { ENGINEER_ID, HEROINE_ID, type HeroId } from './Heroes';
 
@@ -9,6 +9,46 @@ export const DARK_SATURATION = 0.10;
 export const FEATHER_PIXELS = 96;
 export const OCCLUSION_FEATHER_PIXELS = 12;
 export const DOOR_LAMP_RADIUS = 48;
+
+export const CHAPTER_OPENING_SECONDS = 2.8;
+export const CHAPTER_OPENING_LINES = {
+  1: ['爆发后 · 7月12日 21:10', '学校 · 宿舍楼二层'],
+  2: ['爆发后 · 7月13日 01:46', '学校东侧 · 城区街道'],
+  3: ['爆发后 · 7月13日 04:38', '住宅区 · 公寓楼外步道'],
+  4: ['爆发前 · 6月28日 06:40', '沿岸行动区 · 海岸线', '军方行动线'],
+  5: ['爆发后 · 7月3日 13:28', '荒漠镇外 · 临时防线', '军方行动线'],
+  6: ['爆发后 · 7月12日 18:40', '住宅区 · 公寓楼外步道', '军方行动线'],
+} as const;
+
+export function chapterOpeningRows(chapter: keyof typeof CHAPTER_OPENING_LINES, elapsed: number) {
+  const perCharacter = .038;
+  let startsAt = .18;
+  return CHAPTER_OPENING_LINES[chapter].map(line => {
+    const shown = Math.max(0, Math.floor((elapsed - startsAt) / perCharacter));
+    startsAt += line.length * perCharacter + .14;
+    return line.slice(0, shown);
+  });
+}
+
+export function muzzleOcclusion(origin: Point, radius: number, cover: Rect[]) {
+  const sectors = 16, sweep = TAU / sectors;
+  const edges = Array.from({ length: sectors }, (_, i) => rayDistance(origin, i * sweep, radius, cover));
+  const reach = edges.map((distance, i) => Math.min(distance, edges[(i + 1) % sectors]));
+  // A narrow object can sit entirely between two rays. Include its corners and
+  // nearest surface so the sector ends at the earliest obstruction.
+  for (const rect of cover) {
+    const extent = radius + rect.w + rect.h;
+    if (Math.abs(rect.x - origin.x) >= extent || Math.abs(rect.y - origin.y) >= extent) continue;
+    const closest = closestOnRect(origin, rect);
+    if (dist(origin, closest) >= radius) continue;
+    for (const point of [...rectCorners(rect), closest]) {
+      const angle = (Math.atan2(point.y - origin.y, point.x - origin.x) + TAU) % TAU;
+      const sector = Math.floor(angle / sweep);
+      reach[sector] = Math.min(reach[sector], dist(origin, point));
+    }
+  }
+  return reach;
+}
 export class PlayerHealthDisplay {
   fill = 1;
   trail = 1;
@@ -184,7 +224,7 @@ export class VisibilityField {
       target[i + 2] = Math.max(target[i + 2], Math.round(source[i + 2] * intensity));
     }
   }
-  addAerialSight(origin: Point, radius: number, intensity: number) {
+  addAerialSight(origin: Point, radius: number, intensity: number, roofs?: Rect[]) {
     const sx = VIEW_WIDTH / this.width, sy = VIEW_HEIGHT / this.height;
     const minX = Math.max(0, Math.floor((origin.x - radius) / sx));
     const maxX = Math.min(this.width - 1, Math.ceil((origin.x + radius) / sx));
@@ -192,9 +232,11 @@ export class VisibilityField {
     const maxY = Math.min(this.height - 1, Math.ceil((origin.y + radius) / sy));
     const radius2 = radius * radius;
     for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
-      const dx = (x + 0.5) * sx - origin.x, dy = (y + 0.5) * sy - origin.y;
+      const sampleX = (x + 0.5) * sx, sampleY = (y + 0.5) * sy;
+      const dx = sampleX - origin.x, dy = sampleY - origin.y;
       const distance2 = dx * dx + dy * dy;
       if (distance2 >= radius2) continue;
+      if (roofs?.some(roof => sampleX >= roof.x && sampleY >= roof.y && sampleX <= roof.x + roof.w && sampleY <= roof.y + roof.h)) continue;
       const light = smoothstep(0, FEATHER_PIXELS, radius - Math.sqrt(distance2)) * intensity;
       const index = (y * this.width + x) * 4;
       this.pixels[index] = Math.max(this.pixels[index], Math.round(light * 255));
@@ -309,16 +351,41 @@ export function weaponMount(p: Point & { angle: number }, scale: number, raster:
 }
 export type SmokePuff = Point & { vx: number; vy: number; life: number; max: number; radius: number };
 export type Casing = Point & { vx: number; vy: number; z: number; vz: number; angle: number; spin: number; life: number; bounces: number; shell: boolean };
+export type CasingSource = 'pistol' | 'rifle' | 'shotgun' | 'sentry' | 'air' | 'vehicle';
+export function ejectCasing(origin: Point, angle: number, source: CasingSource, index = 0, side = -1): Casing {
+  const c = Math.cos(angle), s = Math.sin(angle);
+  const speed = (source === 'air' ? 160 : source === 'vehicle' ? 118 : 85) + index % 3 * 13;
+  const back = source === 'air' ? 72 : 26;
+  return { ...origin, vx: -s * side * speed - c * back, vy: c * side * speed - s * back,
+    z: source === 'air' ? 66 : source === 'vehicle' ? 28 : 3,
+    vz: source === 'air' ? -40 : 98 + index % 3 * 11, angle, spin: side * (12 + index % 5),
+    life: source === 'air' ? .54 : 1.65, bounces: 0, shell: source === 'shotgun' };
+}
+export function stepCasings(casings: Casing[], dt: number, blocks: Rect[], scroll = 0) {
+  let alive = 0;
+  for (const f of casings) {
+    const next = { x: f.x + f.vx * dt, y: f.y + f.vy * dt - scroll };
+    if (f.z > 25 || !blocks.length || lineClear(f, next, blocks)) { f.x = next.x; f.y = next.y; }
+    else { f.vx *= -.25; f.vy *= -.25; }
+    f.vz -= 540 * dt; f.z += f.vz * dt; f.angle += f.spin * dt; f.life -= dt;
+    if (f.z < 0) {
+      f.z = 0;
+      if (f.bounces++ === 0) { f.vz = Math.abs(f.vz) * .32; f.vx *= .45; f.vy *= .45; f.spin *= .4; }
+      else { f.vz = 0; f.vx *= Math.exp(-dt * 28); f.vy *= Math.exp(-dt * 28); f.spin *= Math.exp(-dt * 28); }
+    }
+    if (f.life > 0) casings[alive++] = f;
+  }
+  casings.length = alive;
+}
 export class WeaponEffects {
   smoke: SmokePuff[] = []; casings: Casing[] = [];
   flash = 0; shotCount = 0; heroId: HeroId = 0;
   private flashTime = 0;
-  shoot(mount: WeaponMount, heroId: HeroId) {
+  shoot(mount: WeaponMount, heroId: HeroId, source: CasingSource = heroId === ENGINEER_ID ? 'shotgun' : heroId === HEROINE_ID ? 'pistol' : 'rifle') {
     this.heroId = heroId; this.shotCount++; this.flashTime = 0.045; this.flash = 1;
     const c = Math.cos(mount.angle), s = Math.sin(mount.angle);
-    const variation = this.shotCount % 3;
     for (let i = 0; i < 3; i++) this.smoke.push({ ...mount.muzzle, vx: c * (28 + i * 14) - s * (i - 1) * 9, vy: s * (28 + i * 14) + c * (i - 1) * 9, life: 0.24 + i * 0.055, max: 0.24 + i * 0.055, radius: 2 + i * 0.8 });
-    this.casings.push({ ...mount.eject, vx: s * (76 + variation * 13) - c * 22, vy: -c * (76 + variation * 13) - s * 22, z: 3, vz: 95 + variation * 9, angle: mount.angle, spin: 13 + variation * 3, life: 1.65, bounces: 0, shell: heroId === ENGINEER_ID });
+    this.casings.push(ejectCasing(mount.eject, mount.angle, source, this.shotCount));
     if (this.smoke.length > 24) this.smoke.splice(0, this.smoke.length - 24);
     if (this.casings.length > 32) this.casings.splice(0, this.casings.length - 32);
   }
@@ -329,13 +396,8 @@ export class WeaponEffects {
       if (lineClear(f, next, blocks)) { f.x = next.x; f.y = next.y; } else f.life = 0;
       f.vx *= Math.exp(-dt * 5); f.vy *= Math.exp(-dt * 5); f.life -= dt;
     }
-    for (const f of this.casings) {
-      const next = { x: f.x + f.vx * dt, y: f.y + f.vy * dt };
-      if (lineClear(f, next, blocks)) { f.x = next.x; f.y = next.y; } else { f.vx *= -0.25; f.vy *= -0.25; }
-      f.vz -= 540 * dt; f.z += f.vz * dt; f.angle += f.spin * dt; f.life -= dt;
-      if (f.z < 0) { f.z = 0; if (f.bounces++ === 0) { f.vz = Math.abs(f.vz) * 0.32; f.vx *= 0.45; f.vy *= 0.45; f.spin *= 0.4; } else { f.vz = 0; f.vx *= Math.exp(-dt * 28); f.vy *= Math.exp(-dt * 28); f.spin *= Math.exp(-dt * 28); } }
-    }
-    this.smoke = this.smoke.filter(f => f.life > 0); this.casings = this.casings.filter(f => f.life > 0);
+    stepCasings(this.casings, dt, blocks);
+    this.smoke = this.smoke.filter(f => f.life > 0);
   }
   clear() { this.smoke = []; this.casings = []; this.flashTime = this.flash = 0; }
 }
@@ -345,6 +407,7 @@ export class CombatFeedback {
   x = 0; y = 0;
   private vx = 0; private vy = 0;
   private hitTime = 0; private muzzleTime = 0; private shotCount = 0;
+  private muzzleDuration = 0.09;
   private hitDuration = 0.18;
   private clock = 0; private alarm = false; private active = false;
   hit = 0; lowHealth = 0; muzzle = 0; healthSeverity = 0;
@@ -353,11 +416,11 @@ export class CombatFeedback {
     const magnitude = Math.hypot(this.x, this.y);
     if (magnitude > 7) { this.x *= 7 / magnitude; this.y *= 7 / magnitude; }
   }
-  shoot(angle: number, heroId: HeroId) {
+  shoot(angle: number, heroId: HeroId, quiet = heroId === HEROINE_ID) {
     const amplitude = heroId === HEROINE_ID ? 1.15 : heroId === ENGINEER_ID ? 5.7 : 3.2;
     const sideways = ++this.shotCount % 2 ? 0.22 : -0.22;
     this.impulse(-Math.cos(angle) * amplitude - Math.sin(angle) * sideways, -Math.sin(angle) * amplitude + Math.cos(angle) * sideways);
-    this.muzzleTime = 0.065;
+    this.muzzleTime = this.muzzleDuration = quiet ? 0.072 : 0.09;
   }
   heavyFootfall(source: Point, listener: Point) {
     const distance = dist(source, listener);
@@ -387,7 +450,7 @@ export class CombatFeedback {
       this.vy += (-900 * this.y - 50 * this.vy) * step;
       this.x += this.vx * step; this.y += this.vy * step;
     }
-    this.hitTime = Math.max(0, this.hitTime - elapsed); this.muzzleTime = Math.max(0, this.muzzleTime - elapsed); this.clock += elapsed;
+    this.hitTime = Math.max(0, this.hitTime - elapsed); this.clock += elapsed;
     if (hpRatio <= 0 || hpRatio >= 0.30) this.alarm = false;
     else if (hpRatio <= 0.25) this.alarm = true;
     this.healthSeverity = clamp(1 - hpRatio / 0.30, 0, 1);
@@ -396,7 +459,8 @@ export class CombatFeedback {
     this.lowHealth = this.alarm && phase < pulseLength
       ? Math.sin(phase / pulseLength * Math.PI) ** 2 * (0.68 + 0.31 * this.healthSeverity) : 0;
     this.hit = (this.hitTime / this.hitDuration) ** 1.4;
-    this.muzzle = (this.muzzleTime / 0.065) ** 1.4;
+    this.muzzle = (this.muzzleTime / this.muzzleDuration) ** 1.55;
+    this.muzzleTime = Math.max(0, this.muzzleTime - elapsed);
   }
   suspend() { this.active = false; this.x = this.y = this.vx = this.vy = this.hitTime = this.muzzleTime = this.hit = this.lowHealth = this.muzzle = this.healthSeverity = 0; }
   reset() { this.suspend(); this.clock = 0; this.alarm = false; this.shotCount = 0; }

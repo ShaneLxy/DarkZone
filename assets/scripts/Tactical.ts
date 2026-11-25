@@ -5,7 +5,7 @@ import { OPERATION_GRENADE_FUSE } from './Operation';
 
 export type Point = { x: number; y: number };
 export type Blocker = { x: number; y: number; w: number; h: number; angle?: number; kind?: string };
-export type TacticalKind = 'grenade' | 'flashbang' | 'proximity-mine' | 'shock-mine' | 'claymore';
+export type TacticalKind = 'grenade' | 'flashbang' | 'molotov' | 'proximity-mine' | 'shock-mine';
 export type TacticalThrow = Point & { kind: TacticalKind; delay: number; origin: Point; angle?: number;
   flight?: { vx: number; vy: number; bounces: number; sinceBounce: number } };
 
@@ -28,12 +28,12 @@ export const TACTICAL_DEFINITIONS: Readonly<Record<TacticalKind, TacticalDefinit
   flashbang: { kind: 'flashbang', title: '震撼弹', maxUses: 2, delay: 0.26, radius: 118, cooldown: 1.15, damage: 0, doorDamage: 0, stun: 0.85, bossStunScale: 0.35, loudness: 1 },
   'proximity-mine': { kind: 'proximity-mine', title: '感应地雷', maxUses: 2, delay: 1, radius: 138, cooldown: 1.4, damage: 70, doorDamage: 100, stun: 0, bossStunScale: 0, loudness: 1 },
   'shock-mine': { kind: 'shock-mine', title: '麻痹地雷', maxUses: 2, delay: 0, radius: 95, cooldown: 1.4, damage: 0, doorDamage: 0, stun: 2.4, bossStunScale: 0.5, loudness: 0.35 },
-  claymore: { kind: 'claymore', title: '阔剑地雷', maxUses: 2, delay: 0, radius: 140, cooldown: 1.4, damage: 80, doorDamage: 70, stun: 0, bossStunScale: 0, loudness: 1 },
+  molotov: { kind: 'molotov', title: '燃烧瓶', maxUses: 2, delay: 0.32, radius: 0, cooldown: 1.6, damage: 0, doorDamage: 0, stun: 0, bossStunScale: 0, loudness: 0.42 },
 };
 
 export const SELECTABLE_TACTICALS: readonly TacticalKind[] = ['grenade', 'flashbang'];
-export function isShopMine(kind: TacticalKind | null): kind is 'shock-mine' | 'claymore' {
-  return kind === 'shock-mine' || kind === 'claymore';
+export function isShopMine(kind: TacticalKind | null): kind is 'shock-mine' | 'proximity-mine' {
+  return kind === 'shock-mine' || kind === 'proximity-mine';
 }
 
 export const GRENADE_BLAST_LIFE = 1.05;
